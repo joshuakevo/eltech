@@ -237,6 +237,48 @@ class SavingsAccountController extends Controller
         return back()->with($errors ? 'error' : 'success', $msg);
     }
 
+    public function destroy(SavingsAccount $saving)
+    {
+        if (round($saving->balance, 2) != 0) {
+            return back()->with('error', 'Cannot delete: account balance must be zero (current: ' . number_format($saving->balance, 2) . ').');
+        }
+        if ($saving->transactions()->exists()) {
+            return back()->with('error', 'Cannot delete: account has transaction history. Close the account instead.');
+        }
+        $saving->delete();
+        return redirect()->route('savings.index')->with('success', "Account {$saving->account_number} deleted.");
+    }
+
+    public function markDormant(SavingsAccount $saving)
+    {
+        if ($saving->status !== 'active') {
+            return back()->with('error', 'Only active accounts can be flagged as dormant.');
+        }
+        $saving->update(['status' => 'dormant']);
+        return back()->with('success', "Account {$saving->account_number} flagged as dormant.");
+    }
+
+    public function close(SavingsAccount $saving)
+    {
+        if ($saving->status === 'closed') {
+            return back()->with('error', 'Account is already closed.');
+        }
+        if (round($saving->balance, 2) != 0) {
+            return back()->with('error', 'Balance must be zero before closing. Current balance: ' . number_format($saving->balance, 2) . '. Please withdraw or transfer the funds first.');
+        }
+        $saving->update(['status' => 'closed']);
+        return back()->with('success', "Account {$saving->account_number} closed.");
+    }
+
+    public function reactivate(SavingsAccount $saving)
+    {
+        if ($saving->status === 'active') {
+            return back()->with('error', 'Account is already active.');
+        }
+        $saving->update(['status' => 'active']);
+        return back()->with('success', "Account {$saving->account_number} reactivated.");
+    }
+
     public function reverseInterestBulk(Request $request)
     {
         $request->validate([

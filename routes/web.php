@@ -237,6 +237,14 @@ Route::middleware('auth')->group(function () {
         ->name('savings.post-interest-bulk')->middleware('permission:deposit savings');
     Route::post('savings/reverse-interest-bulk', [SavingsAccountController::class, 'reverseInterestBulk'])
         ->name('savings.reverse-interest-bulk')->middleware('permission:deposit savings');
+    Route::post('savings/{saving}/dormant', [SavingsAccountController::class, 'markDormant'])
+        ->name('savings.dormant')->middleware('permission:deposit savings');
+    Route::post('savings/{saving}/close', [SavingsAccountController::class, 'close'])
+        ->name('savings.close')->middleware('permission:deposit savings');
+    Route::post('savings/{saving}/reactivate', [SavingsAccountController::class, 'reactivate'])
+        ->name('savings.reactivate')->middleware('permission:deposit savings');
+    Route::delete('savings/{saving}', [SavingsAccountController::class, 'destroy'])
+        ->name('savings.destroy')->middleware('permission:deposit savings');
 
     // ── Fixed Deposit Products ────────────────────────────────────────
     Route::resource('fd-products', FixedDepositProductController::class)
