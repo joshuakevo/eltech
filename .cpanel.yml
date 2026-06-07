@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/konnectinitiativ/public_html/system
+    - /bin/rsync -av --exclude='.git' --exclude='.env' --exclude='storage/logs' --exclude='storage/framework' . $DEPLOYPATH
