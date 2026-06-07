@@ -349,6 +349,48 @@ class GroupController extends Controller
         return back()->with('success', "Transferred " . number_format($data['amount'], 2) . " from {$member->name}'s group balance to savings account {$savingsAccount->account_number}.");
     }
 
+    public function destroy(Group $group)
+    {
+        // Block if any member has a non-zero balance
+        $membersWithBalance = $group->activeMembers()->where('balance', '>', 0)->count();
+        if ($membersWithBalance) {
+            return back()->with('error',
+                'Cannot delete group — ' . $membersWithBalance . ' member(s) still have a balance. Clear all balances first.'
+            );
+        }
+
+        // Block if group has any transactions
+        $txnCount = $group->transactions()->count();
+        if ($txnCount) {
+            return back()->with('error',
+                'Cannot delete group — it has ' . $txnCount . ' transaction(s) on record.'
+            );
+        }
+
+        \DB::transaction(function () use ($group) {
+            // Deactivate portal users linked to group members
+            $group->members()->each(function ($member) {
+                if ($member->user_id) {
+                    User::where('id', $member->user_id)->update(['is_active' => false]);
+                }
+            });
+
+            $group->members()->delete();
+
+            // Delete the linked group-type client
+            if ($group->client_id) {
+                $client = \App\Models\Client::find($group->client_id);
+                if ($client) {
+                    $client->delete();
+                }
+            }
+
+            $group->delete();
+        });
+
+        return redirect()->route('groups.index')->with('success', 'Group and associated client deleted.');
+    }
+
     public function destroyMember(Group $group, GroupMember $member)
     {
         abort_unless($member->group_id === $group->id, 404);

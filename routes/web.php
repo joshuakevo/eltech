@@ -136,6 +136,7 @@ Route::middleware('auth')->group(function () {
     Route::post('groups/{group}/contribute', [GroupController::class, 'contribute'])->name('groups.contribute.store')->middleware('permission:manage groups');
     Route::get('groups/{group}/pool-withdraw', [GroupController::class, 'poolWithdrawForm'])->name('groups.pool-withdraw')->middleware('permission:manage groups');
     Route::post('groups/{group}/pool-withdraw', [GroupController::class, 'poolWithdraw'])->name('groups.pool-withdraw.store')->middleware('permission:manage groups');
+    Route::delete('groups/{group}', [GroupController::class, 'destroy'])->name('groups.destroy')->middleware('permission:manage groups');
 
     // ── Chart of Accounts ─────────────────────────────────────────────
     Route::resource('accounts', AccountController::class)

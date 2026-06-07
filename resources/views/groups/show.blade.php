@@ -23,6 +23,11 @@
             <a href="{{ route('groups.interest', $group) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-percent me-1"></i> Post Interest</a>
         @endif
         <a href="{{ route('groups.edit', $group) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i> Edit</a>
+        <form method="POST" action="{{ route('groups.destroy', $group) }}"
+              onsubmit="return confirm('Delete this group and its associated client? This cannot be undone.')">
+            @csrf @method('DELETE')
+            <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i> Delete Group</button>
+        </form>
     </div>
     @endcan
 </div>
