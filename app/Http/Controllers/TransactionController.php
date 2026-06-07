@@ -434,6 +434,90 @@ class TransactionController extends Controller
         return view('transactions.show', compact('transaction'));
     }
 
+    public function edit(Transaction $transaction)
+    {
+        if ($transaction->module !== 'manual') {
+            return back()->with('error', 'Only manual journal entries can be edited.');
+        }
+        if ($transaction->isReversed() || $transaction->isReversal()) {
+            return back()->with('error', 'Reversed transactions cannot be edited.');
+        }
+
+        $transaction->load('lines.account');
+        $accounts = Account::where('is_active', true)->orderBy('account_code')->get();
+        $clients  = Client::orderBy('name')->get(['id', 'client_number', 'name']);
+
+        $lineRows = $transaction->lines->map(fn($l) => [
+            'account_id'  => $l->account_id,
+            'client_id'   => $l->client_id,
+            'description' => $l->description,
+            'debit'       => $l->debit,
+            'credit'      => $l->credit,
+        ])->values()->toArray();
+
+        return view('transactions.edit', compact('transaction', 'accounts', 'clients', 'lineRows'));
+    }
+
+    public function update(Request $request, Transaction $transaction)
+    {
+        if ($transaction->module !== 'manual') {
+            return back()->with('error', 'Only manual journal entries can be edited.');
+        }
+        if ($transaction->isReversed() || $transaction->isReversal()) {
+            return back()->with('error', 'Reversed transactions cannot be edited.');
+        }
+
+        $request->validate([
+            'date'               => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
+            'description'        => 'required|string|max:500',
+            'reference'          => 'required|string|max:100|unique:transactions,reference,' . $transaction->id,
+            'lines'              => 'required|array|min:2',
+            'lines.*.account_id' => 'required|exists:accounts,id',
+            'lines.*.client_id'  => 'nullable|exists:clients,id',
+            'lines.*.debit'      => 'required|numeric|min:0',
+            'lines.*.credit'     => 'required|numeric|min:0',
+        ]);
+
+        $lines = array_values(array_filter($request->lines, fn($l) => ($l['debit'] + $l['credit']) > 0));
+
+        $totalDebit  = array_sum(array_column($lines, 'debit'));
+        $totalCredit = array_sum(array_column($lines, 'credit'));
+        if (abs($totalDebit - $totalCredit) >= 0.01) {
+            return back()->withInput()->with('error', 'Transaction is not balanced. Debits must equal credits.');
+        }
+
+        \DB::transaction(function () use ($transaction, $request, $lines) {
+            // Reverse old sub-ledger impacts
+            $this->reverseManualSubLedgers($transaction);
+
+            // Delete old lines
+            $transaction->lines()->delete();
+
+            // Update header
+            $transaction->update([
+                'date'        => $request->date,
+                'description' => $request->description,
+                'reference'   => $request->reference,
+            ]);
+
+            // Insert new lines
+            foreach ($lines as $line) {
+                $transaction->lines()->create([
+                    'account_id'  => $line['account_id'],
+                    'client_id'   => $line['client_id'] ?: null,
+                    'description' => $line['description'] ?? null,
+                    'debit'       => $line['debit'],
+                    'credit'      => $line['credit'],
+                ]);
+            }
+
+            // Sync new sub-ledger impacts
+            $this->syncSubLedgersFromLines($transaction, $lines, $request->date, $request->description);
+        });
+
+        return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction updated successfully.');
+    }
+
     public function reverse(Request $request, Transaction $transaction)
     {
         if ($transaction->isReversed()) {

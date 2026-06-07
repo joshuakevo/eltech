@@ -153,6 +153,10 @@ Route::middleware('auth')->group(function () {
         ->name('transactions.index')->middleware('permission:view transactions');
     Route::get('transactions/{transaction}', [TransactionController::class, 'show'])
         ->name('transactions.show')->middleware('permission:view transactions');
+    Route::get('transactions/{transaction}/edit', [TransactionController::class, 'edit'])
+        ->name('transactions.edit')->middleware('permission:create transactions');
+    Route::put('transactions/{transaction}', [TransactionController::class, 'update'])
+        ->name('transactions.update')->middleware('permission:create transactions');
     Route::post('transactions/{transaction}/reverse', [TransactionController::class, 'reverse'])
         ->name('transactions.reverse')->middleware('permission:reverse transactions');
     Route::delete('transactions/{transaction}', [TransactionController::class, 'destroy'])

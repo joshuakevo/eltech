@@ -32,6 +32,13 @@
                 <span>Journal Entry — <span class="font-monospace">{{ $transaction->reference }}</span></span>
                 <div class="d-flex align-items-center gap-2">
                     <span class="text-muted small">{{ $transaction->date->format('d M Y') }}</span>
+                    @if(!$transaction->isReversed() && !$transaction->isReversal() && $transaction->module === 'manual')
+                    @can('create transactions')
+                    <a href="{{ route('transactions.edit', $transaction) }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </a>
+                    @endcan
+                    @endif
                     @if(!$transaction->isReversed() && !$transaction->isReversal())
                     @can('reverse transactions')
                     <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#reverseModal">
