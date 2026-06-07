@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan:*)",
+      "Bash(php -r \"require ''vendor/autoload.php''; echo ''OK'';\")",
+      "Bash(grep -n \"client_id\\\\|account_id\\\\|debit\\\\|credit\" database/migrations/*transaction_lines*)"
+    ]
+  }
+}
