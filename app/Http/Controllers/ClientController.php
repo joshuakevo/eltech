@@ -325,7 +325,29 @@ class ClientController extends Controller
             );
         }
 
-        // Remove group memberships before deletion
+        // If this client is a group, block deletion if the group has active members or transactions
+        if ($client->isGroup()) {
+            $group = $client->group;
+            if ($group) {
+                $activeMembers = $group->activeMembers()->count();
+                if ($activeMembers) {
+                    return back()->with('error',
+                        'Cannot delete this group client — the group still has ' . $activeMembers . ' active member(s). Remove all members first.'
+                    );
+                }
+                $groupTxns = $group->transactions()->count();
+                if ($groupTxns) {
+                    return back()->with('error',
+                        'Cannot delete this group client — the group has ' . $groupTxns . ' transaction(s) on record.'
+                    );
+                }
+                // Delete group members and the group itself
+                $group->members()->delete();
+                $group->delete();
+            }
+        }
+
+        // Remove group memberships before deletion (when client is a member of another group)
         \App\Models\GroupMember::where('client_id', $client->id)->delete();
 
         $client->delete();
