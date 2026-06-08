@@ -316,8 +316,8 @@ class ClientController extends Controller
         $fds = $client->fixedDeposits()->where('status', 'active')->count();
         if ($fds) $blocks[] = "{$fds} active fixed deposit(s)";
 
-        $shares = $client->shares()->whereNotIn('status', ['liquidated'])->count();
-        if ($shares) $blocks[] = "{$shares} share record(s)";
+        $shares = $client->shares()->whereNotIn('status', ['liquidated'])->where('amount_paid', '>', 0)->count();
+        if ($shares) $blocks[] = "{$shares} share record(s) with paid-in capital";
 
         if ($blocks) {
             return back()->with('error',
@@ -349,6 +349,9 @@ class ClientController extends Controller
 
         // Remove group memberships before deletion (when client is a member of another group)
         \App\Models\GroupMember::where('client_id', $client->id)->delete();
+
+        // Delete zero-value unpaid share placeholders (auto-created on client registration)
+        $client->shares()->where('amount_paid', '<=', 0)->delete();
 
         $client->delete();
         return redirect()->route('clients.index')->with('success', 'Client deleted.');
