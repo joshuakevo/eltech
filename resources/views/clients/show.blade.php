@@ -60,8 +60,8 @@
     if ($activeSavingsCount) $deleteBlocks[] = "{$activeSavingsCount} savings account(s)";
     $activeFdCount = $client->fixedDeposits()->where('status','active')->count();
     if ($activeFdCount) $deleteBlocks[] = "{$activeFdCount} active fixed deposit(s)";
-    $activeSharesCount = $client->shares()->whereNotIn('status',['liquidated'])->count();
-    if ($activeSharesCount) $deleteBlocks[] = "{$activeSharesCount} share record(s)";
+    $activeSharesCount = $client->shares()->whereNotIn('status',['liquidated'])->where('amount_paid', '>', 0)->count();
+    if ($activeSharesCount) $deleteBlocks[] = "{$activeSharesCount} share record(s) with paid-in capital";
 @endphp
 <div class="modal fade" id="deleteClientModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
