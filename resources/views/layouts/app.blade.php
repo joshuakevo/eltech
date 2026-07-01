@@ -221,7 +221,7 @@
     <div class="sidebar-brand">
         @php $orgLogo = \App\Models\SystemSetting::get('org_logo'); @endphp
         @if($orgLogo)
-            <img src="{{ asset('storage/' . $orgLogo) }}" alt="Logo"
+            <img src="{{ asset($orgLogo) }}" alt="Logo"
                  style="height:40px;max-width:140px;object-fit:contain;flex-shrink:0">
         @else
             <div class="brand-icon"><i class="bi bi-bank2"></i></div>

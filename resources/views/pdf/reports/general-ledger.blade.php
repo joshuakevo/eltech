@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -26,7 +26,7 @@
         <div>Generated: {{ now()->format('d M Y H:i') }}</div>
         @if($fromDate)<div>Period: {{ $fromDate }} to {{ $toDate }}</div>@else<div>To {{ $toDate }}</div>@endif
     </div>
-    <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path('storage/'.$_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — General Ledger</h1>
+    <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — General Ledger</h1>
     <p>{{ $account->account_code }} — {{ $account->account_name }}</p>
 </div>
 <table>

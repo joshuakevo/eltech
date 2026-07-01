@@ -40,15 +40,22 @@ class SettingsController extends Controller
             'logo' => 'required|image|mimes:png,jpg,jpeg,svg,webp|max:2048',
         ]);
 
-        // Delete old logo if exists
-        $existing = SystemSetting::get('org_logo');
-        if ($existing && Storage::disk('public')->exists($existing)) {
-            Storage::disk('public')->delete($existing);
+        $logosDir = public_path('logos');
+        if (!is_dir($logosDir)) {
+            mkdir($logosDir, 0755, true);
         }
 
-        $path = $request->file('logo')->store('logos', 'public');
+        // Delete old logo if exists
+        $existing = SystemSetting::get('org_logo');
+        if ($existing && file_exists(public_path($existing))) {
+            @unlink(public_path($existing));
+        }
 
-        SystemSetting::set('org_logo', $path);
+        $file = $request->file('logo');
+        $filename = 'logos/' . uniqid('logo_') . '.' . $file->getClientOriginalExtension();
+        $file->move($logosDir, basename($filename));
+
+        SystemSetting::set('org_logo', $filename);
 
         return back()->with('success', 'Organisation logo updated successfully.');
     }
@@ -56,8 +63,8 @@ class SettingsController extends Controller
     public function removeLogo()
     {
         $existing = SystemSetting::get('org_logo');
-        if ($existing && Storage::disk('public')->exists($existing)) {
-            Storage::disk('public')->delete($existing);
+        if ($existing && file_exists(public_path($existing))) {
+            @unlink(public_path($existing));
         }
 
         SystemSetting::set('org_logo', '');

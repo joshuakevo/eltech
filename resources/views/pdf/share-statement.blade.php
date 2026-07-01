@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -51,7 +51,7 @@
         <div style="font-size:10px;opacity:.7">Printed: {{ now()->format('d M Y H:i') }}</div>
     </div>
     @php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp
-    <h1>@if($_logo)<img src="{{ public_path('storage/'.$_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</h1>
+    <h1>@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</h1>
     <p>Member Share Statement — {{ $client->client_number }}</p>
 </div>
 

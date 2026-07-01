@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -136,7 +136,7 @@
 
         {{-- Header --}}
         <div class="cert-header">
-            <div class="org-name">@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path('storage/'.$_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</div>
+            <div class="org-name">@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</div>
             <div class="org-sub">Trusted Financial Services &mdash; Certificate of Fixed Deposit</div>
             <div class="cert-title">Fixed Deposit Certificate</div>
             <div class="cert-subtitle">This certifies that the following deposit has been received and accepted</div>
@@ -150,7 +150,7 @@
         {{-- Narrative paragraph --}}
         <div class="cert-body">
             This is to certify that <strong>{{ $fixedDeposit->client->name }}</strong>
-            has placed a Fixed Deposit with <strong>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path('storage/'.$_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</strong>
+            has placed a Fixed Deposit with <strong>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</strong>
             under the product <strong>{{ $fixedDeposit->product->name }}</strong>,
             with a principal amount of
             <span class="underline-val">UGX {{ number_format($fixedDeposit->principal, $dp) }}</span>

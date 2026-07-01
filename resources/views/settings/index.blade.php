@@ -87,7 +87,7 @@ $groupIcons = [
         <div class="row align-items-center g-4">
             <div class="col-auto">
                 @if($logoPath)
-                    <img src="{{ asset('storage/' . $logoPath) }}" alt="Logo"
+                    <img src="{{ asset($logoPath) }}" alt="Logo"
                          class="rounded border" style="height:80px;max-width:200px;object-fit:contain">
                 @else
                     <div class="rounded border d-flex align-items-center justify-content-center bg-light text-muted"
