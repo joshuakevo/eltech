@@ -1,4 +1,10 @@
 ---
 deployment:
   tasks:
-    - echo "Deployment complete"
+    - export DEPLOYPATH=/home/eltexokn/public_html/raiseroots
+    - /bin/cp -R . $DEPLOYPATH
+    - export PHP=/usr/local/bin/php
+    - $PHP $DEPLOYPATH/artisan cache:clear
+    - $PHP $DEPLOYPATH/artisan config:clear
+    - $PHP $DEPLOYPATH/artisan view:clear
+    - /bin/mkdir -p $DEPLOYPATH/public/logos
