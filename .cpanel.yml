@@ -1,5 +1,4 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/eltexokn/public_html/raiseroots
-    - /bin/cp -R . $DEPLOYPATH
+    - /bin/true
