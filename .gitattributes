@@ -1,4 +1,5 @@
 * text=auto
+.cpanel.yml text eol=lf
 
 *.blade.php diff=html
 *.css diff=css
