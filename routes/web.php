@@ -264,6 +264,8 @@ Route::middleware('auth')->group(function () {
         ->name('fixed-deposits.store')->middleware('permission:create fixed-deposits');
     Route::get('fixed-deposits', [FixedDepositController::class, 'index'])
         ->name('fixed-deposits.index')->middleware('permission:view fixed-deposits');
+    Route::post('fixed-deposits/accrue-interest-bulk', [FixedDepositController::class, 'accrueInterestBulk'])
+        ->name('fixed-deposits.accrue-interest-bulk')->middleware('permission:mature fixed-deposits');
     Route::get('fixed-deposits/{fixedDeposit}', [FixedDepositController::class, 'show'])
         ->name('fixed-deposits.show')->middleware('permission:view fixed-deposits');
     Route::get('fixed-deposits/{fixedDeposit}/mature', [FixedDepositController::class, 'matureForm'])

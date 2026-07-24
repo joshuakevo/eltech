@@ -127,6 +127,37 @@ class FixedDepositController extends Controller
         }
     }
 
+    public function accrueInterestBulk(Request $request)
+    {
+        $request->validate([
+            'interest_date' => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
+        ]);
+
+        $deposits = FixedDeposit::with('product')->where('status', 'active')->get();
+
+        $posted  = 0;
+        $skipped = 0;
+        $errors  = [];
+
+        foreach ($deposits as $deposit) {
+            try {
+                $before = $deposit->accrued_interest;
+                $this->fdService->accrueInterest($deposit, $request->interest_date);
+                $deposit->refresh();
+                ($deposit->accrued_interest > $before) ? $posted++ : $skipped++;
+            } catch (\Throwable $e) {
+                $errors[] = $deposit->deposit_number . ': ' . $e->getMessage();
+            }
+        }
+
+        $msg = "Interest accrued for {$posted} deposit(s). Skipped: {$skipped}.";
+        if ($errors) {
+            $msg .= ' Errors: ' . implode('; ', $errors);
+        }
+
+        return back()->with($errors ? 'error' : 'success', $msg);
+    }
+
     public function certificate(FixedDeposit $fixedDeposit)
     {
         $fixedDeposit->load('client', 'product');

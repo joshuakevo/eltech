@@ -6,9 +6,48 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Fixed Deposits</h4>
-    @can('create fixed-deposits')
-    <a href="{{ route('fixed-deposits.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Fixed Deposit</a>
-    @endcan
+    <div class="d-flex gap-2">
+        @can('mature fixed-deposits')
+        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#bulkAccrueModal">
+            <i class="bi bi-percent me-1"></i> Accrue Interest
+        </button>
+        @endcan
+        @can('create fixed-deposits')
+        <a href="{{ route('fixed-deposits.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Fixed Deposit</a>
+        @endcan
+    </div>
+</div>
+
+{{-- Bulk Accrue Interest Modal --}}
+<div class="modal fade" id="bulkAccrueModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-percent me-1"></i> Accrue Interest — All Active Deposits</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ route('fixed-deposits.accrue-interest-bulk') }}"
+                  onsubmit="return confirm('Accrue interest expense for all active fixed deposits up to the selected date?')">
+                @csrf
+                <div class="modal-body">
+                    <div class="alert alert-info small mb-3">
+                        Posts the interest expense accrued so far on <strong>every active fixed deposit</strong> —
+                        the proportional share of each deposit's total interest, from its start date up to the selected date,
+                        minus whatever has already been accrued. Safe to run repeatedly; it only posts the difference.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Accrue To Date <span class="text-danger">*</span></label>
+                        <input type="date" name="interest_date" class="form-control"
+                               value="{{ today()->toDateString() }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Run Accrual</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 <div class="card">
     <div class="card-body pb-0">

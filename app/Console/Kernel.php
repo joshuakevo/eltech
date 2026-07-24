@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
     {
         // Post savings interest at midnight on the 1st of every month
         $schedule->command('eltech:post-interest')->monthlyOn(1, '00:00');
+
+        // Accrue fixed deposit interest expense at 00:15 on the 1st of every month
+        $schedule->command('eltech:accrue-fd-interest')->monthlyOn(1, '00:15');
     }
 
     /**
