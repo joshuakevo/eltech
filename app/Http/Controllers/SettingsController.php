@@ -133,7 +133,13 @@ class SettingsController extends Controller
         Artisan::call('view:clear');
         Artisan::call('route:clear');
         Artisan::call('config:clear');
+        Artisan::call('clear-compiled');
 
-        return back()->with('success', 'View, route, and config caches cleared.');
+        $opcache = 'not available on this server';
+        if (function_exists('opcache_reset')) {
+            $opcache = opcache_reset() ? 'reset' : 'reset failed';
+        }
+
+        return back()->with('success', "View, route, config, and compiled caches cleared. OPcache: {$opcache}.");
     }
 }
