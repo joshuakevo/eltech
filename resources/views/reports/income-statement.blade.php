@@ -6,7 +6,12 @@
 @endsection
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0">Income Statement</h4>
+    <div>
+        <h4 class="fw-bold mb-0">Income Statement</h4>
+        @if($segment)
+        <span class="badge bg-primary-subtle text-primary mt-1"><i class="bi bi-tags-fill me-1"></i>{{ $segment->name }}</span>
+        @endif
+    </div>
     <div class="dropdown">
         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Export</button>
         <ul class="dropdown-menu dropdown-menu-end">
@@ -20,6 +25,15 @@
         <form class="row g-2" method="GET">
             <div class="col-md-3"><label class="form-label small fw-semibold">From Date</label><input type="date" name="from_date" class="form-control" value="{{ $fromDate }}"></div>
             <div class="col-md-3"><label class="form-label small fw-semibold">To Date</label><input type="date" name="to_date" class="form-control" value="{{ $toDate }}"></div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Segment</label>
+                <select name="segment_id" class="form-select">
+                    <option value="">All Segments</option>
+                    @foreach($segments as $s)
+                    <option value="{{ $s->id }}" @selected($segmentId == $s->id)>{{ $s->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="col-auto align-self-end"><button class="btn btn-primary">Run Report</button></div>
         </form>
     </div>

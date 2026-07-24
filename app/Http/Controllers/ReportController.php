@@ -52,13 +52,16 @@ class ReportController extends Controller
 
     public function incomeStatement(Request $request)
     {
-        $fromDate = $request->from_date ?? now()->startOfMonth()->toDateString();
-        $toDate   = $request->to_date   ?? now()->toDateString();
+        $fromDate  = $request->from_date ?? now()->startOfMonth()->toDateString();
+        $toDate    = $request->to_date   ?? now()->toDateString();
+        $segmentId = $request->segment_id ? (int) $request->segment_id : null;
 
-        $data = $this->accounting->getIncomeStatement($fromDate, $toDate);
+        $data     = $this->accounting->getIncomeStatement($fromDate, $toDate, $segmentId);
+        $segments = \App\Models\ClientSegment::orderBy('name')->get();
+        $segment  = $segmentId ? $segments->firstWhere('id', $segmentId) : null;
 
         if ($request->format === 'pdf') {
-            $pdf = Pdf::loadView('pdf.reports.income-statement', compact('data', 'fromDate', 'toDate'))
+            $pdf = Pdf::loadView('pdf.reports.income-statement', compact('data', 'fromDate', 'toDate', 'segment'))
                 ->setPaper('a4', 'portrait');
             return $pdf->download('income-statement-' . now()->format('Y-m-d') . '.pdf');
         }
@@ -80,7 +83,7 @@ class ReportController extends Controller
             return $this->csvDownload($rows, 'income-statement-' . now()->format('Y-m-d'));
         }
 
-        return view('reports.income-statement', compact('data', 'fromDate', 'toDate'));
+        return view('reports.income-statement', compact('data', 'fromDate', 'toDate', 'segments', 'segmentId', 'segment'));
     }
 
     public function balanceSheet(Request $request)

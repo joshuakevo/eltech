@@ -3,6 +3,11 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\Client;
+use App\Models\FixedDeposit;
+use App\Models\Loan;
+use App\Models\MemberShare;
+use App\Models\SavingsAccount;
 use App\Models\Transaction;
 use App\Models\TransactionLine;
 use Illuminate\Support\Facades\DB;
@@ -148,16 +153,30 @@ class AccountingService
 
     /**
      * Generate income statement (Revenue - Expense).
+     *
+     * When $segmentId is given, only counts transaction lines whose transaction is
+     * attached to a client in that segment (see resolveClientIdsForTransactions()).
      */
-    public function getIncomeStatement(?string $fromDate = null, ?string $toDate = null): array
+    public function getIncomeStatement(?string $fromDate = null, ?string $toDate = null, ?int $segmentId = null): array
     {
         $revenues = Account::where('account_type', 'revenue')->where('is_active', true)->get();
         $expenses = Account::where('account_type', 'expense')->where('is_active', true)->get();
 
+        $sumsByAccount = $segmentId
+            ? $this->getSegmentAccountSums($revenues->pluck('id')->merge($expenses->pluck('id')), $fromDate, $toDate, $segmentId)
+            : null;
+
+        $balanceFor = function (Account $acc) use ($sumsByAccount, $fromDate, $toDate) {
+            if ($sumsByAccount !== null) {
+                return $sumsByAccount[$acc->id] ?? ['debit' => 0, 'credit' => 0];
+            }
+            return $this->getAccountBalance($acc->id, $fromDate, $toDate);
+        };
+
         $revenueRows = [];
         $totalRevenue = 0;
         foreach ($revenues as $acc) {
-            $bal = $this->getAccountBalance($acc->id, $fromDate, $toDate);
+            $bal = $balanceFor($acc);
             $balance = $bal['credit'] - $bal['debit'];
             if ($balance == 0) continue;
             $revenueRows[] = ['account' => $acc, 'balance' => $balance];
@@ -167,7 +186,7 @@ class AccountingService
         $expenseRows = [];
         $totalExpense = 0;
         foreach ($expenses as $acc) {
-            $bal = $this->getAccountBalance($acc->id, $fromDate, $toDate);
+            $bal = $balanceFor($acc);
             $balance = $bal['debit'] - $bal['credit'];
             if ($balance == 0) continue;
             $expenseRows[] = ['account' => $acc, 'balance' => $balance];
@@ -181,6 +200,94 @@ class AccountingService
             'total_expense' => $totalExpense,
             'net_income'    => $totalRevenue - $totalExpense,
         ];
+    }
+
+    /**
+     * Sum debit/credit per account, keeping only transaction lines whose transaction
+     * is attached to a client in $segmentId. Most module-generated postings (savings,
+     * loans, fixed deposits, membership fees, shares) never tag transaction_lines.client_id
+     * directly -- the client is only resolvable via transactions.module/module_id -- so this
+     * mirrors the same resolution TransactionController uses when editing those entries.
+     *
+     * @return array<int, array{debit: float, credit: float}> account_id => sums
+     */
+    protected function getSegmentAccountSums($accountIds, ?string $fromDate, ?string $toDate, int $segmentId): array
+    {
+        $clientIds = Client::where('segment_id', $segmentId)->pluck('id')->all();
+        if (empty($clientIds)) {
+            return [];
+        }
+
+        $query = TransactionLine::whereIn('transaction_lines.account_id', $accountIds)
+            ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
+            ->select(
+                'transaction_lines.account_id',
+                'transaction_lines.debit',
+                'transaction_lines.credit',
+                'transaction_lines.client_id',
+                'transactions.id as transaction_id',
+                'transactions.module',
+                'transactions.module_id'
+            );
+        if ($fromDate) $query->where('transactions.date', '>=', $fromDate);
+        if ($toDate)   $query->where('transactions.date', '<=', $toDate);
+
+        $lines = $query->get();
+        if ($lines->isEmpty()) {
+            return [];
+        }
+
+        $clientByTransaction = $this->resolveClientIdsForTransactions($lines);
+
+        $sums = [];
+        foreach ($lines as $line) {
+            $clientId = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
+            if (!$clientId || !in_array($clientId, $clientIds, true)) {
+                continue;
+            }
+
+            $sums[$line->account_id] ??= ['debit' => 0, 'credit' => 0];
+            $sums[$line->account_id]['debit']  += (float) $line->debit;
+            $sums[$line->account_id]['credit'] += (float) $line->credit;
+        }
+
+        return $sums;
+    }
+
+    /**
+     * Batch-resolve the client attached to each transaction referenced by $lines
+     * (each line carries transaction_id/module/module_id), grouping by module to
+     * avoid an N+1 query per line. Modules with more than one client per
+     * transaction (payroll, groups) are intentionally left unresolved (null).
+     *
+     * @return array<int, int|null> transaction_id => client_id
+     */
+    protected function resolveClientIdsForTransactions($lines): array
+    {
+        $byModule = $lines->unique('transaction_id')->groupBy('module');
+        $result = [];
+
+        foreach ($byModule as $module => $rows) {
+            $moduleIds = $rows->pluck('module_id')->filter()->unique()->values();
+
+            $map = match ($module) {
+                'savings'       => SavingsAccount::whereIn('id', $moduleIds)->pluck('client_id', 'id'),
+                'loan'          => Loan::whereIn('id', $moduleIds)->pluck('client_id', 'id'),
+                'fixed_deposit' => FixedDeposit::withTrashed()->whereIn('id', $moduleIds)->pluck('client_id', 'id'),
+                'member_share'  => MemberShare::whereIn('id', $moduleIds)->pluck('client_id', 'id'),
+                default         => collect(),
+            };
+
+            foreach ($rows as $row) {
+                $result[$row->transaction_id] = match (true) {
+                    $module === 'client' => $row->module_id,
+                    $map->has($row->module_id) => $map->get($row->module_id),
+                    default => null,
+                };
+            }
+        }
+
+        return $result;
     }
 
     /**
