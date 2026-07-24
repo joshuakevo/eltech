@@ -91,7 +91,17 @@ class EmployeeController extends Controller {
     }
 
     private function generateEmployeeNumber(): string {
-        $last = Employee::withTrashed()->count() + 1;
-        return 'EMP-' . str_pad($last, 5, '0', STR_PAD_LEFT);
+        $lastNumber = Employee::withTrashed()->where('employee_number', 'like', 'EMP-%')
+            ->orderByDesc('employee_number')
+            ->value('employee_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -5)) + 1 : 1;
+
+        do {
+            $candidate = 'EMP-' . str_pad($next, 5, '0', STR_PAD_LEFT);
+            $taken     = Employee::withTrashed()->where('employee_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 }

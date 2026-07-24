@@ -380,21 +380,51 @@ class ClientController extends Controller
 
     private function generateClientNumber(): string
     {
-        $last = Client::withTrashed()->count() + 1;
-        return 'CLT-' . str_pad($last, 6, '0', STR_PAD_LEFT);
+        $lastNumber = Client::withTrashed()->where('client_number', 'like', 'CLT-%')
+            ->orderByDesc('client_number')
+            ->value('client_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -6)) + 1 : 1;
+
+        do {
+            $candidate = 'CLT-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+            $taken     = Client::withTrashed()->where('client_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 
     private function generateShareNumber(): string
     {
         $year = now()->format('Y');
-        $last = MemberShare::whereYear('created_at', $year)->count() + 1;
-        return 'SHR-' . $year . '-' . str_pad($last, 5, '0', STR_PAD_LEFT);
+
+        $lastNumber = MemberShare::where('share_number', 'like', "SHR-{$year}-%")
+            ->orderByDesc('share_number')
+            ->value('share_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -5)) + 1 : 1;
+
+        do {
+            $candidate = 'SHR-' . $year . '-' . str_pad($next, 5, '0', STR_PAD_LEFT);
+            $taken     = MemberShare::where('share_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 
     private function generateGroupNumber(): string
     {
-        $last = Group::count() + 1;
+        $lastNumber = Group::where('group_number', 'like', 'GRP-%')
+            ->orderByDesc('group_number')
+            ->value('group_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -6)) + 1 : 1;
 
-        return 'GRP-' . str_pad((string) $last, 6, '0', STR_PAD_LEFT);
+        do {
+            $candidate = 'GRP-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+            $taken     = Group::where('group_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 }

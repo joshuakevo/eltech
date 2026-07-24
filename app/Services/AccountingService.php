@@ -72,8 +72,19 @@ class AccountingService
     {
         $prefix = 'TXN';
         $date   = now()->format('Ymd');
-        $last   = Transaction::whereDate('created_at', today())->count() + 1;
-        return "{$prefix}-{$date}-" . str_pad($last, 4, '0', STR_PAD_LEFT);
+
+        $lastRef = Transaction::where('reference', 'like', "{$prefix}-{$date}-%")
+            ->orderByDesc('reference')
+            ->value('reference');
+        $next = $lastRef ? ((int) substr($lastRef, -4)) + 1 : 1;
+
+        do {
+            $candidate = "{$prefix}-{$date}-" . str_pad($next, 4, '0', STR_PAD_LEFT);
+            $taken     = Transaction::where('reference', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 
     /**

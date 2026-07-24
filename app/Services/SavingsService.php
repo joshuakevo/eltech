@@ -376,7 +376,18 @@ class SavingsService
     {
         $prefix = 'SAV';
         $year   = now()->format('y');
-        $last   = SavingsAccount::count() + 1;
-        return "{$prefix}{$year}" . str_pad($last, 5, '0', STR_PAD_LEFT);
+
+        $lastNumber = SavingsAccount::where('account_number', 'like', "{$prefix}{$year}%")
+            ->orderByDesc('account_number')
+            ->value('account_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -5)) + 1 : 1;
+
+        do {
+            $candidate = "{$prefix}{$year}" . str_pad($next, 5, '0', STR_PAD_LEFT);
+            $taken     = SavingsAccount::where('account_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 }

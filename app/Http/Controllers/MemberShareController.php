@@ -483,7 +483,18 @@ class MemberShareController extends Controller
     protected function generateShareNumber(): string
     {
         $year = now()->format('Y');
-        $last = MemberShare::whereYear('created_at', $year)->count() + 1;
-        return 'SHR-' . $year . '-' . str_pad($last, 5, '0', STR_PAD_LEFT);
+
+        $lastNumber = MemberShare::where('share_number', 'like', "SHR-{$year}-%")
+            ->orderByDesc('share_number')
+            ->value('share_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -5)) + 1 : 1;
+
+        do {
+            $candidate = 'SHR-' . $year . '-' . str_pad($next, 5, '0', STR_PAD_LEFT);
+            $taken     = MemberShare::where('share_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 }
