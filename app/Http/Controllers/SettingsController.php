@@ -101,8 +101,9 @@ class SettingsController extends Controller
 
     /** Seeders safe to trigger from the browser — deliberately not free-text input. */
     private const RUNNABLE_SEEDERS = [
-        'LoanPenaltyTierSeeder'    => 'Loan Penalty Tiers',
-        'SavingsInterestTierSeeder' => 'Savings Interest Tiers',
+        'LoanPenaltyTierSeeder'      => 'Loan Penalty Tiers',
+        'SavingsInterestTierSeeder'  => 'Savings Interest Tiers',
+        'RolesAndPermissionsSeeder'  => 'Roles & Permissions (resets super_admin/admin/cashier/staff to code defaults)',
     ];
 
     public function migrate()

@@ -165,12 +165,13 @@ $groupIcons = [
             </form>
 
             <form method="POST" action="{{ route('settings.seed') }}" class="d-flex gap-2"
-                  onsubmit="return confirm('Run this seeder now?')">
+                  onsubmit="return confirm(this.seeder.value === 'RolesAndPermissionsSeeder' ? 'This will reset the super_admin/admin/cashier/staff roles\' permissions back to the code defaults, discarding any manual customization made via Users & Roles. Continue?' : 'Run this seeder now?')">
                 @csrf
                 <select name="seeder" class="form-select" required>
                     <option value="">— Select seeder —</option>
                     <option value="LoanPenaltyTierSeeder">Loan Penalty Tiers</option>
                     <option value="SavingsInterestTierSeeder">Savings Interest Tiers</option>
+                    <option value="RolesAndPermissionsSeeder">Roles &amp; Permissions (resets roles to defaults)</option>
                 </select>
                 <button type="submit" class="btn btn-outline-secondary text-nowrap">
                     <i class="bi bi-database-add me-2"></i>Run Seeder
