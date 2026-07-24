@@ -25,6 +25,16 @@
                     <option value="blacklisted" @selected(request('status')=='blacklisted')>Blacklisted</option>
                 </select>
             </div>
+            @if($segments->count())
+            <div class="col-md-3">
+                <select name="segment_id" class="form-select">
+                    <option value="">All Segments</option>
+                    @foreach($segments as $segment)
+                    <option value="{{ $segment->id }}" @selected((string)request('segment_id')===(string)$segment->id)>{{ $segment->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="col-auto"><button class="btn btn-outline-primary">Filter</button></div>
             <div class="col-auto"><a href="{{ route('clients.index') }}" class="btn btn-outline-secondary">Clear</a></div>
         </form>
@@ -36,6 +46,7 @@
                 <th>Client Number</th>
                 <th>Name</th>
                 <th>Type</th>
+                <th>Segment</th>
                 <th>Phone</th>
                 <th>Email</th>
                 <th>Status</th>
@@ -57,6 +68,7 @@
                             <span class="text-muted small">Individual</span>
                         @endif
                     </td>
+                    <td>{{ $client->segment->name ?? '—' }}</td>
                     <td>{{ $client->phone ?? '—' }}</td>
                     <td>{{ $client->email ?? '—' }}</td>
                     <td>
@@ -91,7 +103,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="text-center text-muted py-4">No clients found.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted py-4">No clients found.</td></tr>
             @endforelse
             </tbody>
         </table>

@@ -154,19 +154,27 @@
                                 <input type="date" name="date" class="form-control" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required>
                             </div>
                             <div class="col-sm-6">
-                                <label class="form-label fw-semibold">Withdrawal Fee</label>
+                                <label class="form-label fw-semibold">Withdrawal Charge</label>
                                 <input type="number" name="withdrawal_fee" id="tellerWithdrawFee"
                                     class="form-control" step="0.01" min="0" value="0" placeholder="0">
-                                <div class="form-text">Set to 0 to waive fee</div>
+                                <div class="form-text" id="tellerWithdrawFeeHint">Set to 0 to waive fee</div>
                             </div>
                             <div class="col-sm-6">
-                                <label class="form-label fw-semibold">Payment Source <span class="text-danger">*</span></label>
-                                <select name="payment_source_account_id" class="form-select" required>
+                                <label class="form-label fw-semibold">Payment Source (e.g. Cash, Mobile Money, Bank) <span class="text-danger">*</span></label>
+                                <select name="payment_source_account_id" id="tellerPaymentSource" class="form-select" required>
                                     <option value="">— Select GL account —</option>
                                     @foreach($paymentSourceAccounts as $acc)
-                                    <option value="{{ $acc->id }}">{{ $acc->account_code }} — {{ $acc->account_name }}</option>
+                                    <option value="{{ $acc->id }}"
+                                        data-charge="{{ $acc->default_withdrawal_charge ?? '' }}"
+                                        data-institution-charge="{{ $acc->default_institution_charge ?? '' }}">{{ $acc->account_code }} — {{ $acc->account_name }}</option>
                                     @endforeach
                                 </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-semibold">Bank / Mobile Money Charge</label>
+                                <input type="number" name="institution_charge" id="tellerInstitutionCharge"
+                                    class="form-control" step="0.01" min="0" value="0" placeholder="0">
+                                <div class="form-text">What the provider charges the SACCO — not deducted from the member.</div>
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label fw-semibold">Receipt / Reference <span class="text-danger">*</span></label>
@@ -200,6 +208,7 @@
 <script>
 let searchTimer = null;
 let selectedAccountId = null;
+let currentProductFee = 0;
 
 document.getElementById('searchInput').addEventListener('input', function () {
     clearTimeout(searchTimer);
@@ -243,8 +252,9 @@ function selectAccount(id, accNo, clientName, product, balance, withdrawFee) {
     selectedAccountId = id;
     document.getElementById('depositAccountId').value = id;
     document.getElementById('withdrawAccountId').value = id;
-    var feeField = document.getElementById('tellerWithdrawFee');
-    if (feeField) feeField.value = withdrawFee !== undefined ? withdrawFee : 0;
+    currentProductFee = withdrawFee !== undefined ? withdrawFee : 0;
+    document.getElementById('tellerPaymentSource').selectedIndex = 0;
+    applyTellerChannelCharge();
     document.getElementById('dispAccountNo').textContent = accNo;
     document.getElementById('dispClientName').textContent = clientName;
     document.getElementById('dispProduct').textContent = product;
@@ -262,6 +272,25 @@ function clearAccount() {
     document.getElementById('searchInput').value = '';
     document.getElementById('searchResults').innerHTML = '';
 }
+
+function applyTellerChannelCharge() {
+    var select = document.getElementById('tellerPaymentSource');
+    var opt = select.options[select.selectedIndex];
+    var channelCharge = opt ? opt.getAttribute('data-charge') : '';
+    var feeField = document.getElementById('tellerWithdrawFee');
+    var hint = document.getElementById('tellerWithdrawFeeHint');
+    if (channelCharge !== null && channelCharge !== '') {
+        feeField.value = channelCharge;
+        hint.textContent = 'Channel charge for ' + opt.text.trim() + ' — editable, set to 0 to waive';
+    } else {
+        feeField.value = currentProductFee;
+        hint.textContent = 'Set to 0 to waive fee';
+    }
+
+    var institutionCharge = opt ? opt.getAttribute('data-institution-charge') : '';
+    document.getElementById('tellerInstitutionCharge').value = (institutionCharge !== null && institutionCharge !== '') ? institutionCharge : 0;
+}
+document.getElementById('tellerPaymentSource').addEventListener('change', applyTellerChannelCharge);
 
 function switchTab(tab) {
     document.querySelectorAll('#tellerTabs .nav-link').forEach(b => b.classList.remove('active'));

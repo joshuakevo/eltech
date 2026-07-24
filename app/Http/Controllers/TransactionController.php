@@ -289,10 +289,11 @@ class TransactionController extends Controller
             $clientId = $line['client_id'] ?? null;
             if (!$clientId) continue;
 
-            $accId  = (int) $line['account_id'];
-            $code   = $codeMap[$accId] ?? null;
-            $debit  = (float)($line['debit']  ?? 0);
-            $credit = (float)($line['credit'] ?? 0);
+            $accId       = (int) $line['account_id'];
+            $code        = $codeMap[$accId] ?? null;
+            $debit       = (float)($line['debit']  ?? 0);
+            $credit      = (float)($line['credit'] ?? 0);
+            $lineDesc    = trim((string) ($line['description'] ?? '')) ?: $description;
             if ($debit <= 0 && $credit <= 0) continue;
 
             // ── Savings liability (product-linked or legacy 2001 / 2005) ─────
@@ -327,7 +328,7 @@ class TransactionController extends Controller
                     'balance_after'      => $balAfter,
                     'transaction_date'   => $date,
                     'reference'          => $transaction->reference,
-                    'description'        => $description,
+                    'description'        => $lineDesc,
                     'transaction_id'     => $transaction->id,
                     'created_by'         => auth()->id(),
                 ]);
@@ -384,7 +385,7 @@ class TransactionController extends Controller
                         'amount'                   => $amount,
                         'transaction_date'         => $date,
                         'reference'                => $transaction->reference,
-                        'notes'                    => $description,
+                        'notes'                    => $lineDesc,
                         'journal_transaction_id'   => $transaction->id,
                         'created_by'               => auth()->id(),
                     ]);
@@ -431,25 +432,30 @@ class TransactionController extends Controller
     public function show(Transaction $transaction)
     {
         $transaction->load('lines.account', 'createdBy', 'originalTransaction', 'reversalTransaction');
-        return view('transactions.show', compact('transaction'));
+        $editBlockReason = $this->editBlockReason($transaction);
+        $linkedClientId  = $this->resolveTransactionClientId($transaction) ?? $transaction->lines->pluck('client_id')->filter()->first();
+        $linkedClient    = $linkedClientId ? Client::find($linkedClientId) : null;
+        return view('transactions.show', compact('transaction', 'editBlockReason', 'linkedClient'));
     }
 
     public function edit(Transaction $transaction)
     {
-        if ($transaction->module !== 'manual') {
-            return back()->with('error', 'Only manual journal entries can be edited.');
-        }
         if ($transaction->isReversed() || $transaction->isReversal()) {
             return back()->with('error', 'Reversed transactions cannot be edited.');
+        }
+        if ($reason = $this->editBlockReason($transaction)) {
+            return back()->with('error', $reason);
         }
 
         $transaction->load('lines.account');
         $accounts = Account::where('is_active', true)->orderBy('account_code')->get();
         $clients  = Client::orderBy('name')->get(['id', 'client_number', 'name']);
 
+        $inferredClientIds = $this->inferLineClientIds($transaction);
+
         $lineRows = $transaction->lines->map(fn($l) => [
             'account_id'  => $l->account_id,
-            'client_id'   => $l->client_id,
+            'client_id'   => $inferredClientIds[$l->id] ?? $l->client_id,
             'description' => $l->description,
             'debit'       => $l->debit,
             'credit'      => $l->credit,
@@ -458,13 +464,76 @@ class TransactionController extends Controller
         return view('transactions.edit', compact('transaction', 'accounts', 'clients', 'lineRows'));
     }
 
+    /**
+     * Module-generated transactions (savings/loan/FD/shares/membership fee) never set
+     * transaction_lines.client_id at creation — the link is implicit via module_id.
+     * Resolve it so the edit form doesn't present an already-linked transaction as unlinked.
+     */
+    private function resolveTransactionClientId(Transaction $transaction): ?int
+    {
+        return match ($transaction->module) {
+            'savings'       => SavingsAccount::find($transaction->module_id)?->client_id,
+            'loan'          => Loan::find($transaction->module_id)?->client_id,
+            'fixed_deposit' => FixedDeposit::withTrashed()->find($transaction->module_id)?->client_id,
+            'member_share'  => MemberShare::find($transaction->module_id)?->client_id,
+            'client'        => $transaction->module_id,
+            default         => null,
+        };
+    }
+
+    /**
+     * For each line, keep its own client_id if already set (manual entries tag this
+     * explicitly, possibly per-client on multi-client journals); otherwise, only fill in
+     * the resolved transaction client on lines that actually hit a client sub-ledger
+     * account (savings liability, loan receivable, FD liability, share capital,
+     * membership fee income) — not the cash/contra leg — mirroring the same detection
+     * syncSubLedgersFromLines() uses on save.
+     *
+     * @return array<int, int|null> line id => client id
+     */
+    private function inferLineClientIds(Transaction $transaction): array
+    {
+        $resolvedClientId = $this->resolveTransactionClientId($transaction);
+        if (!$resolvedClientId) {
+            return $transaction->lines->pluck('client_id', 'id')->all();
+        }
+
+        $accountIds = $transaction->lines->pluck('account_id')->unique()->values();
+        $codeMap    = Account::whereIn('id', $accountIds)->pluck('account_code', 'id');
+
+        $savingsLiabilityIds = SavingsProduct::whereIn('savings_liability_account_id', $accountIds)
+            ->pluck('savings_liability_account_id')->all();
+        $loanReceivableIds = LoanProduct::whereIn('receivable_account_id', $accountIds)
+            ->pluck('receivable_account_id')->all();
+        $fdLiabilityIds = FixedDepositProduct::whereIn('deposit_liability_account_id', $accountIds)
+            ->pluck('deposit_liability_account_id')->all();
+
+        $result = [];
+        foreach ($transaction->lines as $line) {
+            if ($line->client_id) {
+                $result[$line->id] = $line->client_id;
+                continue;
+            }
+
+            $code = $codeMap[$line->account_id] ?? null;
+            $isSubLedgerLine = in_array($line->account_id, $savingsLiabilityIds, true)
+                || in_array($line->account_id, $loanReceivableIds, true)
+                || in_array($line->account_id, $fdLiabilityIds, true)
+                || in_array($code, ['2001', '2005', '1101', '1102', '1103', '3001', '4008'], true);
+
+            $result[$line->id] = $isSubLedgerLine ? $resolvedClientId : null;
+        }
+
+        return $result;
+    }
+
     public function update(Request $request, Transaction $transaction)
     {
-        if ($transaction->module !== 'manual') {
-            return back()->with('error', 'Only manual journal entries can be edited.');
-        }
         if ($transaction->isReversed() || $transaction->isReversal()) {
             return back()->with('error', 'Reversed transactions cannot be edited.');
+        }
+        if ($reason = $this->editBlockReason($transaction)) {
+            return back()->with('error', $reason);
         }
 
         $request->validate([
@@ -478,6 +547,9 @@ class TransactionController extends Controller
             'lines.*.credit'     => 'required|numeric|min:0',
         ]);
 
+        $allLines = array_values($request->lines);
+        $this->assertJournalSubLedgerTargetsExist($allLines);
+
         $lines = array_values(array_filter($request->lines, fn($l) => ($l['debit'] + $l['credit']) > 0));
 
         $totalDebit  = array_sum(array_column($lines, 'debit'));
@@ -486,9 +558,14 @@ class TransactionController extends Controller
             return back()->withInput()->with('error', 'Transaction is not balanced. Debits must equal credits.');
         }
 
+        $transaction->load('lines');
+        $this->assertSubLedgerReversible($transaction, false);
+
         \DB::transaction(function () use ($transaction, $request, $lines) {
-            // Reverse old sub-ledger impacts
-            $this->reverseManualSubLedgers($transaction);
+            // Reverse whatever sub-ledger impacts the original entry had — the same
+            // per-module dispatcher used by Reverse/Delete, so savings balances, share
+            // records, loan principal, etc. unwind correctly regardless of module.
+            $this->reverseModuleImpact($transaction);
 
             // Delete old lines
             $transaction->lines()->delete();
@@ -511,11 +588,37 @@ class TransactionController extends Controller
                 ]);
             }
 
-            // Sync new sub-ledger impacts
+            // Re-apply sub-ledger impacts from the new values
             $this->syncSubLedgersFromLines($transaction, $lines, $request->date, $request->description);
         });
 
         return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction updated successfully.');
+    }
+
+    /**
+     * Some transactions carry side effects that can't be safely regenerated from
+     * edited GL lines alone (loan schedules, payroll runs, FD lifecycle state).
+     * Those must go through Reverse + re-post via the proper module screen instead.
+     */
+    private function editBlockReason(Transaction $transaction): ?string
+    {
+        $desc = strtolower($transaction->description ?? '');
+
+        return match (true) {
+            $transaction->module === 'fixed_deposit' =>
+                'Fixed deposit transactions affect maturity and interest calculations and cannot be edited directly. Reverse this entry and re-post the correct fixed deposit action instead.',
+            $transaction->module === 'payroll' =>
+                'Payroll transactions cannot be edited directly. Reverse this entry (it resets the payroll run to draft) and reprocess payroll instead.',
+            $transaction->module === 'groups' =>
+                'Group transactions cannot be edited directly. Reverse this entry and re-post the correct group transaction instead.',
+            $transaction->module === 'loan' && str_contains($desc, 'loan disbursement') =>
+                'Loan disbursement entries generate the repayment schedule and cannot be edited directly. Reverse this entry and re-disburse the loan with the correct values.',
+            $transaction->module === 'loan' && str_contains($desc, 'loan repayment') =>
+                'Loan repayment entries affect the repayment schedule allocation and cannot be edited directly. Reverse this entry and re-post the correct repayment.',
+            $transaction->module === 'member_share' && (str_contains($desc, 'revalu') || str_contains($desc, 'liquidat')) =>
+                'Share revaluation/liquidation entries cannot be edited directly. Reverse this entry and re-post the correct action.',
+            default => null,
+        };
     }
 
     public function reverse(Request $request, Transaction $transaction)

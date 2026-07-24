@@ -21,7 +21,7 @@
             <dt class="col-4 fw-normal text-muted">Interest Rate</dt><dd class="col-8">{{ $loanProduct->interest_rate }}% per annum</dd>
             <dt class="col-4 fw-normal text-muted">Interest Method</dt><dd class="col-8">{{ ucfirst($loanProduct->interest_method) }}</dd>
             <dt class="col-4 fw-normal text-muted">Default Term</dt><dd class="col-8">{{ $loanProduct->term_months }} months</dd>
-            <dt class="col-4 fw-normal text-muted">Penalty Rate</dt><dd class="col-8">{{ $loanProduct->penalty_rate }}% per day (on overdue)</dd>
+            <dt class="col-4 fw-normal text-muted">Penalty Rate</dt><dd class="col-8">{{ $loanProduct->penalty_rate }}% per day <span class="text-muted small">(legacy, unused &mdash; see <a href="{{ route('loan-penalty-tiers.edit') }}">Loan Penalty Tiers</a>)</span></dd>
             <dt class="col-4 fw-normal text-muted">Loan Receivable</dt><dd class="col-8">{{ $loanProduct->receivableAccount?->account_code }} — {{ $loanProduct->receivableAccount?->account_name ?? '—' }}</dd>
             <dt class="col-4 fw-normal text-muted">Interest Income</dt><dd class="col-8">{{ $loanProduct->interestIncomeAccount?->account_code }} — {{ $loanProduct->interestIncomeAccount?->account_name ?? '—' }}</dd>
             <dt class="col-4 fw-normal text-muted">Penalty Income</dt><dd class="col-8">{{ $loanProduct->penaltyIncomeAccount?->account_code }} — {{ $loanProduct->penaltyIncomeAccount?->account_name ?? '—' }}</dd>

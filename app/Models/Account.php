@@ -10,12 +10,15 @@ class Account extends Model
     use HasFactory;
 
     protected $fillable = [
-        'account_code', 'account_name', 'account_type', 'parent_id', 'is_active', 'is_payment_source', 'description',
+        'account_code', 'account_name', 'account_type', 'parent_id', 'is_active', 'is_payment_source',
+        'default_withdrawal_charge', 'default_institution_charge', 'description',
     ];
 
     protected $casts = [
-        'is_active'         => 'boolean',
-        'is_payment_source' => 'boolean',
+        'is_active'                   => 'boolean',
+        'is_payment_source'           => 'boolean',
+        'default_withdrawal_charge'   => 'float',
+        'default_institution_charge'  => 'float',
     ];
 
     public function parent()

@@ -19,18 +19,22 @@ class ClientController extends Controller
                 ->orWhere('client_number', 'like', "%{$request->search}%")
                 ->orWhere('phone', 'like', "%{$request->search}%"))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->segment_id, fn($q) => $q->where('segment_id', $request->segment_id))
             ->withCount('shares')
-            ->with(['shares' => fn($q) => $q->select('client_id', 'share_value', 'amount_paid', 'status')])
+            ->with(['shares' => fn($q) => $q->select('client_id', 'share_value', 'amount_paid', 'status'), 'segment'])
             ->latest()
             ->paginate(20);
 
-        return view('clients.index', compact('clients'));
+        $segments = \App\Models\ClientSegment::orderBy('name')->get();
+
+        return view('clients.index', compact('clients', 'segments'));
     }
 
     public function create()
     {
         $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
-        return view('clients.create', compact('branches'));
+        $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
+        return view('clients.create', compact('branches', 'segments'));
     }
 
     public function store(Request $request)
@@ -114,6 +118,7 @@ class ClientController extends Controller
             // Preferences
             'preferred_communication'  => 'required|in:sms,email,whatsapp,phone_call',
             'branch_id'                => 'nullable|exists:branches,id',
+            'segment_id'               => 'nullable|exists:client_segments,id',
             'status'                   => 'required|in:active,inactive,blacklisted',
             'joining_date'             => 'required|date',
         ]);
@@ -155,6 +160,7 @@ class ClientController extends Controller
             'shares',
             'createdBy',
             'branch',
+            'segment',
             'group',
         ]);
 
@@ -163,13 +169,27 @@ class ClientController extends Controller
             ->orderBy('account_code')
             ->get();
 
-        return view('clients.show', compact('client', 'paymentSourceAccounts'));
+        $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
+
+        return view('clients.show', compact('client', 'paymentSourceAccounts', 'segments'));
+    }
+
+    public function updateSegment(Request $request, Client $client)
+    {
+        $data = $request->validate([
+            'segment_id' => 'nullable|exists:client_segments,id',
+        ]);
+
+        $client->update(['segment_id' => $data['segment_id'] ?? null]);
+
+        return back()->with('success', 'Client segment updated.');
     }
 
     public function edit(Client $client)
     {
         $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
-        return view('clients.edit', compact('client', 'branches'));
+        $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
+        return view('clients.edit', compact('client', 'branches', 'segments'));
     }
 
     public function update(Request $request, Client $client)
@@ -206,6 +226,7 @@ class ClientController extends Controller
             // Preferences
             'preferred_communication'  => 'nullable|in:sms,email,whatsapp,phone_call',
             'branch_id'                => 'nullable|exists:branches,id',
+            'segment_id'               => 'nullable|exists:client_segments,id',
             'status'                   => 'required|in:active,inactive,blacklisted',
             'joining_date'             => 'nullable|date',
         ]);

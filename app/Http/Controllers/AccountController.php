@@ -29,13 +29,15 @@ class AccountController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'account_code'      => 'required|string|max:20|unique:accounts',
-            'account_name'      => 'required|string|max:255',
-            'account_type'      => 'required|in:asset,liability,equity,revenue,expense',
-            'parent_id'         => 'nullable|exists:accounts,id',
-            'description'       => 'nullable|string',
-            'is_active'         => 'boolean',
-            'is_payment_source' => 'boolean',
+            'account_code'              => 'required|string|max:20|unique:accounts',
+            'account_name'              => 'required|string|max:255',
+            'account_type'              => 'required|in:asset,liability,equity,revenue,expense',
+            'parent_id'                 => 'nullable|exists:accounts,id',
+            'description'               => 'nullable|string',
+            'is_active'                   => 'boolean',
+            'is_payment_source'           => 'boolean',
+            'default_withdrawal_charge'   => 'nullable|numeric|min:0',
+            'default_institution_charge'  => 'nullable|numeric|min:0',
         ]);
         $data['is_active']         = $request->boolean('is_active');
         $data['is_payment_source'] = $request->boolean('is_payment_source');
@@ -72,13 +74,15 @@ class AccountController extends Controller
     public function update(Request $request, Account $account)
     {
         $data = $request->validate([
-            'account_code'      => 'required|string|max:20|unique:accounts,account_code,' . $account->id,
-            'account_name'      => 'required|string|max:255',
-            'account_type'      => 'required|in:asset,liability,equity,revenue,expense',
-            'parent_id'         => 'nullable|exists:accounts,id',
-            'description'       => 'nullable|string',
-            'is_active'         => 'boolean',
-            'is_payment_source' => 'boolean',
+            'account_code'              => 'required|string|max:20|unique:accounts,account_code,' . $account->id,
+            'account_name'              => 'required|string|max:255',
+            'account_type'              => 'required|in:asset,liability,equity,revenue,expense',
+            'parent_id'                 => 'nullable|exists:accounts,id',
+            'description'               => 'nullable|string',
+            'is_active'                   => 'boolean',
+            'is_payment_source'           => 'boolean',
+            'default_withdrawal_charge'   => 'nullable|numeric|min:0',
+            'default_institution_charge'  => 'nullable|numeric|min:0',
         ]);
         $data['is_active']         = $request->boolean('is_active');
         $data['is_payment_source'] = $request->boolean('is_payment_source');

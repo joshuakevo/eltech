@@ -11,11 +11,18 @@
 <form method="POST" action="{{ route('transactions.update', $transaction) }}" id="journalForm">
 @csrf @method('PUT')
 <div class="card">
-    <div class="card-header py-2 fw-semibold"><i class="bi bi-pencil me-2 text-primary"></i>Edit Manual Journal Entry — <span class="font-monospace">{{ $transaction->reference }}</span></div>
+    <div class="card-header py-2 fw-semibold"><i class="bi bi-pencil me-2 text-primary"></i>Edit Journal Entry — <span class="font-monospace">{{ $transaction->reference }}</span></div>
     <div class="card-body p-3">
 
         @if(session('error'))
             <div class="alert alert-danger small mb-3">{{ session('error') }}</div>
+        @endif
+
+        @if($transaction->module !== 'manual')
+        <div class="alert alert-warning small mb-3">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            This entry was posted by the <strong>{{ $transaction->module }}</strong> module. Saving will reverse its linked member sub-ledger effects (savings balance, share/membership records, etc.) and re-apply them from the values below — the underlying record (e.g. savings/loan/share record) will be re-synced automatically.
+        </div>
         @endif
 
         @php
@@ -65,11 +72,11 @@
             <table class="table table-bordered table-sm mb-0" id="linesTable">
                 <thead class="table-light">
                     <tr>
-                        <th style="width:30%">Account</th>
-                        <th style="width:20%">Client <span class="text-muted fw-normal" style="font-size:.7rem">(optional)</span></th>
+                        <th style="width:26%">Account</th>
+                        <th style="width:18%">Client <span class="text-muted fw-normal" style="font-size:.7rem">(optional)</span></th>
                         <th>Description</th>
-                        <th style="width:110px">Debit</th>
-                        <th style="width:110px">Credit</th>
+                        <th style="width:160px">Debit</th>
+                        <th style="width:160px">Credit</th>
                         <th style="width:40px"></th>
                     </tr>
                 </thead>

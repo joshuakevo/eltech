@@ -104,7 +104,7 @@
         <table class="table table-hover mb-0">
             <thead><tr>
                 <th class="ps-3">Date</th><th>Type</th><th>Receipt / Ref</th><th>Description</th>
-                <th class="text-end">Amount</th><th class="text-end pe-3">Balance</th>
+                <th class="text-end">Charge</th><th class="text-end">Amount</th><th class="text-end pe-3">Balance</th>
             </tr></thead>
             <tbody>
             @forelse($saving->transactions as $txn)
@@ -118,13 +118,14 @@
                     </td>
                     <td class="font-monospace small">{{ $txn->reference ?? '—' }}</td>
                     <td class="small">{{ $txn->description }}</td>
+                    <td class="text-end small text-muted">{{ $txn->charge_amount > 0 ? number_format($txn->charge_amount, $dp) : '—' }}</td>
                     <td class="text-end fw-semibold {{ in_array($txn->transaction_type, ['deposit','interest']) ? 'text-success' : 'text-danger' }}">
                         {{ in_array($txn->transaction_type, ['deposit','interest']) ? '+' : '-' }}{{ number_format($txn->amount, $dp) }}
                     </td>
                     <td class="text-end pe-3">{{ number_format($txn->balance_after, $dp) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="text-center text-muted py-4">No transactions.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No transactions.</td></tr>
             @endforelse
             </tbody>
         </table>

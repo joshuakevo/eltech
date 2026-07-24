@@ -50,11 +50,23 @@
                         <input type="checkbox" name="is_active" value="1" class="form-check-input" id="is_active" @checked(old('is_active', $account->is_active))>
                         <label for="is_active" class="form-check-label">Active</label>
                     </div>
-                    <div class="mb-4 form-check">
+                    <div class="mb-3 form-check">
                         <input type="checkbox" name="is_payment_source" value="1" class="form-check-input" id="is_payment_source" @checked(old('is_payment_source', $account->is_payment_source))>
                         <label for="is_payment_source" class="form-check-label">Use as Payment Source
                             <span class="text-muted small d-block fw-normal">Appears in payment dropdowns for deposits, withdrawals &amp; repayments</span>
                         </label>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Default Withdrawal Charge</label>
+                            <input type="number" name="default_withdrawal_charge" class="form-control" step="0.01" min="0" value="{{ old('default_withdrawal_charge', $account->default_withdrawal_charge) }}">
+                            <div class="form-text">Charged to the <strong>member</strong> when withdrawing via this channel. Auto-fills on the withdrawal form; booked as income (4006). Leave blank to fall back to the savings product's default fee.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Default Bank / Mobile Money Charge</label>
+                            <input type="number" name="default_institution_charge" class="form-control" step="0.01" min="0" value="{{ old('default_institution_charge', $account->default_institution_charge) }}">
+                            <div class="form-text">What the provider (bank/MTN/Airtel) charges the <strong>SACCO</strong> to process this transaction. Does not affect the member's balance; booked as Bank Charges expense (5008).</div>
+                        </div>
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary">Update Account</button>

@@ -360,11 +360,16 @@
         </div>
         @endcan
 
-        @canany(['manage branches', 'manage users', 'manage settings', 'manage backup'])
+        @canany(['manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup'])
         <div class="sidebar-section">Administration</div>
         @can('manage branches')
         <a href="{{ route('branches.index') }}" class="nav-link-item {{ request()->routeIs('branches.*') ? 'active' : '' }}">
             <i class="bi bi-diagram-3-fill"></i> Branches
+        </a>
+        @endcan
+        @can('manage client segments')
+        <a href="{{ route('client-segments.index') }}" class="nav-link-item {{ request()->routeIs('client-segments.*') ? 'active' : '' }}">
+            <i class="bi bi-tags-fill"></i> Client Segments
         </a>
         @endcan
         @can('manage users')
@@ -380,6 +385,12 @@
         @can('manage settings')
         <a href="{{ route('settings.index') }}" class="nav-link-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
             <i class="bi bi-gear-fill"></i> System Settings
+        </a>
+        <a href="{{ route('loan-penalty-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('loan-penalty-tiers.*') ? 'active' : '' }}">
+            <i class="bi bi-exclamation-diamond-fill"></i> Loan Penalty Tiers
+        </a>
+        <a href="{{ route('savings-interest-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('savings-interest-tiers.*') ? 'active' : '' }}">
+            <i class="bi bi-graph-up-arrow"></i> Savings Interest Tiers
         </a>
         <a href="{{ route('audit.index') }}" class="nav-link-item {{ request()->routeIs('audit.*') ? 'active' : '' }}">
             <i class="bi bi-shield-lock-fill"></i> Audit Log

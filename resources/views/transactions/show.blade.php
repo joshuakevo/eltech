@@ -32,11 +32,17 @@
                 <span>Journal Entry — <span class="font-monospace">{{ $transaction->reference }}</span></span>
                 <div class="d-flex align-items-center gap-2">
                     <span class="text-muted small">{{ $transaction->date->format('d M Y') }}</span>
-                    @if(!$transaction->isReversed() && !$transaction->isReversal() && $transaction->module === 'manual')
+                    @if(!$transaction->isReversed() && !$transaction->isReversal())
                     @can('create transactions')
-                    <a href="{{ route('transactions.edit', $transaction) }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-pencil me-1"></i>Edit
-                    </a>
+                        @if(!$editBlockReason)
+                        <a href="{{ route('transactions.edit', $transaction) }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </a>
+                        @else
+                        <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="{{ $editBlockReason }}">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </button>
+                        @endif
                     @endcan
                     @endif
                     @if(!$transaction->isReversed() && !$transaction->isReversal())
@@ -58,6 +64,10 @@
                     <dt class="col-3 fw-normal text-muted">Reference</dt><dd class="col-9 font-monospace">{{ $transaction->reference }}</dd>
                     <dt class="col-3 fw-normal text-muted">Description</dt><dd class="col-9">{{ $transaction->description }}</dd>
                     <dt class="col-3 fw-normal text-muted">Module</dt><dd class="col-9"><span class="badge bg-secondary">{{ $transaction->module ?? 'manual' }}</span></dd>
+                    @if($linkedClient)
+                    <dt class="col-3 fw-normal text-muted">Client</dt>
+                    <dd class="col-9"><a href="{{ route('clients.show', $linkedClient) }}">{{ $linkedClient->name }} ({{ $linkedClient->client_number }})</a></dd>
+                    @endif
                     <dt class="col-3 fw-normal text-muted">Created By</dt><dd class="col-9">{{ $transaction->createdBy->name ?? '—' }}</dd>
                 </dl>
 

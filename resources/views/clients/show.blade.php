@@ -102,6 +102,35 @@
 </div>
 @endcan
 
+@can('edit clients')
+<div class="modal fade" id="segmentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('clients.segment.update', $client) }}">
+                @csrf @method('PATCH')
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title"><i class="bi bi-tags-fill me-2 text-primary"></i>Change Segment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Segment</label>
+                    <select name="segment_id" class="form-select">
+                        <option value="">— None —</option>
+                        @foreach($segments as $segment)
+                        <option value="{{ $segment->id }}" @selected($client->segment_id == $segment->id)>{{ $segment->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endcan
+
 {{-- Summary stats --}}
 <div class="row g-2 mb-4">
     <div class="col-4">
@@ -144,6 +173,13 @@
                     @if($client->nationality)
                     <dt class="col-5 fw-normal text-muted">Nationality</dt><dd class="col-7">{{ $client->nationality }}</dd>
                     @endif
+                    <dt class="col-5 fw-normal text-muted">Segment</dt>
+                    <dd class="col-7">
+                        {{ $client->segment->name ?? '—' }}
+                        @can('edit clients')
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" data-bs-toggle="modal" data-bs-target="#segmentModal">Change</button>
+                        @endcan
+                    </dd>
                     @if($client->id_number)
                     <dt class="col-5 fw-normal text-muted">ID / Passport</dt><dd class="col-7 font-monospace">{{ $client->id_number }}</dd>
                     @endif

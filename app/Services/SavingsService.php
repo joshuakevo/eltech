@@ -87,12 +87,13 @@ class SavingsService
     /**
      * Withdraw funds from a savings account.
      */
-    public function withdraw(SavingsAccount $account, float $amount, string $date, string $description = 'Withdrawal', ?string $reference = null, ?float $fee = null, ?int $paymentSourceAccountId = null): SavingsTransaction
+    public function withdraw(SavingsAccount $account, float $amount, string $date, string $description = 'Withdrawal', ?string $reference = null, ?float $fee = null, ?int $paymentSourceAccountId = null, ?float $institutionCharge = null): SavingsTransaction
     {
-        $product    = $account->product;
-        $minBalance = $product->minimum_balance ?? 0;
-        $fee        = $fee ?? ($product->withdrawal_fee ?? 0);
-        $total      = $amount + $fee;
+        $product           = $account->product;
+        $minBalance        = $product->minimum_balance ?? 0;
+        $fee               = $fee ?? $this->resolveWithdrawalCharge($product, $paymentSourceAccountId);
+        $institutionCharge = $institutionCharge ?? $this->resolveInstitutionCharge($paymentSourceAccountId);
+        $total             = $amount + $fee;
 
         // Validate against the balance that existed on the transaction date, not today's balance.
         $balAsOfDate = $this->balanceAsOf($account, $date);
@@ -102,9 +103,11 @@ class SavingsService
             );
         }
 
-        return DB::transaction(function () use ($account, $amount, $fee, $total, $date, $description, $reference, $product, $balAsOfDate, $paymentSourceAccountId) {
+        return DB::transaction(function () use ($account, $amount, $fee, $institutionCharge, $total, $date, $description, $reference, $product, $balAsOfDate, $paymentSourceAccountId) {
             $balBefore = $balAsOfDate;
             $balAfter  = $balBefore - $total;
+
+            $paymentSourceId = $paymentSourceAccountId ?? $this->getCashAccount();
 
             $lines = [
                 [
@@ -114,7 +117,7 @@ class SavingsService
                     'description' => "Savings withdrawal - {$account->account_number}",
                 ],
                 [
-                    'account_id'  => $paymentSourceAccountId ?? $this->getCashAccount(),
+                    'account_id'  => $paymentSourceId,
                     'debit'       => 0,
                     'credit'      => $amount,
                     'description' => $description,
@@ -136,6 +139,23 @@ class SavingsService
                 ];
             }
 
+            // Bank/mobile money charge the provider levies on the SACCO for this transaction.
+            // This is an institutional cost, not deducted from the member's balance.
+            if ($institutionCharge > 0) {
+                $lines[] = [
+                    'account_id'  => $this->getBankChargesExpenseAccount(),
+                    'debit'       => $institutionCharge,
+                    'credit'      => 0,
+                    'description' => 'Bank/mobile money charge',
+                ];
+                $lines[] = [
+                    'account_id'  => $paymentSourceId,
+                    'debit'       => 0,
+                    'credit'      => $institutionCharge,
+                    'description' => 'Bank/mobile money charge',
+                ];
+            }
+
             $transaction = $this->accounting->post(
                 $date,
                 "Savings withdrawal - {$account->account_number}",
@@ -151,6 +171,8 @@ class SavingsService
                 'savings_account_id'      => $account->id,
                 'transaction_type'        => 'withdrawal',
                 'amount'                  => $total,
+                'charge_amount'           => $fee,
+                'institution_charge'      => $institutionCharge,
                 'balance_before'          => $balBefore,
                 'balance_after'           => $balAfter,
                 'transaction_date'        => $date,
@@ -188,8 +210,8 @@ class SavingsService
     public function postInterest(SavingsAccount $account, string $date): ?SavingsTransaction
     {
         $product = $account->product;
-        if ($product->interest_rate <= 0) return null;
         if ($account->status !== 'active')  return null;
+        if ($product->interest_method === 'flat' && $product->interest_rate <= 0) return null;
 
         // Prevent posting on the same date twice (compare as date strings)
         $lastDate = $account->last_interest_date
@@ -225,16 +247,22 @@ class SavingsService
             );
         }
 
-        $dailyRate = (float) $product->interest_rate / 100 / 365;
+        $useTiers  = $product->interest_method === 'tiered';
+        $tiers     = $useTiers ? \App\Models\SavingsInterestTier::orderBy('min_balance')->get() : null;
+        $dailyRate = $useTiers ? null : ((float) $product->interest_rate / 100 / 365);
 
-        // Sum daily interest: for each day in the period use the closing balance of that day
+        // Sum daily interest: for each day in the period, apply either this
+        // product's own flat rate, or the graduated (marginal) org-wide
+        // interest tiers, to that day's closing balance.
         $totalInterest = 0.0;
         $cursor        = $periodStart->copy();
 
         while ($cursor->lte($periodEnd)) {
             $dayBalance = $this->balanceAsOf($account, $cursor->toDateString());
             if ($dayBalance > 0) {
-                $totalInterest += $dayBalance * $dailyRate;
+                $totalInterest += $useTiers
+                    ? $this->graduatedDailyInterest($dayBalance, $tiers)
+                    : $dayBalance * $dailyRate;
             }
             $cursor->addDay();
         }
@@ -253,6 +281,30 @@ class SavingsService
         $account->update(['last_interest_date' => $date]);
 
         return $txn;
+    }
+
+    /**
+     * One day's interest on a balance under the graduated (marginal) org-wide
+     * interest tiers: each portion of the balance that falls within a tier's
+     * band earns that tier's annual rate / 365, then the portions are summed —
+     * the same way tax brackets work, so there's no jump at a tier boundary.
+     */
+    protected function graduatedDailyInterest(float $balance, \Illuminate\Support\Collection $tiers): float
+    {
+        $interest = 0.0;
+
+        foreach ($tiers as $tier) {
+            $min = (float) $tier->min_balance;
+            if ($balance <= $min) continue;
+
+            $upper   = $tier->max_balance !== null ? min($balance, (float) $tier->max_balance) : $balance;
+            $portion = $upper - $min;
+            if ($portion <= 0) continue;
+
+            $interest += $portion * ((float) $tier->rate / 100 / 365);
+        }
+
+        return $interest;
     }
 
     /**
@@ -280,8 +332,44 @@ class SavingsService
 
     protected function getFeeIncomeAccount(): int
     {
-        $account = \App\Models\Account::where('account_code', '4002')->first();
+        $account = \App\Models\Account::where('account_code', '4006')->first();
         return $account?->id ?? 1;
+    }
+
+    protected function getBankChargesExpenseAccount(): int
+    {
+        $account = \App\Models\Account::where('account_code', '5008')->first();
+        return $account?->id ?? 1;
+    }
+
+    /**
+     * Resolve the default withdrawal charge when none is explicitly given:
+     * the chosen payment channel's own charge (mobile money/bank) takes
+     * priority over the savings product's flat fee.
+     */
+    protected function resolveWithdrawalCharge(SavingsProduct $product, ?int $paymentSourceAccountId): float
+    {
+        if ($paymentSourceAccountId) {
+            $charge = \App\Models\Account::where('id', $paymentSourceAccountId)->value('default_withdrawal_charge');
+            if ($charge !== null) {
+                return (float) $charge;
+            }
+        }
+
+        return (float) ($product->withdrawal_fee ?? 0);
+    }
+
+    /**
+     * Resolve the default bank/mobile money charge the provider levies on the
+     * SACCO for this channel, when none is explicitly given.
+     */
+    protected function resolveInstitutionCharge(?int $paymentSourceAccountId): float
+    {
+        if (!$paymentSourceAccountId) {
+            return 0;
+        }
+
+        return (float) (\App\Models\Account::where('id', $paymentSourceAccountId)->value('default_institution_charge') ?? 0);
     }
 
     protected function generateAccountNumber(): string

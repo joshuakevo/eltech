@@ -201,7 +201,7 @@
             <label class="form-label mb-1">Gender <span class="text-danger">*</span></label>
             <select name="gender" class="form-select form-select-sm @error('gender') is-invalid @enderror" required>
                 <option value="">— Select —</option>
-                <option value="male"   @selected(old('gender')=='male')>Male</option>
+                <option value="male"   @selected(old('gender','male')=='male')>Male</option>
                 <option value="female" @selected(old('gender')=='female')>Female</option>
                 <option value="other"  @selected(old('gender')=='other')>Other</option>
             </select>
@@ -216,7 +216,7 @@
             <label class="form-label mb-1">Marital Status <span class="text-danger">*</span></label>
             <select name="marital_status" class="form-select form-select-sm @error('marital_status') is-invalid @enderror" required>
                 <option value="">— Select —</option>
-                <option value="single"   @selected(old('marital_status')=='single')>Single</option>
+                <option value="single"   @selected(old('marital_status','single')=='single')>Single</option>
                 <option value="married"  @selected(old('marital_status')=='married')>Married</option>
                 <option value="divorced" @selected(old('marital_status')=='divorced')>Divorced</option>
                 <option value="widowed"  @selected(old('marital_status')=='widowed')>Widowed</option>
@@ -227,7 +227,7 @@
     <div class="row g-2 mb-2">
         <div class="col-md-4">
             <label class="form-label mb-1">Nationality <span class="text-danger">*</span></label>
-            <input type="text" name="nationality" class="form-control form-control-sm @error('nationality') is-invalid @enderror" value="{{ old('nationality') }}" placeholder="e.g. Ugandan" required>
+            <input type="text" name="nationality" class="form-control form-control-sm @error('nationality') is-invalid @enderror" value="{{ old('nationality', 'Uganda') }}" placeholder="e.g. Ugandan" required>
             @error('nationality')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
         <div class="col-md-4">
@@ -292,7 +292,7 @@
             <select name="employment_status" class="form-select form-select-sm @error('employment_status') is-invalid @enderror" required>
                 <option value="">— Select —</option>
                 <option value="employed"        @selected(old('employment_status')=='employed')>Employed</option>
-                <option value="self_employed"   @selected(old('employment_status')=='self_employed')>Self-Employed</option>
+                <option value="self_employed"   @selected(old('employment_status','self_employed')=='self_employed')>Self-Employed</option>
                 <option value="business_owner"  @selected(old('employment_status')=='business_owner')>Business Owner</option>
                 <option value="farmer"          @selected(old('employment_status')=='farmer')>Farmer</option>
                 <option value="student"         @selected(old('employment_status')=='student')>Student</option>
@@ -304,7 +304,7 @@
             <label class="form-label mb-1">Purpose of Joining <span class="text-danger">*</span></label>
             <select name="purpose_of_joining" class="form-select form-select-sm @error('purpose_of_joining') is-invalid @enderror" required>
                 <option value="">— Select —</option>
-                <option value="savings"             @selected(old('purpose_of_joining')=='savings')>Savings</option>
+                <option value="savings"             @selected(old('purpose_of_joining','savings')=='savings')>Savings</option>
                 <option value="loan"                @selected(old('purpose_of_joining')=='loan')>Loan</option>
                 <option value="investment"          @selected(old('purpose_of_joining')=='investment')>Investment</option>
                 <option value="business_financing"  @selected(old('purpose_of_joining')=='business_financing')>Business Financing</option>
@@ -377,6 +377,17 @@
                 <option value="">— Select —</option>
                 @foreach($branches as $branch)
                 <option value="{{ $branch->id }}" @selected(old('branch_id')==$branch->id)>{{ $branch->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
+        @if($segments->count())
+        <div class="col-md-3">
+            <label class="form-label mb-1">Segment</label>
+            <select name="segment_id" class="form-select form-select-sm">
+                <option value="">— Select —</option>
+                @foreach($segments as $segment)
+                <option value="{{ $segment->id }}" @selected(old('segment_id')==$segment->id)>{{ $segment->name }}</option>
                 @endforeach
             </select>
         </div>

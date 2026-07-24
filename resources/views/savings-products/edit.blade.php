@@ -26,8 +26,21 @@
                             <input type="number" name="withdrawal_fee" class="form-control" step="0.01" value="{{ old('withdrawal_fee', $savingsProduct->withdrawal_fee) }}">
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label fw-semibold">Interest Method</label>
+                            <select name="interest_method" id="interestMethod" class="form-select">
+                                <option value="flat"   @selected(old('interest_method',$savingsProduct->interest_method)=='flat')>Flat Rate</option>
+                                <option value="tiered" @selected(old('interest_method',$savingsProduct->interest_method)=='tiered')>Graduated Tiers</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4" id="flatRateField">
                             <label class="form-label fw-semibold">Interest Rate (% p.a.)</label>
                             <input type="number" name="interest_rate" class="form-control" step="0.01" value="{{ old('interest_rate', $savingsProduct->interest_rate) }}">
+                            <div class="form-text">Used when Interest Method is Flat Rate.</div>
+                        </div>
+                        <div class="col-md-8" id="tieredNote" style="display:none">
+                            <div class="alert alert-info py-2 mb-0 small">Interest is calculated from the org-wide <a href="{{ route('savings-interest-tiers.edit') }}">Savings Interest Tiers</a> &mdash; each portion of the balance earns its own bracket's rate.</div>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -71,4 +84,13 @@
         </div>
     </div>
 </div>
+<script>
+function toggleInterestMethod() {
+    const tiered = document.getElementById('interestMethod').value === 'tiered';
+    document.getElementById('flatRateField').style.display = tiered ? 'none' : '';
+    document.getElementById('tieredNote').style.display    = tiered ? '' : 'none';
+}
+document.getElementById('interestMethod').addEventListener('change', toggleInterestMethod);
+document.addEventListener('DOMContentLoaded', toggleInterestMethod);
+</script>
 @endsection

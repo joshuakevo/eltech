@@ -279,6 +279,17 @@
             </select>
         </div>
         @endif
+        @if($segments->count())
+        <div class="col-md-6">
+            <label class="form-label">Segment</label>
+            <select name="segment_id" class="form-select">
+                <option value="">— Select Segment —</option>
+                @foreach($segments as $segment)
+                <option value="{{ $segment->id }}" @selected(old('segment_id',$client->segment_id)==$segment->id)>{{ $segment->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
         <div class="col-md-6">
             <label class="form-label">Account Status</label>
             <select name="status" class="form-select">

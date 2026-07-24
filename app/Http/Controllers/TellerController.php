@@ -84,11 +84,13 @@ class TellerController extends Controller
             'reference'                 => 'required|string|max:100|unique:transactions,reference',
             'narration'                 => 'nullable|string|max:200',
             'withdrawal_fee'            => 'nullable|numeric|min:0',
+            'institution_charge'        => 'nullable|numeric|min:0',
             'payment_source_account_id' => 'required|exists:accounts,id',
         ]);
 
-        $account = SavingsAccount::findOrFail($data['savings_account_id']);
-        $fee     = isset($data['withdrawal_fee']) ? (float) $data['withdrawal_fee'] : null;
+        $account           = SavingsAccount::findOrFail($data['savings_account_id']);
+        $fee               = isset($data['withdrawal_fee']) ? (float) $data['withdrawal_fee'] : null;
+        $institutionCharge = isset($data['institution_charge']) ? (float) $data['institution_charge'] : null;
 
         try {
             $this->savings->withdraw(
@@ -98,7 +100,8 @@ class TellerController extends Controller
                 $data['narration'] ?? 'Teller withdrawal',
                 $data['reference'] ?? null,
                 $fee,
-                isset($data['payment_source_account_id']) ? (int) $data['payment_source_account_id'] : null
+                isset($data['payment_source_account_id']) ? (int) $data['payment_source_account_id'] : null,
+                $institutionCharge
             );
             return back()->with('success', "Withdrawal of " . number_format($data['amount'], 2) . " posted successfully.");
         } catch (\Exception $e) {

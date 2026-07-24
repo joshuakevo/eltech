@@ -19,7 +19,16 @@
         <dl class="row">
             <dt class="col-4 fw-normal text-muted">Minimum Balance</dt><dd class="col-8">{{ number_format($savingsProduct->minimum_balance, $dp) }}</dd>
             <dt class="col-4 fw-normal text-muted">Withdrawal Fee</dt><dd class="col-8">{{ number_format($savingsProduct->withdrawal_fee, $dp) }}</dd>
-            <dt class="col-4 fw-normal text-muted">Interest Rate</dt><dd class="col-8">{{ $savingsProduct->interest_rate }}% p.a.</dd>
+            <dt class="col-4 fw-normal text-muted">Interest Method</dt>
+            <dd class="col-8">
+                @if($savingsProduct->interest_method === 'tiered')
+                    <span class="badge bg-primary-subtle text-primary">Graduated Tiers</span>
+                    <span class="text-muted small">— see <a href="{{ route('savings-interest-tiers.edit') }}">Savings Interest Tiers</a></span>
+                @else
+                    <span class="badge bg-secondary-subtle text-secondary">Flat Rate</span>
+                    {{ $savingsProduct->interest_rate }}% p.a.
+                @endif
+            </dd>
             <dt class="col-4 fw-normal text-muted">Interest Frequency</dt><dd class="col-8">{{ ucfirst($savingsProduct->interest_frequency) }}</dd>
             <dt class="col-4 fw-normal text-muted">Liability Account</dt><dd class="col-8">{{ $savingsProduct->liabilityAccount?->account_code }} — {{ $savingsProduct->liabilityAccount?->account_name ?? '—' }}</dd>
             <dt class="col-4 fw-normal text-muted">Interest Expense</dt><dd class="col-8">{{ $savingsProduct->interestExpenseAccount?->account_code }} — {{ $savingsProduct->interestExpenseAccount?->account_name ?? '—' }}</dd>

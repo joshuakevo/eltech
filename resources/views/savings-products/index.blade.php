@@ -22,7 +22,7 @@
                     <td class="ps-3 fw-semibold">{{ $p->name }}</td>
                     <td>{{ number_format($p->minimum_balance, $dp) }}</td>
                     <td>{{ number_format($p->withdrawal_fee, $dp) }}</td>
-                    <td>{{ $p->interest_rate }}% p.a.</td>
+                    <td>{{ $p->interest_method === 'tiered' ? 'Graduated Tiers' : $p->interest_rate . '% p.a.' }}</td>
                     <td class="small">{{ ucfirst($p->interest_frequency) }}</td>
                     <td><span class="badge {{ $p->is_active ? 'bg-success' : 'bg-secondary' }} bg-opacity-10 {{ $p->is_active ? 'text-success' : 'text-secondary' }}">{{ $p->is_active ? 'Active' : 'Inactive' }}</span></td>
                     <td class="pe-3">

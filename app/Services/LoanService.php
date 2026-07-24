@@ -456,19 +456,17 @@ class LoanService
     /** Returns per-installment penalty amounts keyed by schedule ID. */
     public function penaltyBreakdown(Loan $loan): array
     {
-        $product = $loan->product;
-        if (!$product || $product->penalty_rate <= 0) return [];
-
-        $breakdown = [];
         $overdueSchedules = $loan->schedules()
             ->where('due_date', '<', now()->toDateString())
             ->where('status', '!=', 'paid')
             ->get();
+        if ($overdueSchedules->isEmpty()) return [];
 
+        $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
+
+        $breakdown = [];
         foreach ($overdueSchedules as $schedule) {
-            $daysOverdue   = Carbon::parse($schedule->due_date)->diffInDays(now());
-            $overdueAmount = $schedule->principal_due - $schedule->principal_paid;
-            $breakdown[$schedule->id] = round($overdueAmount * ($product->penalty_rate / 100) * $daysOverdue, 2);
+            $breakdown[$schedule->id] = $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
         }
 
         return $breakdown;
@@ -476,22 +474,37 @@ class LoanService
 
     protected function calculatePenalty(Loan $loan): float
     {
-        $product = $loan->product;
-        if (!$product || $product->penalty_rate <= 0) return 0;
-
         $overdueSchedules = $loan->schedules()
             ->where('due_date', '<', now()->toDateString())
             ->where('status', '!=', 'paid')
             ->get();
+        if ($overdueSchedules->isEmpty()) return 0;
+
+        $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
 
         $penalty = 0;
         foreach ($overdueSchedules as $schedule) {
-            $daysOverdue = Carbon::parse($schedule->due_date)->diffInDays(now());
-            $overdueAmount = ($schedule->principal_due - $schedule->principal_paid);
-            $penalty += $overdueAmount * ($product->penalty_rate / 100) * $daysOverdue;
+            $penalty += $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
         }
 
         return round($penalty, 2);
+    }
+
+    /**
+     * Flat, one-time penalty for a missed installment, selected by which bracket
+     * the installment's own amount falls into (org-wide Loan Penalty Tiers) —
+     * not a percentage, and not multiplied by days overdue.
+     */
+    protected function resolvePenaltyTierAmount(float $installmentAmount, \Illuminate\Support\Collection $tiers): float
+    {
+        foreach ($tiers as $tier) {
+            $max = $tier->max_installment;
+            if ($installmentAmount >= $tier->min_installment && ($max === null || $installmentAmount <= $max)) {
+                return (float) $tier->penalty_amount;
+            }
+        }
+
+        return 0;
     }
 
     protected function updateScheduleStatuses(Loan $loan, float $principalPaid, float $interestPaid): void

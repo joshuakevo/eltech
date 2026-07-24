@@ -97,11 +97,13 @@ class SavingsAccountController extends Controller
             'description'               => 'nullable|string|max:255',
             'reference'                 => 'required|string|max:100|unique:transactions,reference',
             'withdrawal_fee'            => 'nullable|numeric|min:0',
+            'institution_charge'        => 'nullable|numeric|min:0',
             'payment_source_account_id' => 'required|exists:accounts,id',
         ]);
 
         try {
-            $fee = $request->has('withdrawal_fee') ? (float) $request->withdrawal_fee : null;
+            $fee               = $request->has('withdrawal_fee') ? (float) $request->withdrawal_fee : null;
+            $institutionCharge = $request->has('institution_charge') ? (float) $request->institution_charge : null;
             $this->savingsService->withdraw(
                 $saving,
                 $request->amount,
@@ -109,7 +111,8 @@ class SavingsAccountController extends Controller
                 $request->description ?? 'Withdrawal',
                 $request->reference,
                 $fee,
-                $request->payment_source_account_id ? (int) $request->payment_source_account_id : null
+                $request->payment_source_account_id ? (int) $request->payment_source_account_id : null,
+                $institutionCharge
             );
             return redirect()->route('savings.show', $saving)->with('success', 'Withdrawal processed.');
         } catch (\InvalidArgumentException $e) {

@@ -6,6 +6,9 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\ClientSegmentController;
+use App\Http\Controllers\LoanPenaltyTierController;
+use App\Http\Controllers\SavingsInterestTierController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\MemberShareController;
 use App\Http\Controllers\DashboardController;
@@ -90,6 +93,8 @@ Route::middleware('auth')->group(function () {
 
     // ── Clients ───────────────────────────────────────────────────────
     Route::resource('clients', ClientController::class)->middleware('permission:view clients');
+    Route::patch('clients/{client}/segment', [ClientController::class, 'updateSegment'])
+        ->name('clients.segment.update')->middleware('permission:edit clients');
     Route::post('clients/{client}/invite', [ClientController::class, 'invite'])
         ->name('clients.invite')->middleware('permission:edit clients');
     Route::post('clients/{client}/invite-members', [ClientController::class, 'inviteGroupMembers'])
@@ -301,6 +306,11 @@ Route::middleware('auth')->group(function () {
         ->except(['destroy'])
         ->middleware('permission:manage branches');
 
+    // ── Client Segments ──────────────────────────────────────────────
+    Route::resource('client-segments', ClientSegmentController::class)
+        ->only(['index', 'create', 'store', 'edit', 'update'])
+        ->middleware('permission:manage client segments');
+
     // ── User Management ───────────────────────────────────────────────
     Route::middleware('permission:manage users')->group(function () {
         Route::resource('users', UserController::class)->except(['destroy']);
@@ -325,6 +335,12 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo');
         Route::delete('settings/logo', [SettingsController::class, 'removeLogo'])->name('settings.logo.remove');
         Route::post('settings/reconcile', [SettingsController::class, 'reconcile'])->name('settings.reconcile');
+
+        Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
+        Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');
+
+        Route::get('savings-interest-tiers', [SavingsInterestTierController::class, 'edit'])->name('savings-interest-tiers.edit');
+        Route::put('savings-interest-tiers', [SavingsInterestTierController::class, 'update'])->name('savings-interest-tiers.update');
     });
 
     // ── Audit Log ─────────────────────────────────────────────────────

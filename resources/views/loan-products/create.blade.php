@@ -51,6 +51,7 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Penalty Rate (%/day)</label>
                             <input type="number" name="penalty_rate" class="form-control" step="0.001" min="0" value="{{ old('penalty_rate', 0) }}">
+                            <div class="form-text">Not used for calculation &mdash; penalties are now governed by the org-wide <a href="{{ route('loan-penalty-tiers.edit') }}">Loan Penalty Tiers</a>.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Min Amount</label>

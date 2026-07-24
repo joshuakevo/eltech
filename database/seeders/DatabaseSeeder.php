@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             ChartOfAccountsSeeder::class,
             AdminUserSeeder::class,
+            LoanPenaltyTierSeeder::class,
+            SavingsInterestTierSeeder::class,
         ]);
     }
 }
