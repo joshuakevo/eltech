@@ -98,4 +98,42 @@ class SettingsController extends Controller
 
         return back()->with($fixed > 0 ? 'success' : 'success', $msg);
     }
+
+    /** Seeders safe to trigger from the browser — deliberately not free-text input. */
+    private const RUNNABLE_SEEDERS = [
+        'LoanPenaltyTierSeeder'    => 'Loan Penalty Tiers',
+        'SavingsInterestTierSeeder' => 'Savings Interest Tiers',
+    ];
+
+    public function migrate()
+    {
+        Artisan::call('migrate', ['--force' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Migrations run.\n\n{$output}");
+    }
+
+    public function seed(Request $request)
+    {
+        $request->validate([
+            'seeder' => 'required|in:' . implode(',', array_keys(self::RUNNABLE_SEEDERS)),
+        ]);
+
+        Artisan::call('db:seed', [
+            '--class' => 'Database\\Seeders\\' . $request->seeder,
+            '--force' => true,
+        ]);
+        $output = Artisan::output();
+
+        return back()->with('success', self::RUNNABLE_SEEDERS[$request->seeder] . " seeder run.\n\n{$output}");
+    }
+
+    public function clearCache()
+    {
+        Artisan::call('view:clear');
+        Artisan::call('route:clear');
+        Artisan::call('config:clear');
+
+        return back()->with('success', 'View, route, and config caches cleared.');
+    }
 }

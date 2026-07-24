@@ -8,7 +8,7 @@
 
 @if(session('success'))
     <div class="alert alert-success alert-dismissible fade show">
-        <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
+        <i class="bi bi-check-circle me-2"></i><span style="white-space:pre-line">{{ session('success') }}</span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 @endif
@@ -142,6 +142,48 @@ $groupIcons = [
                 <i class="bi bi-arrow-repeat me-2"></i>Run Reconciliation
             </button>
         </form>
+    </div>
+</div>
+
+{{-- Deployment Maintenance --}}
+<div class="card mt-4 border-danger">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-hdd-stack text-danger"></i>
+        <span>Deployment Maintenance</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Run these after deploying new code on a host with no terminal access. Run in order: Migrate, then Seed (if a release note says to), then Clear Cache.
+        </p>
+        <div class="d-flex flex-wrap gap-2 align-items-start">
+            <form method="POST" action="{{ route('settings.migrate') }}"
+                  onsubmit="return confirm('Run pending database migrations now? This changes the database schema.')">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-database-fill-up me-2"></i>Run Migrations
+                </button>
+            </form>
+
+            <form method="POST" action="{{ route('settings.seed') }}" class="d-flex gap-2"
+                  onsubmit="return confirm('Run this seeder now?')">
+                @csrf
+                <select name="seeder" class="form-select" required>
+                    <option value="">— Select seeder —</option>
+                    <option value="LoanPenaltyTierSeeder">Loan Penalty Tiers</option>
+                    <option value="SavingsInterestTierSeeder">Savings Interest Tiers</option>
+                </select>
+                <button type="submit" class="btn btn-outline-secondary text-nowrap">
+                    <i class="bi bi-database-add me-2"></i>Run Seeder
+                </button>
+            </form>
+
+            <form method="POST" action="{{ route('settings.clear-cache') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-eraser-fill me-2"></i>Clear Cache
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 @endsection
