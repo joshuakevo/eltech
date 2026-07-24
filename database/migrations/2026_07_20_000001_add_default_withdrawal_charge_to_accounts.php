@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('accounts', 'default_withdrawal_charge')) {
+            return;
+        }
+
         Schema::table('accounts', function (Blueprint $table) {
             $table->decimal('default_withdrawal_charge', 15, 2)->nullable()->after('is_payment_source');
         });

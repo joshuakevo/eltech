@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('clients', 'segment_id')) {
+            return;
+        }
+
         Schema::table('clients', function (Blueprint $table) {
             $table->unsignedBigInteger('segment_id')->nullable()->after('branch_id');
             $table->foreign('segment_id')->references('id')->on('client_segments')->nullOnDelete();

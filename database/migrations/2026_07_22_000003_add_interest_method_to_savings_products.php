@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('savings_products', 'interest_method')) {
+            return;
+        }
+
         Schema::table('savings_products', function (Blueprint $table) {
             $table->enum('interest_method', ['flat', 'tiered'])->default('flat')->after('interest_rate');
         });

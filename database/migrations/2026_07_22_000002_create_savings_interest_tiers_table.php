@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('savings_interest_tiers')) {
+            return;
+        }
+
         Schema::create('savings_interest_tiers', function (Blueprint $table) {
             $table->id();
             $table->decimal('min_balance', 15, 2);
