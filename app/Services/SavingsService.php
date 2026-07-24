@@ -377,14 +377,17 @@ class SavingsService
         $prefix = 'SAV';
         $year   = now()->format('y');
 
-        $lastNumber = SavingsAccount::where('account_number', 'like', "{$prefix}{$year}%")
+        // withTrashed(): SavingsAccount is soft-deleted, but the row -- and its unique
+        // account_number -- still physically exists, so it must still count as taken.
+        $lastNumber = SavingsAccount::withTrashed()
+            ->where('account_number', 'like', "{$prefix}{$year}%")
             ->orderByDesc('account_number')
             ->value('account_number');
         $next = $lastNumber ? ((int) substr($lastNumber, -5)) + 1 : 1;
 
         do {
             $candidate = "{$prefix}{$year}" . str_pad($next, 5, '0', STR_PAD_LEFT);
-            $taken     = SavingsAccount::where('account_number', $candidate)->exists();
+            $taken     = SavingsAccount::withTrashed()->where('account_number', $candidate)->exists();
             $next++;
         } while ($taken);
 

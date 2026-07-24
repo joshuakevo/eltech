@@ -414,14 +414,17 @@ class ClientController extends Controller
 
     private function generateGroupNumber(): string
     {
-        $lastNumber = Group::where('group_number', 'like', 'GRP-%')
+        // withTrashed(): Group is soft-deleted, but the row -- and its unique
+        // group_number -- still physically exists, so it must still count as taken.
+        $lastNumber = Group::withTrashed()
+            ->where('group_number', 'like', 'GRP-%')
             ->orderByDesc('group_number')
             ->value('group_number');
         $next = $lastNumber ? ((int) substr($lastNumber, -6)) + 1 : 1;
 
         do {
             $candidate = 'GRP-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT);
-            $taken     = Group::where('group_number', $candidate)->exists();
+            $taken     = Group::withTrashed()->where('group_number', $candidate)->exists();
             $next++;
         } while ($taken);
 
