@@ -428,7 +428,18 @@ class FixedDepositService
     {
         $prefix = 'FD';
         $year   = now()->format('Y');
-        $last   = FixedDeposit::whereYear('created_at', $year)->count() + 1;
-        return "{$prefix}-{$year}-" . str_pad($last, 5, '0', STR_PAD_LEFT);
+
+        $lastNumber = FixedDeposit::where('deposit_number', 'like', "{$prefix}-{$year}-%")
+            ->orderByDesc('deposit_number')
+            ->value('deposit_number');
+        $next = $lastNumber ? ((int) substr($lastNumber, -5)) + 1 : 1;
+
+        do {
+            $candidate = "{$prefix}-{$year}-" . str_pad($next, 5, '0', STR_PAD_LEFT);
+            $taken     = FixedDeposit::where('deposit_number', $candidate)->exists();
+            $next++;
+        } while ($taken);
+
+        return $candidate;
     }
 }
