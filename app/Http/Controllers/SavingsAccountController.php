@@ -52,7 +52,10 @@ class SavingsAccountController extends Controller
     public function show(SavingsAccount $saving)
     {
         $saving->load('client', 'product', 'transactions.createdBy');
-        return view('savings.show', compact('saving'));
+        $projectedInterest = $saving->product->interest_method === 'tiered'
+            ? $this->savingsService->previewAccruedInterest($saving)
+            : 0;
+        return view('savings.show', compact('saving', 'projectedInterest'));
     }
 
     public function depositForm(SavingsAccount $saving)
@@ -162,8 +165,11 @@ class SavingsAccountController extends Controller
         $account      = $saving;
         $fromDate     = $request->from_date;
         $toDate       = $request->to_date;
+        $projectedInterest = $account->product->interest_method === 'tiered'
+            ? $this->savingsService->previewAccruedInterest($account, $toDate)
+            : 0;
 
-        return view('savings.statement', compact('account', 'transactions', 'fromDate', 'toDate'));
+        return view('savings.statement', compact('account', 'transactions', 'fromDate', 'toDate', 'projectedInterest'));
     }
 
     public function statementPdf(Request $request, SavingsAccount $saving)
@@ -183,8 +189,11 @@ class SavingsAccountController extends Controller
         $account      = $saving;
         $fromDate     = $request->from_date;
         $toDate       = $request->to_date;
+        $projectedInterest = $account->product->interest_method === 'tiered'
+            ? $this->savingsService->previewAccruedInterest($account, $toDate)
+            : 0;
 
-        $pdf = Pdf::loadView('pdf.savings-statement', compact('account', 'transactions', 'fromDate', 'toDate'))
+        $pdf = Pdf::loadView('pdf.savings-statement', compact('account', 'transactions', 'fromDate', 'toDate', 'projectedInterest'))
             ->setPaper('a4', 'portrait');
         return $pdf->download("savings-statement-{$saving->account_number}.pdf");
     }
@@ -212,9 +221,11 @@ class SavingsAccountController extends Controller
             'interest_date' => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
         ]);
 
+        // Tiered products are eligible regardless of their own (unused) interest_rate,
+        // since the org-wide Savings Interest Tiers govern their rate instead.
         $accounts = SavingsAccount::with('product')
             ->where('status', 'active')
-            ->whereHas('product', fn($q) => $q->where('interest_rate', '>', 0))
+            ->whereHas('product', fn($q) => $q->where('interest_method', 'tiered')->orWhere('interest_rate', '>', 0))
             ->get();
 
         $posted  = 0;

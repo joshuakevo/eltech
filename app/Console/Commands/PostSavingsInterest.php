@@ -8,17 +8,25 @@ use Illuminate\Console\Command;
 
 class PostSavingsInterest extends Command
 {
-    protected $signature   = 'eltech:post-interest {--date= : Date to post interest (default: today)} {--account= : Only post for a specific account number}';
+    protected $signature   = 'eltech:post-interest {--date= : Date to post interest (default: today)} {--account= : Only post for a specific account number} {--method= : Only post for accounts whose product uses this interest method (flat|tiered)}';
     protected $description = 'Post periodic interest to all eligible savings accounts';
 
     public function handle(SavingsService $savingsService): int
     {
         $date    = $this->option('date') ?: today()->toDateString();
         $acctNum = $this->option('account');
+        $method  = $this->option('method');
 
         $query = SavingsAccount::with('product')
             ->where('status', 'active')
-            ->whereHas('product', fn($q) => $q->where('interest_rate', '>', 0));
+            ->whereHas('product', function ($q) use ($method) {
+                $q->where(function ($q2) {
+                    $q2->where('interest_method', 'tiered')->orWhere('interest_rate', '>', 0);
+                });
+                if ($method) {
+                    $q->where('interest_method', $method);
+                }
+            });
 
         if ($acctNum) {
             $query->where('account_number', $acctNum);

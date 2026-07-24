@@ -223,22 +223,7 @@ class SavingsService
             );
         }
 
-        $periodEnd = \Carbon\Carbon::parse($date);
-
-        // Period start: day after last posting if it exists,
-        // otherwise the earliest of (opened_date, first transaction date).
-        // This handles backdated deposits that pre-date the account's opened_date.
-        if ($lastDate) {
-            $periodStart = \Carbon\Carbon::parse($lastDate)->addDay();
-        } else {
-            $firstTxDate = SavingsTransaction::where('savings_account_id', $account->id)
-                ->orderBy('transaction_date')->orderBy('id')
-                ->value('transaction_date');
-            $openDate    = \Carbon\Carbon::parse($account->opened_date);
-            $periodStart = $firstTxDate
-                ? \Carbon\Carbon::parse(min($account->opened_date, $firstTxDate))
-                : $openDate;
-        }
+        [$periodStart, $periodEnd] = $this->interestAccrualPeriod($account, $date);
 
         // Safety: if period start is after the posting date, nothing to calculate
         if ($periodStart->gt($periodEnd)) {
@@ -247,27 +232,7 @@ class SavingsService
             );
         }
 
-        $useTiers  = $product->interest_method === 'tiered';
-        $tiers     = $useTiers ? \App\Models\SavingsInterestTier::orderBy('min_balance')->get() : null;
-        $dailyRate = $useTiers ? null : ((float) $product->interest_rate / 100 / 365);
-
-        // Sum daily interest: for each day in the period, apply either this
-        // product's own flat rate, or the graduated (marginal) org-wide
-        // interest tiers, to that day's closing balance.
-        $totalInterest = 0.0;
-        $cursor        = $periodStart->copy();
-
-        while ($cursor->lte($periodEnd)) {
-            $dayBalance = $this->balanceAsOf($account, $cursor->toDateString());
-            if ($dayBalance > 0) {
-                $totalInterest += $useTiers
-                    ? $this->graduatedDailyInterest($dayBalance, $tiers)
-                    : $dayBalance * $dailyRate;
-            }
-            $cursor->addDay();
-        }
-
-        $totalInterest = round($totalInterest, 2);
+        $totalInterest = $this->sumAccruedInterest($account, $product, $periodStart, $periodEnd);
         if ($totalInterest <= 0) return null;
 
         $periodLabel = $periodStart->format('d M Y') . ' – ' . $periodEnd->format('d M Y');
@@ -281,6 +246,88 @@ class SavingsService
         $account->update(['last_interest_date' => $date]);
 
         return $txn;
+    }
+
+    /**
+     * Preview the interest that WOULD be credited if postInterest() were run as of
+     * $asOfDate, WITHOUT posting anything. Used to show "balance including interest"
+     * for tiered-interest products, whose actual crediting is manually triggered
+     * (typically once a year) rather than automatic like flat-rate products.
+     */
+    public function previewAccruedInterest(SavingsAccount $account, ?string $asOfDate = null): float
+    {
+        $product = $account->product;
+        if ($account->status !== 'active') return 0.0;
+        if ($product->interest_method === 'flat' && $product->interest_rate <= 0) return 0.0;
+
+        $asOfDate = $asOfDate ?? today()->toDateString();
+
+        $lastDate = $account->last_interest_date
+            ? \Carbon\Carbon::parse($account->last_interest_date)->toDateString()
+            : null;
+        if ($lastDate && $lastDate >= $asOfDate) return 0.0;
+
+        [$periodStart, $periodEnd] = $this->interestAccrualPeriod($account, $asOfDate);
+        if ($periodStart->gt($periodEnd)) return 0.0;
+
+        return $this->sumAccruedInterest($account, $product, $periodStart, $periodEnd);
+    }
+
+    /**
+     * The [start, end] window that would be accrued if interest were posted as of
+     * $toDate: the day after the last posting, or (if never posted) the earliest of
+     * the account's opened_date / first transaction date -- through $toDate.
+     *
+     * @return array{0: \Carbon\Carbon, 1: \Carbon\Carbon}
+     */
+    protected function interestAccrualPeriod(SavingsAccount $account, string $toDate): array
+    {
+        $lastDate = $account->last_interest_date
+            ? \Carbon\Carbon::parse($account->last_interest_date)->toDateString()
+            : null;
+
+        $periodEnd = \Carbon\Carbon::parse($toDate);
+
+        if ($lastDate) {
+            $periodStart = \Carbon\Carbon::parse($lastDate)->addDay();
+        } else {
+            $firstTxDate = SavingsTransaction::where('savings_account_id', $account->id)
+                ->orderBy('transaction_date')->orderBy('id')
+                ->value('transaction_date');
+            $openDate    = \Carbon\Carbon::parse($account->opened_date);
+            $periodStart = $firstTxDate
+                ? \Carbon\Carbon::parse(min($account->opened_date, $firstTxDate))
+                : $openDate;
+        }
+
+        return [$periodStart, $periodEnd];
+    }
+
+    /**
+     * Sum daily interest over [periodStart, periodEnd]: for each day, apply either
+     * the product's own flat rate, or the graduated (marginal) org-wide interest
+     * tiers, to that day's closing balance.
+     */
+    protected function sumAccruedInterest(SavingsAccount $account, SavingsProduct $product, \Carbon\Carbon $periodStart, \Carbon\Carbon $periodEnd): float
+    {
+        $useTiers  = $product->interest_method === 'tiered';
+        $tiers     = $useTiers ? \App\Models\SavingsInterestTier::orderBy('min_balance')->get() : null;
+        $dailyRate = $useTiers ? null : ((float) $product->interest_rate / 100 / 365);
+
+        $totalInterest = 0.0;
+        $cursor        = $periodStart->copy();
+
+        while ($cursor->lte($periodEnd)) {
+            $dayBalance = $this->balanceAsOf($account, $cursor->toDateString());
+            if ($dayBalance > 0) {
+                $totalInterest += $useTiers
+                    ? $this->graduatedDailyInterest($dayBalance, $tiers)
+                    : $dayBalance * $dailyRate;
+            }
+            $cursor->addDay();
+        }
+
+        return round($totalInterest, 2);
     }
 
     /**

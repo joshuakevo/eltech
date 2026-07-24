@@ -67,10 +67,11 @@
                 @csrf
                 <div class="modal-body">
                     <div class="alert alert-info small mb-3">
-                        Posts interest to <strong>all active savings accounts</strong> with an interest rate &gt; 0%.<br>
+                        Posts interest to <strong>all active savings accounts</strong> on a flat-rate product (rate &gt; 0%) or on a graduated-tiers product.<br>
                         Interest is the <strong>sum of daily accruals</strong> from the last posting date up to the selected date —
                         deposits and withdrawals during the period are correctly reflected.<br>
-                        You control the schedule — run it on the 25th, end of month, or any date you choose.
+                        Flat-rate products are also credited automatically on the 1st of every month. <strong>Tiered products are never credited automatically</strong> —
+                        they only accrue silently (see each account's "Balance incl. Interest") until you run this.
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Posting Date <span class="text-danger">*</span></label>

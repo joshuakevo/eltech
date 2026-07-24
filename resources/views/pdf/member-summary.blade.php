@@ -47,6 +47,7 @@
     <tr>
         <td><span class="lbl">Members</span><span class="val">{{ $members->count() }}</span></td>
         <td><span class="lbl">Total Savings</span><span class="val text-primary">{{ number_format($totals['savings'], 0) }}</span></td>
+        <td><span class="lbl">Savings Interest</span><span class="val text-primary">{{ number_format($totals['savings_interest'], 0) }}</span></td>
         <td><span class="lbl">Loan Principal</span><span class="val text-danger">{{ number_format($totals['loan_principal'], 0) }}</span></td>
         <td><span class="lbl">Loan Interest</span><span class="val text-warning">{{ number_format($totals['loan_interest'], 0) }}</span></td>
         <td><span class="lbl">Fixed Deposits</span><span class="val text-info">{{ number_format($totals['fd_amount'], 0) }}</span></td>
@@ -62,6 +63,7 @@
             <th>Member Name</th>
             <th>Client #</th>
             <th class="r">Savings Bal.</th>
+            <th class="r">Savings Interest</th>
             <th class="r">Loan Principal</th>
             <th class="r">Loan Interest</th>
             <th class="r">Fixed Deposits</th>
@@ -78,6 +80,9 @@
         <td class="text-muted">{{ $row->client->client_number }}</td>
         <td class="r {{ $row->savings_balance > 0 ? 'text-primary' : 'text-muted' }}">
             {{ number_format($row->savings_balance, 0) }}
+        </td>
+        <td class="r {{ $row->savings_interest > 0 ? 'text-primary' : 'text-muted' }}">
+            {{ $row->savings_interest > 0 ? number_format($row->savings_interest, 0) : '—' }}
         </td>
         <td class="r {{ $row->loan_principal > 0 ? 'text-danger' : 'text-muted' }}">
             {{ $row->loan_principal > 0 ? number_format($row->loan_principal, 0) : '—' }}
@@ -102,6 +107,7 @@
         <tr>
             <td colspan="3">TOTALS ({{ $members->count() }} members)</td>
             <td class="r text-primary">{{ number_format($totals['savings'], 0) }}</td>
+            <td class="r text-primary">{{ number_format($totals['savings_interest'], 0) }}</td>
             <td class="r text-danger">{{ number_format($totals['loan_principal'], 0) }}</td>
             <td class="r text-warning">{{ number_format($totals['loan_interest'], 0) }}</td>
             <td class="r text-info">{{ number_format($totals['fd_amount'], 0) }}</td>
@@ -113,7 +119,7 @@
 </table>
 
 <div class="footer">
-    Savings = active accounts only &bull; Loans = active outstanding balances &bull; FD = active principal &bull; 1 share = UGX {{ number_format($shareValue, 0) }}
+    Savings = active accounts only &bull; Savings Interest = accrued-but-uncredited interest on graduated-tier products only &bull; Loans = active outstanding balances &bull; FD = active principal &bull; 1 share = UGX {{ number_format($shareValue, 0) }}
 </div>
 </body>
 </html>

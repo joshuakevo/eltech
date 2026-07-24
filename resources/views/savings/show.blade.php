@@ -71,6 +71,40 @@
     <div class="alert alert-danger alert-dismissible fade show py-2">{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
 
+@if($saving->product->interest_method === 'tiered')
+<div class="row g-3 mb-4">
+    <div class="col">
+        <div class="stat-card text-center">
+            <div class="text-muted small">Balance (excl. Interest)</div>
+            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance, $dp) }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card text-center">
+            <div class="text-muted small">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, uncredited)</span></div>
+            <div class="fw-bold fs-5 text-success">{{ number_format($projectedInterest, $dp) }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card text-center">
+            <div class="text-muted small">Balance (incl. Interest)</div>
+            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance + $projectedInterest, $dp) }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card text-center">
+            <div class="text-muted small">Min Balance</div>
+            <div class="fw-bold fs-5">{{ number_format($saving->product->minimum_balance, $dp) }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card text-center">
+            <div class="text-muted small">Status</div>
+            <div class="fw-bold fs-5"><span class="badge badge-status-{{ $saving->status }}">{{ ucfirst($saving->status) }}</span></div>
+        </div>
+    </div>
+</div>
+@else
 <div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="stat-card text-center">
@@ -97,6 +131,7 @@
         </div>
     </div>
 </div>
+@endif
 
 <div class="card">
     <div class="card-header">Transaction History</div>

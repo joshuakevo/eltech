@@ -12,12 +12,13 @@ use App\Models\SavingsAccount;
 use App\Models\TransactionLine;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\AccountingService;
+use App\Services\SavingsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function __construct(protected AccountingService $accounting) {}
+    public function __construct(protected AccountingService $accounting, protected SavingsService $savingsService) {}
 
     public function index()
     {
@@ -502,6 +503,23 @@ class ReportController extends Controller
             ->select('client_id', \DB::raw('SUM(amount_paid) as paid'))
             ->pluck('paid', 'client_id');
 
+        // Savings interest (tiered products only): accrued but not yet credited, per
+        // client. Flat products are excluded -- their interest is already folded into
+        // savings_balance since it's credited automatically every month. Computed via
+        // a per-account loop (not a bulk SQL aggregate) because the graduated-tier
+        // calculation is a day-by-day accrual, same as SavingsService::postInterest().
+        $savingsInterests = [];
+        $tieredAccounts = SavingsAccount::with('product')
+            ->where('status', 'active')
+            ->whereHas('product', fn($q) => $q->where('interest_method', 'tiered'))
+            ->get();
+        foreach ($tieredAccounts as $account) {
+            $projected = $this->savingsService->previewAccruedInterest($account, $asOf);
+            if ($projected > 0) {
+                $savingsInterests[$account->client_id] = ($savingsInterests[$account->client_id] ?? 0) + $projected;
+            }
+        }
+
         // Group balance: for group-type clients, sum of their group members' balances
         $groupBalances = \DB::table('groups as g')
             ->join('group_members as gm', 'gm.group_id', '=', 'g.id')
@@ -516,8 +534,9 @@ class ReportController extends Controller
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderBy('name')
             ->get()
-            ->map(function ($client) use ($savingsBalances, $loanPrincipals, $loanInterests, $fdAmounts, $shareAmounts, $groupBalances, $shareValue) {
-                $savingsBalance = (float) ($savingsBalances[$client->id] ?? 0);
+            ->map(function ($client) use ($savingsBalances, $savingsInterests, $loanPrincipals, $loanInterests, $fdAmounts, $shareAmounts, $groupBalances, $shareValue) {
+                $savingsBalance  = (float) ($savingsBalances[$client->id] ?? 0);
+                $savingsInterest = (float) ($savingsInterests[$client->id] ?? 0);
                 $loanPrincipal  = (float) ($loanPrincipals[$client->id]  ?? 0);
                 $loanInterest   = (float) ($loanInterests[$client->id]   ?? 0);
                 $fdAmount       = (float) ($fdAmounts[$client->id]        ?? 0);
@@ -526,27 +545,29 @@ class ReportController extends Controller
                 $shareUnits     = $shareValue > 0 ? floor($sharePaid / $shareValue) : 0;
 
                 return (object) [
-                    'client'         => $client,
-                    'savings_balance'=> $savingsBalance,
-                    'loan_principal' => $loanPrincipal,
-                    'loan_interest'  => $loanInterest,
-                    'fd_amount'      => $fdAmount,
-                    'group_balance'  => $groupBalance,
-                    'share_units'    => $shareUnits,
-                    'share_total'    => $sharePaid,
-                    'total_assets'   => $savingsBalance + $fdAmount + $sharePaid + $groupBalance,
-                    'total_liability'=> $loanPrincipal + $loanInterest,
+                    'client'          => $client,
+                    'savings_balance' => $savingsBalance,
+                    'savings_interest'=> $savingsInterest,
+                    'loan_principal'  => $loanPrincipal,
+                    'loan_interest'   => $loanInterest,
+                    'fd_amount'       => $fdAmount,
+                    'group_balance'   => $groupBalance,
+                    'share_units'     => $shareUnits,
+                    'share_total'     => $sharePaid,
+                    'total_assets'    => $savingsBalance + $savingsInterest + $fdAmount + $sharePaid + $groupBalance,
+                    'total_liability' => $loanPrincipal + $loanInterest,
                 ];
             });
 
         $totals = [
-            'savings'        => $members->sum('savings_balance'),
-            'loan_principal' => $members->sum('loan_principal'),
-            'loan_interest'  => $members->sum('loan_interest'),
-            'fd_amount'      => $members->sum('fd_amount'),
-            'group_balance'  => $members->sum('group_balance'),
-            'share_units'    => $members->sum('share_units'),
-            'share_total'    => $members->sum('share_total'),
+            'savings'          => $members->sum('savings_balance'),
+            'savings_interest' => $members->sum('savings_interest'),
+            'loan_principal'   => $members->sum('loan_principal'),
+            'loan_interest'    => $members->sum('loan_interest'),
+            'fd_amount'        => $members->sum('fd_amount'),
+            'group_balance'    => $members->sum('group_balance'),
+            'share_units'      => $members->sum('share_units'),
+            'share_total'      => $members->sum('share_total'),
         ];
 
         if ($request->format === 'pdf') {
@@ -557,13 +578,14 @@ class ReportController extends Controller
 
         if ($request->format === 'excel') {
             $rows = [];
-            $rows[] = ['#', 'Member Name', 'Client #', 'Savings Balance', 'Loan Principal', 'Loan Interest', 'Fixed Deposits', 'Group Balance', 'Share Units', 'Share Value'];
+            $rows[] = ['#', 'Member Name', 'Client #', 'Savings Balance', 'Savings Interest (Accrued, Uncredited)', 'Loan Principal', 'Loan Interest', 'Fixed Deposits', 'Group Balance', 'Share Units', 'Share Value'];
             foreach ($members as $i => $row) {
                 $rows[] = [
                     $i + 1,
                     $row->client->name,
                     $row->client->client_number,
                     $row->savings_balance,
+                    $row->savings_interest,
                     $row->loan_principal,
                     $row->loan_interest,
                     $row->fd_amount,
@@ -572,7 +594,7 @@ class ReportController extends Controller
                     $row->share_total,
                 ];
             }
-            $rows[] = ['', 'TOTALS', '', $totals['savings'], $totals['loan_principal'], $totals['loan_interest'], $totals['fd_amount'], $totals['group_balance'], $totals['share_units'], $totals['share_total']];
+            $rows[] = ['', 'TOTALS', '', $totals['savings'], $totals['savings_interest'], $totals['loan_principal'], $totals['loan_interest'], $totals['fd_amount'], $totals['group_balance'], $totals['share_units'], $totals['share_total']];
             return $this->csvDownload($rows, 'member-summary-' . $asOf);
         }
 

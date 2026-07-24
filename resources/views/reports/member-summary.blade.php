@@ -61,6 +61,14 @@
         </div>
     </div>
     <div class="col">
+        <div class="card text-center border-0 bg-primary bg-opacity-10">
+            <div class="card-body py-2">
+                <div class="text-muted small">Savings Interest <span class="d-block" style="font-size:.65rem">(accrued, uncredited)</span></div>
+                <div class="fw-bold fs-6 text-primary">{{ number_format($totals['savings_interest'], 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
         <div class="card text-center border-0 bg-danger bg-opacity-10">
             <div class="card-body py-2">
                 <div class="text-muted small">Loan Principal</div>
@@ -112,6 +120,7 @@
                     <th>Member</th>
                     <th>Client #</th>
                     <th class="text-end">Savings Balance</th>
+                    <th class="text-end">Savings Interest</th>
                     <th class="text-end">Loan Principal</th>
                     <th class="text-end">Loan Interest</th>
                     <th class="text-end">Fixed Deposits</th>
@@ -139,6 +148,9 @@
                 <td class="text-end {{ $row->savings_balance > 0 ? 'text-primary fw-semibold' : 'text-muted' }}">
                     {{ number_format($row->savings_balance, 0) }}
                 </td>
+                <td class="text-end {{ $row->savings_interest > 0 ? 'text-primary' : 'text-muted' }}">
+                    {{ $row->savings_interest > 0 ? number_format($row->savings_interest, 0) : '—' }}
+                </td>
                 <td class="text-end {{ $row->loan_principal > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
                     {{ $row->loan_principal > 0 ? number_format($row->loan_principal, 0) : '—' }}
                 </td>
@@ -159,13 +171,14 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="10" class="text-center text-muted py-4">No members found.</td></tr>
+            <tr><td colspan="11" class="text-center text-muted py-4">No members found.</td></tr>
             @endforelse
             </tbody>
             <tfoot class="table-secondary fw-bold small">
                 <tr>
                     <td colspan="3" class="ps-3">Totals ({{ $members->count() }} members)</td>
                     <td class="text-end text-primary">{{ number_format($totals['savings'], 0) }}</td>
+                    <td class="text-end text-primary">{{ number_format($totals['savings_interest'], 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($totals['loan_principal'], 0) }}</td>
                     <td class="text-end text-warning">{{ number_format($totals['loan_interest'], 0) }}</td>
                     <td class="text-end text-info">{{ number_format($totals['fd_amount'], 0) }}</td>
@@ -180,7 +193,8 @@
         1 share = UGX {{ number_format($shareValue, 0) }} &nbsp;&bull;&nbsp;
         Savings shows active accounts only &nbsp;&bull;&nbsp;
         Loans shows active outstanding balances only &nbsp;&bull;&nbsp;
-        Fixed Deposits shows active principal only
+        Fixed Deposits shows active principal only &nbsp;&bull;&nbsp;
+        Savings Interest is accrued-but-uncredited interest on graduated-tier products only &mdash; it is not yet in the member's balance until interest is posted
     </div>
 </div>
 @endsection

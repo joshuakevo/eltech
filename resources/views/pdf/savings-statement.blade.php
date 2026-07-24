@@ -75,7 +75,13 @@
         <tr><td class="label">Product</td><td class="value">{{ $account->product->name }}</td></tr>
         <tr><td class="label">Date Opened</td><td class="value">{{ $account->opened_date->format('d M Y') }}</td></tr>
         <tr><td class="label">Status</td><td class="value">{{ strtoupper($account->status) }}</td></tr>
-<tr><td class="label">Current Balance</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
+        @if($account->product->interest_method === 'tiered')
+        <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
+        <tr><td class="label">Accrued Interest (pending)</td><td class="value" style="color:#2563eb">{{ number_format($projectedInterest, $dp) }}</td></tr>
+        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance + $projectedInterest, $dp) }}</td></tr>
+        @else
+        <tr><td class="label">Current Balance</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
+        @endif
     </table>
 </td>
 </tr>
@@ -94,7 +100,11 @@
     <td><span class="stat-label">Total Deposits</span><span class="stat-value amount-credit">{{ number_format($totalDeposits, $dp) }}</span></td>
     <td><span class="stat-label">Total Withdrawals</span><span class="stat-value amount-debit">{{ number_format($totalWithdrawals, $dp) }}</span></td>
     <td><span class="stat-label">Transactions</span><span class="stat-value">{{ $transactions->count() }}</span></td>
-    <td><span class="stat-label">Closing Balance</span><span class="stat-value" style="color:#0f2444">{{ number_format($account->balance, $dp) }}</span></td>
+    <td><span class="stat-label">Closing Balance{{ $account->product->interest_method === 'tiered' ? ' (excl. Interest)' : '' }}</span><span class="stat-value" style="color:#0f2444">{{ number_format($account->balance, $dp) }}</span></td>
+    @if($account->product->interest_method === 'tiered')
+    <td><span class="stat-label">Accrued Interest</span><span class="stat-value" style="color:#2563eb">{{ number_format($projectedInterest, $dp) }}</span></td>
+    <td><span class="stat-label">Closing Bal. incl. Interest</span><span class="stat-value" style="color:#2563eb">{{ number_format($account->balance + $projectedInterest, $dp) }}</span></td>
+    @endif
 </tr>
 </table>
 
