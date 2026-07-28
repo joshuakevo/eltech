@@ -49,7 +49,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'use teller',
 
             // Reports
-            'view reports',
+            'view reports', 'send statements',
 
             // Employees
             'view employees', 'create employees', 'edit employees',
@@ -93,7 +93,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings',
             'view fixed-deposits', 'create fixed-deposits', 'mature fixed-deposits',
             'use teller',
-            'view reports',
+            'view reports', 'send statements',
             'view groups', 'manage groups',
             'manage shares',
             'view employees',

@@ -360,6 +360,12 @@
         </div>
         @endcan
 
+        @can('send statements')
+        <a href="{{ route('send-statements.index') }}" class="nav-link-item {{ request()->routeIs('send-statements.*') ? 'active' : '' }}">
+            <i class="bi bi-envelope-fill"></i> Send Statements
+        </a>
+        @endcan
+
         @canany(['manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup'])
         <div class="sidebar-section">Administration</div>
         @can('manage branches')

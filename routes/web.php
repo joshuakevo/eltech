@@ -19,6 +19,7 @@ use App\Http\Controllers\LoanProductController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavingsAccountController;
 use App\Http\Controllers\SavingsProductController;
+use App\Http\Controllers\SendStatementController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TellerController;
 use App\Http\Controllers\TransactionController;
@@ -293,6 +294,12 @@ Route::middleware('auth')->group(function () {
         Route::get('savings-balances', [ReportController::class, 'savingsBalances'])->name('savings-balances');
         Route::get('fd-maturity', [ReportController::class, 'fixedDepositMaturity'])->name('fd-maturity');
         Route::get('member-summary', [ReportController::class, 'memberSummary'])->name('member-summary');
+    });
+
+    // ── Send Statements ───────────────────────────────────────────────
+    Route::middleware('permission:send statements')->group(function () {
+        Route::get('send-statements', [SendStatementController::class, 'index'])->name('send-statements.index');
+        Route::post('send-statements', [SendStatementController::class, 'send'])->name('send-statements.send');
     });
 
     // ── Quick Teller ──────────────────────────────────────────────────
