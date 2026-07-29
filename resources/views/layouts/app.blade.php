@@ -366,6 +366,12 @@
         </a>
         @endcan
 
+        @can('send sms')
+        <a href="{{ route('send-sms.index') }}" class="nav-link-item {{ request()->routeIs('send-sms.*') ? 'active' : '' }}">
+            <i class="bi bi-chat-dots-fill"></i> Send SMS
+        </a>
+        @endcan
+
         @canany(['manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup'])
         <div class="sidebar-section">Administration</div>
         @can('manage branches')

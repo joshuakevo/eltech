@@ -19,6 +19,7 @@ use App\Http\Controllers\LoanProductController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavingsAccountController;
 use App\Http\Controllers\SavingsProductController;
+use App\Http\Controllers\SendSmsController;
 use App\Http\Controllers\SendStatementController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TellerController;
@@ -300,6 +301,12 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:send statements')->group(function () {
         Route::get('send-statements', [SendStatementController::class, 'index'])->name('send-statements.index');
         Route::post('send-statements', [SendStatementController::class, 'send'])->name('send-statements.send');
+    });
+
+    // ── Send SMS ────────────────────────────────────────────────────────
+    Route::middleware('permission:send sms')->group(function () {
+        Route::get('send-sms', [SendSmsController::class, 'index'])->name('send-sms.index');
+        Route::post('send-sms', [SendSmsController::class, 'send'])->name('send-sms.send');
     });
 
     // ── Quick Teller ──────────────────────────────────────────────────

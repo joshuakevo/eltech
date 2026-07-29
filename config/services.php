@@ -31,4 +31,21 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'africastalking' => [
+        'username'  => env('AFRICASTALKING_USERNAME', 'sandbox'),
+        'api_key'   => env('AFRICASTALKING_API_KEY'),
+        'sender_id' => env('AFRICASTALKING_SENDER_ID'),
+    ],
+
+    'twilio' => [
+        'sid'   => env('TWILIO_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        'from'  => env('TWILIO_FROM_NUMBER'),
+    ],
+
+    'sms' => [
+        // Which gateway SmsService uses: 'africastalking' or 'twilio'.
+        'default' => env('SMS_GATEWAY', 'africastalking'),
+    ],
+
 ];
