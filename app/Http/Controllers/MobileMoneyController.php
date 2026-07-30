@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\MobileMoneyTransaction;
+use App\Services\MobileMoneyService;
+use Illuminate\Http\Request;
+
+class MobileMoneyController extends Controller
+{
+    public function __construct(protected MobileMoneyService $mobileMoneyService) {}
+
+    public function index(Request $request)
+    {
+        $transactions = MobileMoneyTransaction::with(['client', 'savingsAccount', 'approvedBy'])
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->type, fn($q) => $q->where('type', $request->type))
+            ->latest()
+            ->paginate(30);
+
+        return view('mobile-money.index', compact('transactions'));
+    }
+
+    public function approve(Request $request, MobileMoneyTransaction $mobileMoneyTransaction)
+    {
+        $result = $this->mobileMoneyService->approveWithdrawal($mobileMoneyTransaction, $request->user());
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function reject(MobileMoneyTransaction $mobileMoneyTransaction)
+    {
+        $result = $this->mobileMoneyService->rejectWithdrawal($mobileMoneyTransaction);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function refresh(MobileMoneyTransaction $mobileMoneyTransaction)
+    {
+        $this->mobileMoneyService->reconcile($mobileMoneyTransaction);
+
+        return back()->with('success', 'Status refreshed: ' . $mobileMoneyTransaction->fresh()->status);
+    }
+}

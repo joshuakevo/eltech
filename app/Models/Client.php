@@ -56,6 +56,11 @@ class Client extends Model
         return $this->hasMany(SavingsAccount::class);
     }
 
+    public function mobileMoneyTransactions()
+    {
+        return $this->hasMany(MobileMoneyTransaction::class);
+    }
+
     public function fixedDeposits()
     {
         return $this->hasMany(FixedDeposit::class);

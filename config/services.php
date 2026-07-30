@@ -54,4 +54,10 @@ return [
         'default' => env('SMS_GATEWAY', 'africastalking'),
     ],
 
+    'marzpay' => [
+        'api_key'   => env('MARZPAY_API_KEY'),
+        'api_secret' => env('MARZPAY_API_SECRET'),
+        'base_url'  => env('MARZPAY_BASE_URL', 'https://wallet.wearemarz.com/api/v1'),
+    ],
+
 ];

@@ -372,6 +372,12 @@
         </a>
         @endcan
 
+        @can('approve mobile money')
+        <a href="{{ route('mobile-money.index') }}" class="nav-link-item {{ request()->routeIs('mobile-money.*') ? 'active' : '' }}">
+            <i class="bi bi-phone-fill"></i> Mobile Money
+        </a>
+        @endcan
+
         @canany(['manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup'])
         <div class="sidebar-section">Administration</div>
         @can('manage branches')

@@ -6,13 +6,27 @@ use App\Models\Client;
 use App\Models\FixedDeposit;
 use App\Models\Loan;
 use App\Models\LoanSchedule;
+use App\Models\MobileMoneyTransaction;
 use App\Models\SavingsAccount;
 use App\Models\SavingsTransaction;
+use App\Models\SystemSetting;
 use App\Services\LoanService;
+use App\Services\MobileMoneyService;
+use Illuminate\Http\Request;
 
 class ClientPortalController extends Controller
 {
-    public function __construct(protected LoanService $loanService) {}
+    public function __construct(protected LoanService $loanService, protected MobileMoneyService $mobileMoneyService) {}
+
+    private function abortIfMobileMoneyDisabled(): void
+    {
+        abort_unless((bool) SystemSetting::get('mobile_money_enabled', '0'), 403, 'Mobile money deposits/withdrawals are not currently available.');
+    }
+
+    private function mobileMoneyMinAmount(): float
+    {
+        return (float) SystemSetting::get('mobile_money_min_amount', 1000);
+    }
     /** All clients linked to the logged-in user (pivot + same-email auto-discovery). */
     private function linkedClients()
     {
@@ -246,5 +260,99 @@ class ClientPortalController extends Controller
             ->setPaper('a4', 'portrait');
 
         return $pdf->download("fd-statement-{$fixedDeposit->deposit_number}.pdf");
+    }
+
+    public function mobileMoneyIndex()
+    {
+        $clients = $this->linkedClients();
+        $client  = $this->activeClient();
+
+        $transactions = MobileMoneyTransaction::where('client_id', $client->id)
+            ->with('savingsAccount')
+            ->latest()
+            ->paginate(20);
+
+        return view('client-portal.mobile-money.index', compact('client', 'clients', 'transactions'));
+    }
+
+    public function depositForm()
+    {
+        $this->abortIfMobileMoneyDisabled();
+        $clients = $this->linkedClients();
+        $client  = $this->activeClient();
+        $accounts = SavingsAccount::where('client_id', $client->id)->where('status', 'active')->with('product')->get();
+        $minAmount = $this->mobileMoneyMinAmount();
+
+        return view('client-portal.mobile-money.deposit', compact('client', 'clients', 'accounts', 'minAmount'));
+    }
+
+    public function deposit(Request $request)
+    {
+        $this->abortIfMobileMoneyDisabled();
+        $client = $this->activeClient();
+        $minAmount = $this->mobileMoneyMinAmount();
+
+        $request->validate([
+            'savings_account_id' => 'required|exists:savings_accounts,id',
+            'amount'             => "required|numeric|min:{$minAmount}",
+            'phone_number'       => 'required|string|max:20',
+        ]);
+
+        $account = SavingsAccount::where('client_id', $client->id)->where('status', 'active')->findOrFail($request->savings_account_id);
+
+        $mm = $this->mobileMoneyService->initiateDeposit($client, $account, (float) $request->amount, $request->phone_number);
+
+        if ($mm->status === 'failed') {
+            return back()->withInput()->with('error', 'Could not start the deposit: ' . $mm->failure_reason);
+        }
+
+        return redirect()->route('client-portal.mobile-money.index')
+            ->with('success', 'Deposit request sent. Check your phone to approve the mobile money prompt.');
+    }
+
+    public function withdrawForm()
+    {
+        $this->abortIfMobileMoneyDisabled();
+        $clients = $this->linkedClients();
+        $client  = $this->activeClient();
+        $accounts = SavingsAccount::where('client_id', $client->id)->where('status', 'active')->with('product')->get();
+        $minAmount = $this->mobileMoneyMinAmount();
+
+        return view('client-portal.mobile-money.withdraw', compact('client', 'clients', 'accounts', 'minAmount'));
+    }
+
+    public function withdraw(Request $request)
+    {
+        $this->abortIfMobileMoneyDisabled();
+        $client = $this->activeClient();
+        $minAmount = $this->mobileMoneyMinAmount();
+
+        $request->validate([
+            'savings_account_id' => 'required|exists:savings_accounts,id',
+            'amount'             => "required|numeric|min:{$minAmount}",
+            'phone_number'       => 'required|string|max:20',
+        ]);
+
+        $account = SavingsAccount::where('client_id', $client->id)->where('status', 'active')->findOrFail($request->savings_account_id);
+
+        if (!$account->canWithdraw((float) $request->amount)) {
+            return back()->withInput()->with('error', 'Insufficient balance for this withdrawal (minimum balance rules apply).');
+        }
+
+        $this->mobileMoneyService->requestWithdrawal($client, $account, (float) $request->amount, $request->phone_number);
+
+        return redirect()->route('client-portal.mobile-money.index')
+            ->with('success', 'Withdrawal request submitted. It will be paid out once approved by staff.');
+    }
+
+    public function mobileMoneyStatus(MobileMoneyTransaction $mobileMoneyTransaction)
+    {
+        $client = $this->activeClient();
+        abort_if((int) $mobileMoneyTransaction->client_id !== (int) $client->id, 403);
+
+        return response()->json([
+            'status'         => $mobileMoneyTransaction->status,
+            'failure_reason' => $mobileMoneyTransaction->failure_reason,
+        ]);
     }
 }

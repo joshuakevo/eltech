@@ -12,6 +12,6 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'marzpay/webhook', // external MarzPay server-to-server callback, no CSRF token available
     ];
 }

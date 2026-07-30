@@ -32,6 +32,8 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\GroupPortalController;
 use App\Http\Controllers\ClientPortalController;
+use App\Http\Controllers\MarzPayWebhookController;
+use App\Http\Controllers\MobileMoneyController;
 use Illuminate\Support\Facades\Route;
 
 // ── Authentication (public) ───────────────────────────────────────
@@ -44,6 +46,9 @@ Route::get('password/reset', [ForgotPasswordController::class, 'showLinkRequestF
 Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
 Route::get('password/reset/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset');
 Route::post('password/reset', [ResetPasswordController::class, 'reset'])->name('password.update');
+
+// ── MarzPay webhook (public, server-to-server, no auth/CSRF) ──────
+Route::post('marzpay/webhook', [MarzPayWebhookController::class, 'handle'])->name('marzpay.webhook');
 
 // ── All other routes require auth ─────────────────────────────────
 Route::middleware('auth')->group(function () {
@@ -63,6 +68,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/loans/{loan}/pdf', [ClientPortalController::class, 'loanStatementPdf'])->name('loan.pdf');
         Route::get('/fixed-deposits/{fixedDeposit}', [ClientPortalController::class, 'fdStatement'])->name('fd');
         Route::get('/fixed-deposits/{fixedDeposit}/pdf', [ClientPortalController::class, 'fdStatementPdf'])->name('fd.pdf');
+
+        Route::get('/mobile-money', [ClientPortalController::class, 'mobileMoneyIndex'])->name('mobile-money.index');
+        Route::get('/mobile-money/deposit', [ClientPortalController::class, 'depositForm'])->name('mobile-money.deposit-form');
+        Route::post('/mobile-money/deposit', [ClientPortalController::class, 'deposit'])->name('mobile-money.deposit');
+        Route::get('/mobile-money/withdraw', [ClientPortalController::class, 'withdrawForm'])->name('mobile-money.withdraw-form');
+        Route::post('/mobile-money/withdraw', [ClientPortalController::class, 'withdraw'])->name('mobile-money.withdraw');
+        Route::get('/mobile-money/{mobileMoneyTransaction}/status', [ClientPortalController::class, 'mobileMoneyStatus'])->name('mobile-money.status');
     });
 
     // ── Group portal (leader / member) ────────────────────────────────
@@ -307,6 +319,14 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:send sms')->group(function () {
         Route::get('send-sms', [SendSmsController::class, 'index'])->name('send-sms.index');
         Route::post('send-sms', [SendSmsController::class, 'send'])->name('send-sms.send');
+    });
+
+    // ── Mobile Money (admin approval of client-initiated withdrawals) ──
+    Route::prefix('mobile-money')->name('mobile-money.')->middleware('permission:approve mobile money')->group(function () {
+        Route::get('/', [MobileMoneyController::class, 'index'])->name('index');
+        Route::post('/{mobileMoneyTransaction}/approve', [MobileMoneyController::class, 'approve'])->name('approve');
+        Route::post('/{mobileMoneyTransaction}/reject', [MobileMoneyController::class, 'reject'])->name('reject');
+        Route::post('/{mobileMoneyTransaction}/refresh', [MobileMoneyController::class, 'refresh'])->name('refresh');
     });
 
     // ── Quick Teller ──────────────────────────────────────────────────

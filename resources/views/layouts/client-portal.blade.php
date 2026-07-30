@@ -211,6 +211,13 @@
         <i class="bi bi-wallet2"></i> My Statements
     </a>
 
+    @if(\App\Models\SystemSetting::get('mobile_money_enabled', '0'))
+    <a href="{{ route('client-portal.mobile-money.index') }}"
+       class="cp-nav-item {{ request()->routeIs('client-portal.mobile-money.*') ? 'active' : '' }}">
+        <i class="bi bi-phone"></i> Mobile Money
+    </a>
+    @endif
+
     @if(auth()->user()->hasAnyRole(['group_member', 'group_leader']) || auth()->user()->hasAnyRole(['super_admin','admin','cashier']))
     <div class="nav-section">Other Portals</div>
     <a href="{{ route('choose-portal') }}" class="cp-nav-item">

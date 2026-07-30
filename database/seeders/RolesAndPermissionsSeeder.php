@@ -51,6 +51,9 @@ class RolesAndPermissionsSeeder extends Seeder
             // Reports
             'view reports', 'send statements', 'send sms',
 
+            // Mobile Money
+            'approve mobile money',
+
             // Employees
             'view employees', 'create employees', 'edit employees',
 
@@ -94,6 +97,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view fixed-deposits', 'create fixed-deposits', 'mature fixed-deposits',
             'use teller',
             'view reports', 'send statements', 'send sms',
+            'approve mobile money',
             'view groups', 'manage groups',
             'manage shares',
             'view employees',
