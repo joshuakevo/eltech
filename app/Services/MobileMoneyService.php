@@ -6,7 +6,9 @@ use App\Models\Client;
 use App\Models\MobileMoneyTransaction;
 use App\Models\SavingsAccount;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class MobileMoneyService
 {
@@ -21,6 +23,7 @@ class MobileMoneyService
      */
     public function initiateDeposit(Client $client, SavingsAccount $account, float $amount, string $phone): MobileMoneyTransaction
     {
+        $phone = $this->normalizePhoneOrFail($phone);
         $reference = $this->marzPay->generateReference();
 
         $mm = MobileMoneyTransaction::create([
@@ -60,6 +63,7 @@ class MobileMoneyService
      */
     public function requestWithdrawal(Client $client, SavingsAccount $account, float $amount, string $phone): MobileMoneyTransaction
     {
+        $phone = $this->normalizePhoneOrFail($phone);
         $reference = $this->marzPay->generateReference();
 
         return MobileMoneyTransaction::create([
@@ -199,5 +203,21 @@ class MobileMoneyService
             "Mobile money withdrawal reversed (payout failed) - {$mm->reference}",
             $mm->reference . '-REV'
         );
+    }
+
+    /**
+     * MarzPay rejects anything that isn't E.164 (+256...). Client::phone has no enforced
+     * format, so normalize here -- the single point of entry for both deposit and
+     * withdrawal -- and fail loudly rather than send a malformed number to the API.
+     */
+    protected function normalizePhoneOrFail(string $phone): string
+    {
+        $normalized = PhoneNumber::normalize($phone);
+
+        if (!$normalized) {
+            throw new InvalidArgumentException("Unrecognized phone number format: {$phone}");
+        }
+
+        return $normalized;
     }
 }

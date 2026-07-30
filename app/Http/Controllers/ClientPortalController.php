@@ -300,7 +300,11 @@ class ClientPortalController extends Controller
 
         $account = SavingsAccount::where('client_id', $client->id)->where('status', 'active')->findOrFail($request->savings_account_id);
 
-        $mm = $this->mobileMoneyService->initiateDeposit($client, $account, (float) $request->amount, $request->phone_number);
+        try {
+            $mm = $this->mobileMoneyService->initiateDeposit($client, $account, (float) $request->amount, $request->phone_number);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         if ($mm->status === 'failed') {
             return back()->withInput()->with('error', 'Could not start the deposit: ' . $mm->failure_reason);
@@ -339,7 +343,11 @@ class ClientPortalController extends Controller
             return back()->withInput()->with('error', 'Insufficient balance for this withdrawal (minimum balance rules apply).');
         }
 
-        $this->mobileMoneyService->requestWithdrawal($client, $account, (float) $request->amount, $request->phone_number);
+        try {
+            $this->mobileMoneyService->requestWithdrawal($client, $account, (float) $request->amount, $request->phone_number);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
         return redirect()->route('client-portal.mobile-money.index')
             ->with('success', 'Withdrawal request submitted. It will be paid out once approved by staff.');
