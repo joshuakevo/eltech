@@ -43,8 +43,14 @@ return [
         'from'  => env('TWILIO_FROM_NUMBER'),
     ],
 
+    'marzsms' => [
+        'api_key'  => env('MARZSMS_API_KEY'),
+        'secret'   => env('MARZSMS_API_SECRET'),
+        'base_url' => env('MARZSMS_BASE_URL', 'https://sms.wearemarz.com/api/v1'),
+    ],
+
     'sms' => [
-        // Which gateway SmsService uses: 'africastalking' or 'twilio'.
+        // Which gateway SmsService uses: 'africastalking', 'twilio', or 'marzsms'.
         'default' => env('SMS_GATEWAY', 'africastalking'),
     ],
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\SmsGateway;
 use App\Services\Sms\AfricasTalkingGateway;
+use App\Services\Sms\MarzSmsGateway;
 use App\Services\Sms\TwilioGateway;
 
 class SmsService
@@ -18,8 +19,9 @@ class SmsService
     protected function resolveGateway(): SmsGateway
     {
         return match (config('services.sms.default', 'africastalking')) {
-            'twilio' => new TwilioGateway(),
-            default  => new AfricasTalkingGateway(),
+            'twilio'  => new TwilioGateway(),
+            'marzsms' => new MarzSmsGateway(),
+            default   => new AfricasTalkingGateway(),
         };
     }
 
