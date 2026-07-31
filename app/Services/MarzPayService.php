@@ -115,21 +115,54 @@ class MarzPayService
     }
 
     /**
-     * Authoritative status check by OUR reference, queried directly from MarzPay using our
-     * own credentials. This -- never a webhook payload's contents -- is what decides whether
-     * money actually moves in our ledger. Uses the generic transactions list/filter endpoint
-     * so it works uniformly for both collections and disbursements.
+     * Authoritative status check, queried directly from MarzPay using our own credentials.
+     * This -- never a webhook payload's contents -- is what decides whether money actually
+     * moves in our ledger.
+     *
+     * Accepts BOTH our own reference and MarzPay's own transaction UUID (provider_reference)
+     * and tries each against both the `reference` and `uuid` filter params. This is
+     * deliberately redundant: collect-money (deposits) reliably honors OUR reference as a
+     * filter, but send-money (disbursements) is undocumented and there's no confirmation it
+     * indexes transactions the same way -- a withdrawal that never matches here would
+     * otherwise stay "processing" forever no matter how many times reconcile() runs.
      */
-    public function checkStatusByReference(string $reference): array
+    public function checkStatusByReference(string $reference, ?string $providerReference = null): array
     {
         if (!$this->isConfigured()) {
             return ['success' => false, 'message' => 'MarzPay is not configured.'];
         }
 
+        $candidates = array_unique(array_filter([$reference, $providerReference]));
+
+        $lastMessage = 'Transaction not found on MarzPay for this reference.';
+
+        foreach ($candidates as $value) {
+            foreach (['reference', 'uuid'] as $param) {
+                $result = $this->lookupTransaction($param, $value);
+
+                if ($result['success']) {
+                    return $result;
+                }
+
+                $lastMessage = $result['message'];
+            }
+        }
+
+        Log::warning('MarzPay status lookup exhausted all candidates', [
+            'reference'          => $reference,
+            'provider_reference' => $providerReference,
+            'last_message'       => $lastMessage,
+        ]);
+
+        return ['success' => false, 'message' => $lastMessage];
+    }
+
+    protected function lookupTransaction(string $param, string $value): array
+    {
         try {
             $response = $this->client()->get("{$this->baseUrl}/transactions", [
-                'reference' => $reference,
-                'per_page'  => 1,
+                $param     => $value,
+                'per_page' => 1,
             ]);
             $data = $response->json();
 
@@ -149,7 +182,7 @@ class MarzPayService
                 'status'  => $row['status'] ?? $row['transaction']['status'] ?? null,
             ];
         } catch (\Throwable $e) {
-            Log::error('MarzPay status check failed', ['reference' => $reference, 'error' => $e->getMessage()]);
+            Log::error('MarzPay status check failed', ['param' => $param, 'value' => $value, 'error' => $e->getMessage()]);
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }

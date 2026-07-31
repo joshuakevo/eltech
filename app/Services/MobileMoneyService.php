@@ -147,7 +147,7 @@ class MobileMoneyService
             return;
         }
 
-        $result = $this->marzPay->checkStatusByReference($mm->reference);
+        $result = $this->marzPay->checkStatusByReference($mm->reference, $mm->provider_reference);
         if (!$result['success']) {
             return;
         }
