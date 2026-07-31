@@ -22,6 +22,11 @@ class Kernel extends ConsoleKernel
 
         // Accrue fixed deposit interest expense at 00:15 on the 1st of every month
         $schedule->command('eltech:accrue-fd-interest')->monthlyOn(1, '00:15');
+
+        // Backstop for mobile money deposits/withdrawals stuck pending/processing --
+        // covers cases where MarzPay's webhook is delayed or unreachable and nobody
+        // has the page open to trigger the live client/admin polling.
+        $schedule->command('eltech:reconcile-mobile-money')->everyMinute();
     }
 
     /**

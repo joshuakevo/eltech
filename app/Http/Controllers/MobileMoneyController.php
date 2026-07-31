@@ -35,10 +35,18 @@ class MobileMoneyController extends Controller
         return back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
-    public function refresh(MobileMoneyTransaction $mobileMoneyTransaction)
+    public function refresh(Request $request, MobileMoneyTransaction $mobileMoneyTransaction)
     {
         $this->mobileMoneyService->reconcile($mobileMoneyTransaction);
+        $mobileMoneyTransaction->refresh();
 
-        return back()->with('success', 'Status refreshed: ' . $mobileMoneyTransaction->fresh()->status);
+        if ($request->wantsJson()) {
+            return response()->json([
+                'status'         => $mobileMoneyTransaction->status,
+                'failure_reason' => $mobileMoneyTransaction->failure_reason,
+            ]);
+        }
+
+        return back()->with('success', 'Status refreshed: ' . $mobileMoneyTransaction->status);
     }
 }

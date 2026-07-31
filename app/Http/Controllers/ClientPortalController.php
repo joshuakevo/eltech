@@ -358,6 +358,12 @@ class ClientPortalController extends Controller
         $client = $this->activeClient();
         abort_if((int) $mobileMoneyTransaction->client_id !== (int) $client->id, 403);
 
+        // Actively re-check with MarzPay on every poll rather than waiting on the webhook --
+        // the webhook may be delayed or unreachable (e.g. misconfigured APP_URL), so this is
+        // what actually makes the status update feel instant to the client.
+        $this->mobileMoneyService->reconcile($mobileMoneyTransaction);
+        $mobileMoneyTransaction->refresh();
+
         return response()->json([
             'status'         => $mobileMoneyTransaction->status,
             'failure_reason' => $mobileMoneyTransaction->failure_reason,
