@@ -12,6 +12,16 @@ class MobileMoneyController extends Controller
 
     public function index(Request $request)
     {
+        // Opportunistically re-check every non-final transaction against MarzPay on each
+        // page load. This is the reliable path -- shared hosting here has no guaranteed
+        // cron, and the live JS polling only runs while a tab is open, so a withdrawal
+        // approved outside that window would otherwise sit "processing" until someone
+        // clicks "Refresh Status" manually.
+        MobileMoneyTransaction::whereIn('status', ['pending', 'processing'])
+            ->where('created_at', '>=', now()->subDays(3))
+            ->get()
+            ->each(fn ($mm) => $this->mobileMoneyService->reconcile($mm));
+
         $transactions = MobileMoneyTransaction::with(['client', 'savingsAccount', 'approvedBy'])
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->type, fn($q) => $q->where('type', $request->type))

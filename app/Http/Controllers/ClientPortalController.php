@@ -267,6 +267,14 @@ class ClientPortalController extends Controller
         $clients = $this->linkedClients();
         $client  = $this->activeClient();
 
+        // Re-check this client's own non-final transactions on every page load -- see
+        // MobileMoneyController::index() for why this can't rely on cron alone here.
+        MobileMoneyTransaction::where('client_id', $client->id)
+            ->whereIn('status', ['pending', 'processing'])
+            ->where('created_at', '>=', now()->subDays(3))
+            ->get()
+            ->each(fn ($mm) => $this->mobileMoneyService->reconcile($mm));
+
         $transactions = MobileMoneyTransaction::where('client_id', $client->id)
             ->with('savingsAccount')
             ->latest()
