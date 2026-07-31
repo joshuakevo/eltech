@@ -42,6 +42,7 @@ class ChartOfAccountsSeeder extends Seeder
             ['code' => '3001', 'name' => 'Share Capital',               'type' => 'equity',    'parent' => '3000'],
             ['code' => '3002', 'name' => 'Retained Earnings',           'type' => 'equity',    'parent' => '3000'],
             ['code' => '3003', 'name' => 'Statutory Reserve Fund',      'type' => 'equity',    'parent' => '3000'],
+            ['code' => '3004', 'name' => 'Opening Balance Equity',      'type' => 'equity',    'parent' => '3000'],
 
             // ─── REVENUE ─────────────────────────────────────────────────────
             ['code' => '4000', 'name' => 'Revenue',                     'type' => 'revenue',   'parent' => null],

@@ -172,6 +172,7 @@ $groupIcons = [
                     <option value="LoanPenaltyTierSeeder">Loan Penalty Tiers</option>
                     <option value="SavingsInterestTierSeeder">Savings Interest Tiers</option>
                     <option value="RolesAndPermissionsSeeder">Roles &amp; Permissions (resets roles to defaults)</option>
+                    <option value="ChartOfAccountsSeeder">Chart of Accounts (adds new accounts only)</option>
                 </select>
                 <button type="submit" class="btn btn-outline-secondary text-nowrap">
                     <i class="bi bi-database-add me-2"></i>Run Seeder

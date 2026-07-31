@@ -105,6 +105,7 @@ class SettingsController extends Controller
         'LoanPenaltyTierSeeder'      => 'Loan Penalty Tiers',
         'SavingsInterestTierSeeder'  => 'Savings Interest Tiers',
         'RolesAndPermissionsSeeder'  => 'Roles & Permissions (resets super_admin/admin/cashier/staff to code defaults)',
+        'ChartOfAccountsSeeder'      => 'Chart of Accounts (adds any new accounts; safe to re-run, existing accounts untouched)',
     ];
 
     public function migrate()
