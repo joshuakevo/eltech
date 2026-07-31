@@ -198,4 +198,38 @@ $groupIcons = [
         </p>
     </div>
 </div>
+
+{{-- One-time statement migration -- remove this card once used --}}
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger fw-bold">
+        <i class="bi bi-exclamation-octagon-fill me-2"></i>DANGER: One-Time Statement Migration
+    </div>
+    <div class="card-body">
+        <p class="mb-2">
+            This <strong>permanently wipes all transactional data</strong> (every journal entry, savings/loan/FD/share history) and
+            <strong>permanently deletes clients not in the 30/06/2026 member statement</strong>, then rebuilds every remaining
+            client's balances from that statement. This cannot be undone once it runs.
+        </p>
+        <p class="mb-3 fw-semibold">
+            Confirm you have a full database backup taken before running this. Type <code>MIGRATE JUNE 2026</code> exactly to enable the button.
+        </p>
+        <form method="POST" action="{{ route('settings.run-statement-migration') }}" id="statementMigrationForm"
+              onsubmit="return confirm('This is your last chance. Have you taken a full production backup? This action is irreversible.');">
+            @csrf
+            <div class="input-group" style="max-width: 420px;">
+                <input type="text" name="confirmation_phrase" id="migrationPhrase" class="form-control"
+                       placeholder="Type: MIGRATE JUNE 2026" autocomplete="off">
+                <button type="submit" class="btn btn-danger" id="migrationSubmitBtn" disabled>
+                    <i class="bi bi-radioactive me-2"></i>Run Migration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('migrationPhrase')?.addEventListener('input', function() {
+    document.getElementById('migrationSubmitBtn').disabled = (this.value !== 'MIGRATE JUNE 2026');
+});
+</script>
 @endsection

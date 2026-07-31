@@ -167,4 +167,26 @@ class SettingsController extends Controller
             return back()->with('error', 'Could not reach the IP-check service: ' . $e->getMessage());
         }
     }
+
+    /**
+     * One-time, irreversible: wipes all transactional data and replaces the client
+     * roster/balances with the 30/06/2026 member statement. Gated behind an exact
+     * typed confirmation phrase (not just a JS confirm() dialog) given the stakes --
+     * this is meant to be run once and the button removed afterward.
+     */
+    public function runStatementMigration(Request $request)
+    {
+        $request->validate([
+            'confirmation_phrase' => 'required|string',
+        ]);
+
+        if ($request->confirmation_phrase !== 'MIGRATE JUNE 2026') {
+            return back()->with('error', 'Confirmation phrase did not match. Nothing was run.');
+        }
+
+        Artisan::call('eltech:migrate-statement-2026-06-30', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Statement migration run.\n\n{$output}");
+    }
 }
