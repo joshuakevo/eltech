@@ -184,7 +184,17 @@ $groupIcons = [
                     <i class="bi bi-eraser-fill me-2"></i>Clear Cache
                 </button>
             </form>
+
+            <form method="POST" action="{{ route('settings.check-server-ip') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-globe me-2"></i>Check Server IP
+                </button>
+            </form>
         </div>
+        <p class="text-muted small mt-2 mb-0">
+            "Check Server IP" shows the outbound IP this server uses to reach the internet -- needed to whitelist it with gateways like MarzPay (Dashboard &gt; IP Whitelist).
+        </p>
     </div>
 </div>
 @endsection

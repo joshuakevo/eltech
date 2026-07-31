@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
@@ -142,5 +143,27 @@ class SettingsController extends Controller
         }
 
         return back()->with('success', "View, route, config, and compiled caches cleared. OPcache: {$opcache}.");
+    }
+
+    /**
+     * Reports the outbound IP this server actually uses to reach the internet -- the
+     * one gateways like MarzPay need for IP whitelisting. On shared hosting this can
+     * differ from the "shared IP" shown in cPanel, so we ask an external echo service
+     * rather than reading any local config.
+     */
+    public function checkServerIp()
+    {
+        try {
+            $response = Http::timeout(10)->get('https://api.ipify.org', ['format' => 'json']);
+            $ip = $response->json('ip');
+
+            if (!$ip) {
+                return back()->with('error', 'Could not determine the outbound IP. Raw response: ' . $response->body());
+            }
+
+            return back()->with('success', "This server's outbound IP is: {$ip}\n\nAdd this to MarzPay Dashboard > IP Whitelist.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Could not reach the IP-check service: ' . $e->getMessage());
+        }
     }
 }
