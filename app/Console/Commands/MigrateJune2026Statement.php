@@ -13,6 +13,7 @@ use App\Models\LoanProduct;
 use App\Models\MemberShare;
 use App\Models\SavingsAccount;
 use App\Models\SavingsProduct;
+use App\Models\SavingsTransaction;
 use App\Services\AccountingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -151,13 +152,21 @@ class MigrateJune2026Statement extends Command
     {
         $amount = (float) $row['shares_val'];
 
-        MemberShare::create([
+        $share = new MemberShare([
             'client_id'   => $client->id,
             'share_number' => 'SH-' . $client->client_number,
             'share_value' => $amount,
             'amount_paid' => $amount,
             'status'      => $amount > 0 ? 'paid' : 'unpaid',
         ]);
+        // created_at isn't fillable and the report filters member_shares by it as
+        // the closest thing to a business date -- back-date it explicitly instead
+        // of letting Eloquent stamp the real run time, or the report would filter
+        // every migrated share out for any "as of" date before today.
+        $share->timestamps = false;
+        $share->created_at = self::OPENING_DATE;
+        $share->updated_at = self::OPENING_DATE;
+        $share->save();
 
         $this->postOpeningEntry(
             $accounting, $shareCapital, $openingEquity, $amount, $client,
@@ -180,6 +189,20 @@ class MigrateJune2026Statement extends Command
             'status'             => 'active',
             'opened_date'        => self::OPENING_DATE,
             'last_interest_date' => self::OPENING_DATE,
+        ]);
+
+        // The Member Summary report (and SavingsService::balanceAsOf()) derive the
+        // point-in-time balance from SavingsTransaction.balance_after history, not
+        // from savings_accounts.balance directly -- without this row the account's
+        // balance is invisible to any "as of" report, permanently reading 0.
+        SavingsTransaction::create([
+            'savings_account_id' => $account->id,
+            'transaction_type'   => $balance >= 0 ? 'deposit' : 'withdrawal',
+            'amount'             => $balance,
+            'balance_before'     => 0,
+            'balance_after'      => $balance,
+            'transaction_date'   => self::OPENING_DATE,
+            'description'        => 'Opening balance (30/06/2026 statement)',
         ]);
 
         $liabilityAccount = Account::findOrFail($product->savings_liability_account_id);
@@ -258,11 +281,18 @@ class MigrateJune2026Statement extends Command
                 continue;
             }
 
+            // The Member Summary report only attributes a group's balance to a member
+            // row when groups.client_id points at a real Client -- both group entities
+            // already exist as Client records in production (FK00001/WK00001 are
+            // themselves listed in the statement), so link to those.
+            $representativeClient = Client::where('client_number', $groupData['group_number'])->first();
+
             $group = Group::create([
                 'group_number'          => $groupData['group_number'],
                 'name'                  => $groupData['name'],
                 'registration_date'     => self::OPENING_DATE,
                 'gl_account_id'         => $groupSavingsGl->id,
+                'client_id'             => $representativeClient?->id,
                 'status'                => 'active',
             ]);
 

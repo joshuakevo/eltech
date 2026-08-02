@@ -189,4 +189,17 @@ class SettingsController extends Controller
 
         return back()->with('success', "Statement migration run.\n\n{$output}");
     }
+
+    /**
+     * Additive follow-up fix for gaps the statement migration left in the Member
+     * Summary report (missing SavingsTransaction rows, unlinked group.client_id,
+     * un-backdated share created_at). No deletes -- safe to run more than once.
+     */
+    public function fixStatementReportGaps()
+    {
+        Artisan::call('eltech:fix-statement-report-gaps', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Statement report gap fix run.\n\n{$output}");
+    }
 }

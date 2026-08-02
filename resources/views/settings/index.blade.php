@@ -232,4 +232,26 @@ document.getElementById('migrationPhrase')?.addEventListener('input', function()
     document.getElementById('migrationSubmitBtn').disabled = (this.value !== 'MIGRATE JUNE 2026');
 });
 </script>
+
+{{-- Follow-up fix for Member Summary report gaps left by the migration above --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Statement Migration Report Fix
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The statement migration above didn't populate a few fields the Member Summary report relies on
+            (opening savings transaction rows, group-to-client links, and share dates), so Savings, Savings
+            Interest, Group Value, and Shares showed as 0 there even though the balances themselves were correct.
+            This fills in those gaps only -- no deletes, safe to run more than once.
+        </p>
+        <form method="POST" action="{{ route('settings.fix-statement-report-gaps') }}"
+              onsubmit="return confirm('Run the Member Summary report gap fix now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Fix Report Gaps
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

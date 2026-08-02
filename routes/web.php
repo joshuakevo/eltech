@@ -376,6 +376,7 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/clear-cache', [SettingsController::class, 'clearCache'])->name('settings.clear-cache');
         Route::post('settings/check-server-ip', [SettingsController::class, 'checkServerIp'])->name('settings.check-server-ip');
         Route::post('settings/run-statement-migration', [SettingsController::class, 'runStatementMigration'])->name('settings.run-statement-migration');
+        Route::post('settings/fix-statement-report-gaps', [SettingsController::class, 'fixStatementReportGaps'])->name('settings.fix-statement-report-gaps');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');
