@@ -503,11 +503,17 @@ class ReportController extends Controller
             ->select('client_id', \DB::raw('SUM(amount_paid) as paid'))
             ->pluck('paid', 'client_id');
 
-        // Savings interest (tiered products only): accrued but not yet credited, per
-        // client. Flat products are excluded -- their interest is already folded into
-        // savings_balance since it's credited automatically every month. Computed via
-        // a per-account loop (not a bulk SQL aggregate) because the graduated-tier
-        // calculation is a day-by-day accrual, same as SavingsService::postInterest().
+        // Savings interest has two sources, both meaning "owed but not yet credited":
+        //
+        // 1. Tiered products: live day-by-day projection via a per-account loop (not
+        //    a bulk SQL aggregate, since the graduated-tier calculation mirrors
+        //    SavingsService::postInterest()). Flat products are excluded from this
+        //    part -- their interest is already folded into savings_balance since
+        //    it's credited automatically every month.
+        // 2. Account 2006 "Savings Interest Payable" -- accrued interest inherited
+        //    from opening-balance migrations (e.g. the 31/07/2026 statement's Save
+        //    Int column), booked as a client-tagged liability rather than a live
+        //    accrual since there's no balance history to project it from.
         $savingsInterests = [];
         $tieredAccounts = SavingsAccount::with('product')
             ->where('status', 'active')
@@ -517,6 +523,21 @@ class ReportController extends Controller
             $projected = $this->savingsService->previewAccruedInterest($account, $asOf);
             if ($projected > 0) {
                 $savingsInterests[$account->client_id] = ($savingsInterests[$account->client_id] ?? 0) + $projected;
+            }
+        }
+
+        $accruedInterestPayable = \DB::table('transaction_lines as tl')
+            ->join('transactions as t', 't.id', '=', 'tl.transaction_id')
+            ->join('accounts as a', 'a.id', '=', 'tl.account_id')
+            ->where('a.account_code', '2006')
+            ->where('t.date', '<=', $asOf)
+            ->whereNotNull('tl.client_id')
+            ->groupBy('tl.client_id')
+            ->select('tl.client_id', \DB::raw('SUM(tl.credit - tl.debit) as amount'))
+            ->pluck('amount', 'client_id');
+        foreach ($accruedInterestPayable as $clientId => $amount) {
+            if ((float) $amount != 0) {
+                $savingsInterests[$clientId] = ($savingsInterests[$clientId] ?? 0) + (float) $amount;
             }
         }
 
