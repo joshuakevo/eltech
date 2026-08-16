@@ -279,4 +279,27 @@ document.getElementById('migrationPhrase')?.addEventListener('input', function()
         </form>
     </div>
 </div>
+
+{{-- Forward-looking repayment schedule for the loans fixed above -- run after it --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Generate Loan Schedules
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Builds a repayment schedule from today to each loan's maturity date, spreading its existing
+            outstanding balance evenly across the remaining months -- not a reconstruction of the
+            original schedule (we don't have day-by-day repayment history), just a forward plan. Loans
+            already past maturity get a single overdue installment for the full balance. Run this once,
+            after the loan term fix above.
+        </p>
+        <form method="POST" action="{{ route('settings.generate-july-loan-schedules') }}"
+              onsubmit="return confirm('Generate loan schedules now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Generate Schedules
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

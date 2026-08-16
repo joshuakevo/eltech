@@ -218,4 +218,18 @@ class SettingsController extends Controller
 
         return back()->with('success', "Loan term fix run.\n\n{$output}");
     }
+
+    /**
+     * Additive follow-up: builds a forward-looking repayment schedule (from
+     * today to maturity) for loans the term fix corrected -- spreads the
+     * existing reconciled outstanding balance rather than recomputing interest
+     * from scratch. Run this after the loan term fix above.
+     */
+    public function generateJulyLoanSchedules()
+    {
+        Artisan::call('eltech:generate-loan-schedules-2026-07-31', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Loan schedule generation run.\n\n{$output}");
+    }
 }
