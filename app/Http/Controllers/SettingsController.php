@@ -190,4 +190,18 @@ class SettingsController extends Controller
 
         return back()->with('success', "Statement migration run.\n\n{$output}");
     }
+
+    /**
+     * Additive follow-up: corrects start date/term/maturity on the 17 active FDs
+     * the July migration created, using the real FixedSvChk ledger instead of the
+     * generic product term it guessed. No GL changes -- principal is unchanged.
+     * Run this after the migration above.
+     */
+    public function fixJulyFdTerms()
+    {
+        Artisan::call('eltech:fix-fd-terms-2026-07-31', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "FD term fix run.\n\n{$output}");
+    }
 }

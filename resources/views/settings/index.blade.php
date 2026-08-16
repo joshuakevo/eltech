@@ -232,4 +232,27 @@ document.getElementById('migrationPhrase')?.addEventListener('input', function()
     document.getElementById('migrationSubmitBtn').disabled = (this.value !== 'MIGRATE JULY 2026');
 });
 </script>
+
+{{-- Follow-up fix for FD terms left generic by the migration above -- run after it --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Fixed Deposit Term Fix
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The statement migration above placed every fixed deposit on 31/07/2026 using the active
+            product's default term, since it only had each client's total balance. This corrects the
+            real start date/term/maturity for the 17 clients with an active FD using the FixedSvChk
+            ledger (BK00028 is split into the 4 separate deposits it actually holds). No GL changes --
+            principal totals are unchanged. Run this once, after the migration above.
+        </p>
+        <form method="POST" action="{{ route('settings.fix-july-fd-terms') }}"
+              onsubmit="return confirm('Run the FD term fix now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Fix FD Terms
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

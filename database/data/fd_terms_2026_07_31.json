@@ -1,0 +1,29 @@
+{
+  "single": [
+    {"client_number": "EK00005",  "principal": 8500000,    "start_date": "2026-07-29", "term_months": 6},
+    {"client_number": "EK00015",  "principal": 45900000,   "start_date": "2026-06-15", "term_months": 12},
+    {"client_number": "EK00020",  "principal": 8800000,    "start_date": "2026-03-31", "term_months": 9},
+    {"client_number": "GK00042",  "principal": 80000000,   "start_date": "2026-06-11", "term_months": 12},
+    {"client_number": "GK00060",  "principal": 30000000,   "start_date": "2025-12-29", "term_months": 12},
+    {"client_number": "GK00065",  "principal": 4966006,    "start_date": "2026-05-17", "term_months": 1},
+    {"client_number": "GK00070",  "principal": 22000000,   "start_date": "2026-07-01", "term_months": 6},
+    {"client_number": "MK00072",  "principal": 15000000,   "start_date": "2026-04-18", "term_months": 12},
+    {"client_number": "MK00085",  "principal": 143008863,  "start_date": "2025-08-29", "term_months": 12},
+    {"client_number": "MK00131",  "principal": 20000000,   "start_date": "2026-03-28", "term_months": 6},
+    {"client_number": "MK00155",  "principal": 5000000,    "start_date": "2026-05-15", "term_months": 12},
+    {"client_number": "MK00313",  "principal": 90000000,   "start_date": "2026-03-31", "term_months": 6},
+    {"client_number": "MK00316",  "principal": 5000000,    "start_date": "2026-06-19", "term_months": 6},
+    {"client_number": "XMK00070", "principal": 2000000,    "start_date": "2026-04-13", "term_months": 6},
+    {"client_number": "XMK00154", "principal": 5193132,    "start_date": "2026-02-12", "term_months": 12},
+    {"client_number": "XMK00249", "principal": 200000000,  "start_date": "2026-02-02", "term_months": 12}
+  ],
+  "split": {
+    "client_number": "BK00028",
+    "deposits": [
+      {"principal": 30000000, "start_date": "2026-03-18", "term_months": 6},
+      {"principal": 10000000, "start_date": "2026-05-21", "term_months": 6},
+      {"principal": 20000000, "start_date": "2026-06-19", "term_months": 6},
+      {"principal": 10000000, "start_date": "2026-07-29", "term_months": 6}
+    ]
+  }
+}
