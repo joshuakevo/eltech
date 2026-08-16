@@ -20,6 +20,11 @@ use Illuminate\Support\Facades\DB;
  * recalculated from the rate; the two figures being spread are the ones
  * already reconciled against the user's active-loans report.
  *
+ * Anchored at 31/07/2026 (the statement's opening date), not the date this
+ * command happens to run -- every balance in this migration is "as of"
+ * 31/07/2026, so the schedule starts counting from there regardless of when
+ * it's actually generated.
+ *
  * Loans whose maturity_date has already passed get a single lump-sum
  * installment dated on that (past) maturity date, marked 'overdue'
  * immediately -- 17 of these as of the July fix.
@@ -27,7 +32,9 @@ use Illuminate\Support\Facades\DB;
 class GenerateJuly2026LoanSchedules extends Command
 {
     protected $signature = 'eltech:generate-loan-schedules-2026-07-31 {--confirm : Required to actually run this}';
-    protected $description = 'Generate a forward-looking repayment schedule (from today to maturity) for active loans fixed by the 31/07/2026 loan term fix';
+    protected $description = 'Generate a repayment schedule (from 31/07/2026 to maturity) for active loans fixed by the 31/07/2026 loan term fix';
+
+    protected const OPENING_DATE = '2026-07-31';
 
     public function handle(): int
     {
@@ -59,19 +66,19 @@ class GenerateJuly2026LoanSchedules extends Command
 
     protected function generateForLoan(Loan $loan): void
     {
-        $today    = Carbon::today();
-        $maturity = Carbon::parse($loan->maturity_date);
+        $startDate = Carbon::parse(self::OPENING_DATE);
+        $maturity  = Carbon::parse($loan->maturity_date);
         $principal = (float) $loan->outstanding_principal;
         $interest  = (float) $loan->outstanding_interest;
 
-        if ($maturity->lte($today)) {
+        if ($maturity->lte($startDate)) {
             $this->createInstallment($loan, 1, $maturity, $principal, $interest, max(0, $principal), 'overdue');
             $this->line("{$loan->loan_number}: matured {$maturity->toDateString()} -- 1 overdue installment ({$principal} + {$interest} interest)");
             return;
         }
 
-        $months = $today->diffInMonths($maturity);
-        if ($today->copy()->addMonths($months)->lt($maturity)) {
+        $months = $startDate->diffInMonths($maturity);
+        if ($startDate->copy()->addMonths($months)->lt($maturity)) {
             $months++;
         }
         $months = max(1, $months);
@@ -83,7 +90,7 @@ class GenerateJuly2026LoanSchedules extends Command
         $balance       = $principal;
 
         for ($i = 1; $i <= $months; $i++) {
-            $dueDate = $i === $months ? $maturity->copy() : $today->copy()->addMonths($i);
+            $dueDate = $i === $months ? $maturity->copy() : $startDate->copy()->addMonths($i);
 
             if ($i === $months) {
                 $pDue = round($principalLeft, 2);
@@ -99,7 +106,7 @@ class GenerateJuly2026LoanSchedules extends Command
             $this->createInstallment($loan, $i, $dueDate, $pDue, $iDue, max(0, round($balance, 2)), 'pending');
         }
 
-        $this->line("{$loan->loan_number}: {$months} installment(s) from {$today->toDateString()} to {$maturity->toDateString()}");
+        $this->line("{$loan->loan_number}: {$months} installment(s) from {$startDate->toDateString()} to {$maturity->toDateString()}");
     }
 
     protected function createInstallment(Loan $loan, int $no, Carbon $dueDate, float $principalDue, float $interestDue, float $balanceAfter, string $status): void
