@@ -53,7 +53,12 @@
                         {{ number_format($loan->outstanding_principal, $dp) }}
                     </td>
                     <td><span class="badge bg-light text-dark">{{ ucfirst($loan->interest_method) }}</span></td>
-                    <td><span class="badge badge-status-{{ $loan->status }}">{{ ucfirst($loan->status) }}</span></td>
+                    <td>
+                        <span class="badge badge-status-{{ $loan->status }}">{{ ucfirst($loan->status) }}</span>
+                        @if($loan->status === 'active' && $loan->maturity_date && $loan->maturity_date->isPast())
+                            <span class="badge bg-danger" title="Matured {{ $loan->maturity_date->format('d M Y') }}">Overdue</span>
+                        @endif
+                    </td>
                     <td class="pe-3">
                         <a href="{{ route('loans.show', $loan) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
                         @can('repay loans')
