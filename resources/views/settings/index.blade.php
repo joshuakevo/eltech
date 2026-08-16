@@ -206,19 +206,19 @@ $groupIcons = [
     </div>
     <div class="card-body">
         <p class="mb-2">
-            This <strong>permanently wipes all transactional data</strong> (every journal entry, savings/loan/FD/share history) and
-            <strong>permanently deletes clients not in the 30/06/2026 member statement</strong>, then rebuilds every remaining
-            client's balances from that statement. This cannot be undone once it runs.
+            This <strong>permanently wipes every client and all transactional data</strong> (every journal entry,
+            savings/loan/FD/share/group history), then <strong>rebuilds the entire client roster and balances</strong>
+            from the 31/07/2026 member statement. This cannot be undone once it runs.
         </p>
         <p class="mb-3 fw-semibold">
-            Confirm you have a full database backup taken before running this. Type <code>MIGRATE JUNE 2026</code> exactly to enable the button.
+            Confirm you have a full database backup taken before running this. Type <code>MIGRATE JULY 2026</code> exactly to enable the button.
         </p>
-        <form method="POST" action="{{ route('settings.run-statement-migration') }}" id="statementMigrationForm"
+        <form method="POST" action="{{ route('settings.run-july-statement-migration') }}" id="statementMigrationForm"
               onsubmit="return confirm('This is your last chance. Have you taken a full production backup? This action is irreversible.');">
             @csrf
             <div class="input-group" style="max-width: 420px;">
                 <input type="text" name="confirmation_phrase" id="migrationPhrase" class="form-control"
-                       placeholder="Type: MIGRATE JUNE 2026" autocomplete="off">
+                       placeholder="Type: MIGRATE JULY 2026" autocomplete="off">
                 <button type="submit" class="btn btn-danger" id="migrationSubmitBtn" disabled>
                     <i class="bi bi-radioactive me-2"></i>Run Migration
                 </button>
@@ -229,29 +229,7 @@ $groupIcons = [
 
 <script>
 document.getElementById('migrationPhrase')?.addEventListener('input', function() {
-    document.getElementById('migrationSubmitBtn').disabled = (this.value !== 'MIGRATE JUNE 2026');
+    document.getElementById('migrationSubmitBtn').disabled = (this.value !== 'MIGRATE JULY 2026');
 });
 </script>
-
-{{-- Follow-up fix for Member Summary report gaps left by the migration above --}}
-<div class="card mt-4 border-warning">
-    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
-        <i class="bi bi-tools me-2"></i>Statement Migration Report Fix
-    </div>
-    <div class="card-body">
-        <p class="mb-2 small">
-            The statement migration above didn't populate a few fields the Member Summary report relies on
-            (opening savings transaction rows, group-to-client links, and share dates), so Savings, Savings
-            Interest, Group Value, and Shares showed as 0 there even though the balances themselves were correct.
-            This fills in those gaps only -- no deletes, safe to run more than once.
-        </p>
-        <form method="POST" action="{{ route('settings.fix-statement-report-gaps') }}"
-              onsubmit="return confirm('Run the Member Summary report gap fix now?');">
-            @csrf
-            <button type="submit" class="btn btn-outline-warning">
-                <i class="bi bi-wrench-adjustable me-2"></i>Fix Report Gaps
-            </button>
-        </form>
-    </div>
-</div>
 @endsection

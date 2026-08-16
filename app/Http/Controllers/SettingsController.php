@@ -169,37 +169,25 @@ class SettingsController extends Controller
     }
 
     /**
-     * One-time, irreversible: wipes all transactional data and replaces the client
-     * roster/balances with the 30/06/2026 member statement. Gated behind an exact
-     * typed confirmation phrase (not just a JS confirm() dialog) given the stakes --
-     * this is meant to be run once and the button removed afterward.
+     * One-time, irreversible: wipes every client and all transactional data, then
+     * rebuilds the entire roster/balances from the 31/07/2026 member statement.
+     * Gated behind an exact typed confirmation phrase (not just a JS confirm()
+     * dialog) given the stakes -- this is meant to be run once and the button
+     * removed afterward.
      */
-    public function runStatementMigration(Request $request)
+    public function runJulyStatementMigration(Request $request)
     {
         $request->validate([
             'confirmation_phrase' => 'required|string',
         ]);
 
-        if ($request->confirmation_phrase !== 'MIGRATE JUNE 2026') {
+        if ($request->confirmation_phrase !== 'MIGRATE JULY 2026') {
             return back()->with('error', 'Confirmation phrase did not match. Nothing was run.');
         }
 
-        Artisan::call('eltech:migrate-statement-2026-06-30', ['--confirm' => true]);
+        Artisan::call('eltech:migrate-statement-2026-07-31', ['--confirm' => true]);
         $output = Artisan::output();
 
         return back()->with('success', "Statement migration run.\n\n{$output}");
-    }
-
-    /**
-     * Additive follow-up fix for gaps the statement migration left in the Member
-     * Summary report (missing SavingsTransaction rows, unlinked group.client_id,
-     * un-backdated share created_at). No deletes -- safe to run more than once.
-     */
-    public function fixStatementReportGaps()
-    {
-        Artisan::call('eltech:fix-statement-report-gaps', ['--confirm' => true]);
-        $output = Artisan::output();
-
-        return back()->with('success', "Statement report gap fix run.\n\n{$output}");
     }
 }
