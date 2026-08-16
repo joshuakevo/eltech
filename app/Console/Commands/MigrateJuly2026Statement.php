@@ -50,22 +50,23 @@ class MigrateJuly2026Statement extends Command
         }
         $bundle = json_decode(file_get_contents($path), true);
 
-        $openingEquity  = Account::where('account_code', '3004')->firstOrFail();
-        $shareCapital   = Account::where('account_code', '3001')->firstOrFail();
-        $groupSavingsGl = Account::where('account_code', '2005')->firstOrFail();
-        $savingsProduct = SavingsProduct::where('is_active', true)->firstOrFail();
-        $loanProduct    = LoanProduct::where('is_active', true)->firstOrFail();
-        $fdProduct      = FixedDepositProduct::where('is_active', true)->firstOrFail();
+        $openingEquity   = Account::where('account_code', '3004')->firstOrFail();
+        $shareCapital    = Account::where('account_code', '3001')->firstOrFail();
+        $groupSavingsGl  = Account::where('account_code', '2005')->firstOrFail();
+        $savingsIntPayable = Account::where('account_code', '2006')->firstOrFail();
+        $savingsProduct  = SavingsProduct::where('is_active', true)->firstOrFail();
+        $loanProduct     = LoanProduct::where('is_active', true)->firstOrFail();
+        $fdProduct       = FixedDepositProduct::where('is_active', true)->firstOrFail();
 
         $this->info('Starting migration inside a single transaction...');
 
-        DB::transaction(function () use ($bundle, $accounting, $openingEquity, $shareCapital, $groupSavingsGl, $savingsProduct, $loanProduct, $fdProduct) {
+        DB::transaction(function () use ($bundle, $accounting, $openingEquity, $shareCapital, $groupSavingsGl, $savingsIntPayable, $savingsProduct, $loanProduct, $fdProduct) {
             // Wipe sub-ledger/transactional tables AND every client in the same
             // FK-checks-off window -- loans/savings_accounts/fixed_deposits are
             // RESTRICT foreign keys back to clients, so deleting clients first would
             // fail while their old rows still exist.
             $this->wipeEverything();
-            $this->rebuildClients($bundle['clients'], $accounting, $openingEquity, $shareCapital, $savingsProduct, $loanProduct, $fdProduct);
+            $this->rebuildClients($bundle['clients'], $accounting, $openingEquity, $shareCapital, $savingsIntPayable, $savingsProduct, $loanProduct, $fdProduct);
             $this->rebuildGroups($bundle['groups'], $accounting, $openingEquity, $groupSavingsGl);
         });
 
@@ -101,6 +102,7 @@ class MigrateJuly2026Statement extends Command
         AccountingService $accounting,
         Account $openingEquity,
         Account $shareCapital,
+        Account $savingsIntPayable,
         SavingsProduct $savingsProduct,
         LoanProduct $loanProduct,
         FixedDepositProduct $fdProduct
@@ -113,8 +115,11 @@ class MigrateJuly2026Statement extends Command
             if ((float) $row['shares_no'] != 0 || (float) $row['shares_val'] != 0) {
                 $this->createShares($client, $row, $accounting, $shareCapital, $openingEquity);
             }
-            if ((float) $row['opt_save'] != 0 || (float) $row['save_int'] != 0) {
+            if ((float) $row['opt_save'] != 0) {
                 $this->createSavings($client, $row, $accounting, $savingsProduct, $openingEquity);
+            }
+            if ((float) $row['save_int'] != 0) {
+                $this->createSavingsInterestPayable($client, $row, $accounting, $savingsIntPayable, $openingEquity);
             }
             if ((float) $row['fix_dep_save'] != 0) {
                 $this->createFixedDeposit($client, $row, $accounting, $fdProduct, $openingEquity);
@@ -177,10 +182,11 @@ class MigrateJuly2026Statement extends Command
 
     protected function createSavings(Client $client, array $row, AccountingService $accounting, SavingsProduct $product, Account $openingEquity): void
     {
-        // Fold accrued-but-uncredited tiered interest into the opening balance --
-        // there is no carryforward column, and last_interest_date below resets the
-        // accrual clock to this date so future tiered accrual starts clean from here.
-        $balance = (float) $row['opt_save'] + (float) $row['save_int'];
+        // Opt Save only -- this is the client's actual accessible/withdrawable
+        // balance. Save Int (accrued interest under the legacy system, not yet
+        // credited to members) is booked separately in createSavingsInterestPayable()
+        // and deliberately kept out of this balance.
+        $balance = (float) $row['opt_save'];
 
         $account = SavingsAccount::create([
             'client_id'          => $client->id,
@@ -211,6 +217,26 @@ class MigrateJuly2026Statement extends Command
         $this->postOpeningEntry(
             $accounting, $liabilityAccount, $openingEquity, $balance, $client,
             "Opening balance (31/07/2026 statement) - savings {$account->account_number}", 'manual', 'credit'
+        );
+    }
+
+    /**
+     * Save Int under the legacy system is accrued interest not yet credited to the
+     * member -- it's owed, but not withdrawable until the year-end crediting run.
+     * The live tiered-interest engine (SavingsService::previewAccruedInterest())
+     * has no field to carry forward a pre-existing accrued amount, so this is
+     * booked as its own client-tagged liability (2006) rather than folded into the
+     * savings account balance or a SavingsTransaction. When the real year-end
+     * credit happens, that amount needs moving from here into the client's actual
+     * savings balance via a manual entry -- this command does not do that itself.
+     */
+    protected function createSavingsInterestPayable(Client $client, array $row, AccountingService $accounting, Account $savingsIntPayable, Account $openingEquity): void
+    {
+        $amount = (float) $row['save_int'];
+
+        $this->postOpeningEntry(
+            $accounting, $savingsIntPayable, $openingEquity, $amount, $client,
+            'Opening balance (31/07/2026 statement) - accrued savings interest (not yet credited)', 'manual', 'credit'
         );
     }
 
