@@ -4,6 +4,7 @@
 <div class="mb-4">
     <h4 class="mb-0 fw-semibold">System Settings</h4>
     <p class="text-muted small mb-0">Configure application-wide parameters</p>
+    <p class="text-muted small mb-0">Deploy check: 2026-08-16-a</p>
 </div>
 
 @if(session('success'))
