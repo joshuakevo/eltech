@@ -20,7 +20,7 @@ class FixedDepositController extends Controller
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where('deposit_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")))
-            ->latest()
+            ->orderBy('maturity_date')
             ->paginate(20);
 
         return view('fixed-deposits.index', compact('deposits'));
