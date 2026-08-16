@@ -1,0 +1,542 @@
+[
+  {
+    "client_number": "BK00049",
+    "loan_id": 252,
+    "product": "business",
+    "interest_rate": 6,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2021-09-22",
+    "original_principal": 5000000
+  },
+  {
+    "client_number": "BK00050",
+    "loan_id": 864,
+    "product": "business",
+    "interest_rate": 5,
+    "interest_method": "flat",
+    "term_months": 6,
+    "disbursement_date": "2026-05-14",
+    "original_principal": 5000000
+  },
+  {
+    "client_number": "EK00003",
+    "loan_id": 740,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-01-29",
+    "original_principal": 25000000
+  },
+  {
+    "client_number": "EK00019",
+    "loan_id": 813,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 6,
+    "disbursement_date": "2025-09-13",
+    "original_principal": 3000000
+  },
+  {
+    "client_number": "EK00020",
+    "loan_id": 872,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 8,
+    "disbursement_date": "2026-06-10",
+    "original_principal": 15800000
+  },
+  {
+    "client_number": "EK00095",
+    "loan_id": 862,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 8,
+    "disbursement_date": "2026-04-02",
+    "original_principal": 20000000
+  },
+  {
+    "client_number": "EK00108",
+    "loan_id": 880,
+    "product": "business",
+    "interest_rate": 5,
+    "interest_method": "flat",
+    "term_months": 4,
+    "disbursement_date": "2026-07-15",
+    "original_principal": 1500000
+  },
+  {
+    "client_number": "GK00052",
+    "loan_id": 815,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-09-12",
+    "original_principal": 20000000
+  },
+  {
+    "client_number": "GK00053",
+    "loan_id": 808,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 6,
+    "disbursement_date": "2025-09-01",
+    "original_principal": 6000000
+  },
+  {
+    "client_number": "GK00057",
+    "loan_id": 870,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "flat",
+    "term_months": 3,
+    "disbursement_date": "2026-06-11",
+    "original_principal": 3000000
+  },
+  {
+    "client_number": "GK00059",
+    "loan_id": 817,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 4,
+    "disbursement_date": "2025-09-24",
+    "original_principal": 4000000
+  },
+  {
+    "client_number": "GK00060",
+    "loan_id": 835,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 18,
+    "disbursement_date": "2025-12-22",
+    "original_principal": 70000000
+  },
+  {
+    "client_number": "GK00064",
+    "loan_id": 846,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "flat",
+    "term_months": 2,
+    "disbursement_date": "2026-02-06",
+    "original_principal": 4000000
+  },
+  {
+    "client_number": "GK00065",
+    "loan_id": 879,
+    "product": "business",
+    "interest_rate": 4.5,
+    "interest_method": "flat",
+    "term_months": 2,
+    "disbursement_date": "2026-07-03",
+    "original_principal": 10000000
+  },
+  {
+    "client_number": "GK00072",
+    "loan_id": 838,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 12,
+    "disbursement_date": "2026-01-09",
+    "original_principal": 15000000
+  },
+  {
+    "client_number": "GK00075",
+    "loan_id": 878,
+    "product": "business",
+    "interest_rate": 3.5,
+    "interest_method": "flat",
+    "term_months": 3,
+    "disbursement_date": "2026-07-02",
+    "original_principal": 10000000
+  },
+  {
+    "client_number": "GK00082",
+    "loan_id": 874,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 6,
+    "disbursement_date": "2026-06-15",
+    "original_principal": 40000000
+  },
+  {
+    "client_number": "GK00087",
+    "loan_id": 841,
+    "product": "business",
+    "interest_rate": 2,
+    "interest_method": "reducing",
+    "term_months": 7,
+    "disbursement_date": "2026-02-03",
+    "original_principal": 5000000
+  },
+  {
+    "client_number": "kk00053",
+    "loan_id": 781,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "reducing",
+    "term_months": 10,
+    "disbursement_date": "2025-05-16",
+    "original_principal": 32000000
+  },
+  {
+    "client_number": "LK00013",
+    "loan_id": 671,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 24,
+    "disbursement_date": "2024-05-02",
+    "original_principal": 12000000
+  },
+  {
+    "client_number": "MK00106",
+    "loan_id": 863,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2026-04-27",
+    "original_principal": 15000000
+  },
+  {
+    "client_number": "MK00186",
+    "loan_id": 736,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 18,
+    "disbursement_date": "2025-01-27",
+    "original_principal": 7000000
+  },
+  {
+    "client_number": "MK00197",
+    "loan_id": 826,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 12,
+    "disbursement_date": "2025-10-31",
+    "original_principal": 7000000
+  },
+  {
+    "client_number": "MK00215",
+    "loan_id": 601,
+    "product": "business",
+    "interest_rate": 6,
+    "interest_method": "reducing",
+    "term_months": 3,
+    "disbursement_date": "2023-08-10",
+    "original_principal": 3000000
+  },
+  {
+    "client_number": "MK00222",
+    "loan_id": 843,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "flat",
+    "term_months": 6,
+    "disbursement_date": "2026-02-23",
+    "original_principal": 5000000
+  },
+  {
+    "client_number": "MK00238",
+    "loan_id": 828,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 18,
+    "disbursement_date": "2025-11-04",
+    "original_principal": 10000000
+  },
+  {
+    "client_number": "MK00254",
+    "loan_id": 882,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "flat",
+    "term_months": 5,
+    "disbursement_date": "2026-07-15",
+    "original_principal": 3000000
+  },
+  {
+    "client_number": "MK00256",
+    "loan_id": 647,
+    "product": "business",
+    "interest_rate": 12,
+    "interest_method": "reducing",
+    "term_months": 4,
+    "disbursement_date": "2024-02-22",
+    "original_principal": 2000000
+  },
+  {
+    "client_number": "MK00258",
+    "loan_id": 830,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-11-12",
+    "original_principal": 20000000
+  },
+  {
+    "client_number": "Mk00272",
+    "loan_id": 877,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "flat",
+    "term_months": 3,
+    "disbursement_date": "2026-06-29",
+    "original_principal": 1000000
+  },
+  {
+    "client_number": "MK00277",
+    "loan_id": 780,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-05-16",
+    "original_principal": 7000000
+  },
+  {
+    "client_number": "MK00287",
+    "loan_id": 687,
+    "product": "business",
+    "interest_rate": 6,
+    "interest_method": "reducing",
+    "term_months": 6,
+    "disbursement_date": "2024-06-30",
+    "original_principal": 3000000
+  },
+  {
+    "client_number": "MK00288",
+    "loan_id": 684,
+    "product": "business",
+    "interest_rate": 6,
+    "interest_method": "reducing",
+    "term_months": 4,
+    "disbursement_date": "2024-06-14",
+    "original_principal": 2000000
+  },
+  {
+    "client_number": "MK00299",
+    "loan_id": 760,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-02-28",
+    "original_principal": 14000000
+  },
+  {
+    "client_number": "MK00316",
+    "loan_id": 875,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "reducing",
+    "term_months": 6,
+    "disbursement_date": "2026-06-19",
+    "original_principal": 20000000
+  },
+  {
+    "client_number": "mk00318",
+    "loan_id": 715,
+    "product": "business",
+    "interest_rate": 6,
+    "interest_method": "reducing",
+    "term_months": 6,
+    "disbursement_date": "2024-10-26",
+    "original_principal": 2000000
+  },
+  {
+    "client_number": "MK00319",
+    "loan_id": 866,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "reducing",
+    "term_months": 6,
+    "disbursement_date": "2026-05-19",
+    "original_principal": 8000000
+  },
+  {
+    "client_number": "MK00320",
+    "loan_id": 784,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 7,
+    "disbursement_date": "2025-05-21",
+    "original_principal": 3000000
+  },
+  {
+    "client_number": "MK00326",
+    "loan_id": 847,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "flat",
+    "term_months": 8,
+    "disbursement_date": "2026-02-26",
+    "original_principal": 8000000
+  },
+  {
+    "client_number": "MK00339",
+    "loan_id": 858,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "flat",
+    "term_months": 5,
+    "disbursement_date": "2026-04-25",
+    "original_principal": 2500000
+  },
+  {
+    "client_number": "MK00340",
+    "loan_id": 805,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 6,
+    "disbursement_date": "2025-08-13",
+    "original_principal": 20000000
+  },
+  {
+    "client_number": "MK00341",
+    "loan_id": 876,
+    "product": "business",
+    "interest_rate": 5,
+    "interest_method": "flat",
+    "term_months": 4,
+    "disbursement_date": "2026-06-20",
+    "original_principal": 6000000
+  },
+  {
+    "client_number": "NK00047",
+    "loan_id": 842,
+    "product": "business",
+    "interest_rate": 3,
+    "interest_method": "reducing",
+    "term_months": 6,
+    "disbursement_date": "2026-02-05",
+    "original_principal": 12500000
+  },
+  {
+    "client_number": "NK00144",
+    "loan_id": 855,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "reducing",
+    "term_months": 7,
+    "disbursement_date": "2026-04-01",
+    "original_principal": 50000000
+  },
+  {
+    "client_number": "NK00161",
+    "loan_id": 816,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-09-22",
+    "original_principal": 25000000
+  },
+  {
+    "client_number": "NK00221",
+    "loan_id": 865,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "flat",
+    "term_months": 4,
+    "disbursement_date": "2026-05-13",
+    "original_principal": 15000000
+  },
+  {
+    "client_number": "PK00002",
+    "loan_id": 869,
+    "product": "business",
+    "interest_rate": 4,
+    "interest_method": "flat",
+    "term_months": 3,
+    "disbursement_date": "2026-05-25",
+    "original_principal": 4500000
+  },
+  {
+    "client_number": "RK00043",
+    "loan_id": 809,
+    "product": "business",
+    "interest_rate": 5,
+    "interest_method": "flat",
+    "term_months": 3,
+    "disbursement_date": "2025-09-03",
+    "original_principal": 1000000
+  },
+  {
+    "client_number": "RK00044",
+    "loan_id": 791,
+    "product": "business",
+    "interest_rate": 2.8,
+    "interest_method": "flat",
+    "term_months": 4,
+    "disbursement_date": "2025-06-11",
+    "original_principal": 33000000
+  },
+  {
+    "client_number": "SK00001",
+    "loan_id": 824,
+    "product": "business",
+    "interest_rate": 2,
+    "interest_method": "reducing",
+    "term_months": 12,
+    "disbursement_date": "2025-10-24",
+    "original_principal": 49000000
+  },
+  {
+    "client_number": "SK00011",
+    "loan_id": 853,
+    "product": "business",
+    "interest_rate": 2,
+    "interest_method": "reducing",
+    "term_months": 5,
+    "disbursement_date": "2026-03-25",
+    "original_principal": 4000000
+  },
+  {
+    "client_number": "SK00028",
+    "loan_id": 848,
+    "product": "business",
+    "interest_rate": 2,
+    "interest_method": "reducing",
+    "term_months": 8,
+    "disbursement_date": "2026-03-05",
+    "original_principal": 1850000
+  },
+  {
+    "client_number": "SK00031",
+    "loan_id": 845,
+    "product": "business",
+    "interest_rate": 2,
+    "interest_method": "reducing",
+    "term_months": 10,
+    "disbursement_date": "2026-02-23",
+    "original_principal": 3650000
+  },
+  {
+    "client_number": "SK00034",
+    "loan_id": 850,
+    "product": "business",
+    "interest_rate": 2,
+    "interest_method": "reducing",
+    "term_months": 10,
+    "disbursement_date": "2026-03-05",
+    "original_principal": 3900000
+  }
+]

@@ -204,4 +204,18 @@ class SettingsController extends Controller
 
         return back()->with('success', "FD term fix run.\n\n{$output}");
     }
+
+    /**
+     * Additive follow-up: corrects rate/term/category/disbursement date on the 54
+     * active loans the July migration created, using the real LoanInfo.xlsx +
+     * active-loans report. Reclassifies the GL receivable account where the loan
+     * category changes the product. Run this after the migration above.
+     */
+    public function fixJulyLoanTerms()
+    {
+        Artisan::call('eltech:fix-loan-terms-2026-07-31', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Loan term fix run.\n\n{$output}");
+    }
 }

@@ -255,4 +255,27 @@ document.getElementById('migrationPhrase')?.addEventListener('input', function()
         </form>
     </div>
 </div>
+
+{{-- Follow-up fix for loan terms left generic by the migration above -- run after it --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Loan Term Fix
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The statement migration above disbursed every loan on 31/07/2026 on a single generic loan
+            product, since it only had each client's total balance. This corrects the real rate/term/
+            category/disbursement date for the 54 clients with an active loan using LoanInfo.xlsx and
+            the active-loans report, reclassifying the GL receivable account where the category changes
+            which product it belongs to. Run this once, after the migration above.
+        </p>
+        <form method="POST" action="{{ route('settings.fix-july-loan-terms') }}"
+              onsubmit="return confirm('Run the loan term fix now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Fix Loan Terms
+            </button>
+        </form>
+    </div>
+</div>
 @endsection
