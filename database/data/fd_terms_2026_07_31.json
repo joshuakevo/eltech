@@ -7,6 +7,7 @@
     {"client_number": "GK00060",  "principal": 30000000,   "start_date": "2025-12-29", "term_months": 12},
     {"client_number": "GK00065",  "principal": 4966006,    "start_date": "2026-05-17", "term_months": 1},
     {"client_number": "GK00070",  "principal": 22000000,   "start_date": "2026-07-01", "term_months": 6},
+    {"client_number": "MK00065",  "principal": 13416600,   "start_date": "2026-07-29", "term_months": 6},
     {"client_number": "MK00072",  "principal": 15000000,   "start_date": "2026-04-18", "term_months": 12},
     {"client_number": "MK00085",  "principal": 143008863,  "start_date": "2025-08-29", "term_months": 12},
     {"client_number": "MK00131",  "principal": 20000000,   "start_date": "2026-03-28", "term_months": 6},
