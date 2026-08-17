@@ -30,7 +30,7 @@ class LoanController extends Controller
         $totalCount       = (clone $filtered)->count();
 
         if ($request->format === 'pdf') {
-            $all = (clone $filtered)->with('client', 'product')->latest()->get();
+            $all = (clone $filtered)->with('client', 'product')->orderByDesc('outstanding_principal')->get();
             $pdf = Pdf::loadView('pdf.loans', [
                 'loans'            => $all,
                 'totalOutstanding' => $totalOutstanding,
@@ -40,7 +40,7 @@ class LoanController extends Controller
         }
 
         if ($request->format === 'excel') {
-            $all = (clone $filtered)->with('client', 'product')->latest()->get();
+            $all = (clone $filtered)->with('client', 'product')->orderByDesc('outstanding_principal')->get();
             $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Method', 'Status']];
             foreach ($all as $loan) {
                 $rows[] = [
@@ -59,7 +59,7 @@ class LoanController extends Controller
         }
 
         $loans = $filtered->with('client', 'product')
-            ->latest()
+            ->orderByDesc('outstanding_principal')
             ->paginate(20);
 
         return view('loans.index', compact('loans', 'totalOutstanding', 'totalCount'));
