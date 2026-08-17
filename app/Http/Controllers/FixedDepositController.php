@@ -16,14 +16,47 @@ class FixedDepositController extends Controller
 
     public function index(Request $request)
     {
-        $deposits = FixedDeposit::with('client', 'product')
+        $filtered = FixedDeposit::query()
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where('deposit_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")))
+                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
+
+        $totalPrincipal = (clone $filtered)->sum('principal');
+        $totalCount     = (clone $filtered)->count();
+
+        if ($request->format === 'pdf') {
+            $all = (clone $filtered)->with('client', 'product')->orderBy('maturity_date')->get();
+            $pdf = Pdf::loadView('pdf.fixed-deposits', [
+                'deposits'       => $all,
+                'totalPrincipal' => $totalPrincipal,
+                'totalCount'     => $totalCount,
+            ])->setPaper('a4', 'portrait');
+            return $pdf->download('fixed-deposits-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        if ($request->format === 'excel') {
+            $all = (clone $filtered)->with('client', 'product')->orderBy('maturity_date')->get();
+            $rows = [['Deposit #', 'Client', 'Client #', 'Product', 'Principal', 'Maturity Date', 'Status']];
+            foreach ($all as $fd) {
+                $rows[] = [
+                    $fd->deposit_number,
+                    $fd->client->name ?? '',
+                    $fd->client->client_number ?? '',
+                    $fd->product->name ?? '',
+                    $fd->principal,
+                    optional($fd->maturity_date)->format('Y-m-d'),
+                    ucfirst($fd->status),
+                ];
+            }
+            $rows[] = ['', '', '', 'TOTAL', $totalPrincipal, '', $totalCount . ' deposits'];
+            return $this->csvDownload($rows, 'fixed-deposits-' . now()->format('Y-m-d'));
+        }
+
+        $deposits = $filtered->with('client', 'product')
             ->orderBy('maturity_date')
             ->paginate(20);
 
-        return view('fixed-deposits.index', compact('deposits'));
+        return view('fixed-deposits.index', compact('deposits', 'totalPrincipal', 'totalCount'));
     }
 
     public function create(Request $request)

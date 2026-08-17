@@ -10,11 +10,6 @@ use App\Models\Transaction;
 use App\Services\SavingsService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class SavingsAccountController extends Controller
 {
@@ -42,25 +37,19 @@ class SavingsAccountController extends Controller
 
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
-            $rows = [];
+            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance', 'Status']];
             foreach ($all as $acc) {
                 $rows[] = [
                     $acc->account_number,
                     $acc->client->name ?? '',
                     $acc->client->client_number ?? '',
                     $acc->product->name ?? '',
-                    (float) $acc->balance,
+                    $acc->balance,
                     ucfirst($acc->status),
                 ];
             }
-
-            return $this->xlsxDownload(
-                'Savings Accounts',
-                ['Account #', 'Client', 'Client #', 'Product', 'Balance', 'Status'],
-                $rows,
-                ['', '', '', 'TOTAL (' . $totalSavers . ' savers)', (float) $totalBalance, ''],
-                'savings-accounts-' . now()->format('Y-m-d')
-            );
+            $rows[] = ['', '', '', 'TOTAL', $totalBalance, $totalSavers . ' savers'];
+            return $this->csvDownload($rows, 'savings-accounts-' . now()->format('Y-m-d'));
         }
 
         $accounts = $filtered->with('client', 'product')
@@ -68,59 +57,6 @@ class SavingsAccountController extends Controller
             ->paginate(20);
 
         return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers'));
-    }
-
-    /**
-     * Build and stream a real .xlsx file (not CSV) with a bold header row,
-     * a bold totals row, and thousand-separated number formatting on the
-     * balance column.
-     */
-    private function xlsxDownload(string $sheetTitle, array $header, array $rows, ?array $totalsRow, string $filename): \Symfony\Component\HttpFoundation\StreamedResponse
-    {
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle(substr($sheetTitle, 0, 31));
-
-        $sheet->fromArray($header, null, 'A1');
-        $headerRange = 'A1:' . $sheet->getCellByColumnAndRow(count($header), 1)->getColumn() . '1';
-        $sheet->getStyle($headerRange)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle($headerRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('0F2444');
-        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        $rowNum = 2;
-        foreach ($rows as $row) {
-            $sheet->fromArray($row, null, 'A' . $rowNum);
-            $rowNum++;
-        }
-
-        if ($totalsRow) {
-            $sheet->fromArray($totalsRow, null, 'A' . $rowNum);
-            $totalsRange = 'A' . $rowNum . ':' . $sheet->getCellByColumnAndRow(count($totalsRow), $rowNum)->getColumn() . $rowNum;
-            $sheet->getStyle($totalsRange)->getFont()->setBold(true);
-            $sheet->getStyle($totalsRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E5E7EB');
-            $lastRow = $rowNum;
-        } else {
-            $lastRow = $rowNum - 1;
-        }
-
-        // Balance column (position of the first numeric header cell, e.g. "Balance") gets thousands formatting
-        foreach ($header as $i => $label) {
-            if (stripos($label, 'balance') !== false || stripos($label, 'amount') !== false) {
-                $col = $sheet->getCellByColumnAndRow($i + 1, 1)->getColumn();
-                $sheet->getStyle("{$col}2:{$col}{$lastRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-            }
-        }
-
-        foreach (range('A', $sheet->getHighestColumn()) as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        return response()->streamDownload(function () use ($spreadsheet) {
-            (new Xlsx($spreadsheet))->save('php://output');
-        }, $filename . '.xlsx', [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '.xlsx"',
-        ]);
     }
 
     public function create(Request $request)

@@ -21,14 +21,48 @@ class LoanController extends Controller
 
     public function index(Request $request)
     {
-        $loans = Loan::with('client', 'product')
+        $filtered = Loan::query()
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where('loan_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")))
+                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
+
+        $totalOutstanding = (clone $filtered)->sum('outstanding_principal');
+        $totalCount       = (clone $filtered)->count();
+
+        if ($request->format === 'pdf') {
+            $all = (clone $filtered)->with('client', 'product')->latest()->get();
+            $pdf = Pdf::loadView('pdf.loans', [
+                'loans'            => $all,
+                'totalOutstanding' => $totalOutstanding,
+                'totalCount'       => $totalCount,
+            ])->setPaper('a4', 'landscape');
+            return $pdf->download('loans-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        if ($request->format === 'excel') {
+            $all = (clone $filtered)->with('client', 'product')->latest()->get();
+            $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Method', 'Status']];
+            foreach ($all as $loan) {
+                $rows[] = [
+                    $loan->loan_number,
+                    $loan->client->name ?? '',
+                    $loan->client->client_number ?? '',
+                    $loan->product->name ?? '',
+                    $loan->principal,
+                    $loan->outstanding_principal,
+                    ucfirst($loan->interest_method),
+                    ucfirst($loan->status),
+                ];
+            }
+            $rows[] = ['', '', '', 'TOTAL', '', $totalOutstanding, '', $totalCount . ' loans'];
+            return $this->csvDownload($rows, 'loans-' . now()->format('Y-m-d'));
+        }
+
+        $loans = $filtered->with('client', 'product')
             ->latest()
             ->paginate(20);
 
-        return view('loans.index', compact('loans'));
+        return view('loans.index', compact('loans', 'totalOutstanding', 'totalCount'));
     }
 
     public function create(Request $request)

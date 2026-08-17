@@ -12,9 +12,37 @@
             <i class="bi bi-percent me-1"></i> Accrue Interest
         </button>
         @endcan
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ request()->fullUrlWithQuery(['format' => 'excel']) }}"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel (CSV)</a></li>
+                <li><a class="dropdown-item" href="{{ request()->fullUrlWithQuery(['format' => 'pdf']) }}" target="_blank"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
+            </ul>
+        </div>
         @can('create fixed-deposits')
         <a href="{{ route('fixed-deposits.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Fixed Deposit</a>
         @endcan
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Total Principal</div>
+                <div class="fs-4 fw-bold">{{ number_format($totalPrincipal, $dp) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Number of Deposits</div>
+                <div class="fs-4 fw-bold">{{ number_format($totalCount) }}</div>
+            </div>
+        </div>
     </div>
 </div>
 
