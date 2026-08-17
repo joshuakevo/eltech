@@ -25,11 +25,53 @@ class SavingsAccountController extends Controller
         $totalBalance = (clone $filtered)->sum('balance');
         $totalSavers  = (clone $filtered)->count();
 
+        if ($request->format === 'pdf') {
+            $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
+            $pdf = Pdf::loadView('pdf.savings-accounts', [
+                'accounts'     => $all,
+                'totalBalance' => $totalBalance,
+                'totalSavers'  => $totalSavers,
+            ])->setPaper('a4', 'portrait');
+            return $pdf->download('savings-accounts-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        if ($request->format === 'excel') {
+            $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
+            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance', 'Status']];
+            foreach ($all as $acc) {
+                $rows[] = [
+                    $acc->account_number,
+                    $acc->client->name ?? '',
+                    $acc->client->client_number ?? '',
+                    $acc->product->name ?? '',
+                    $acc->balance,
+                    ucfirst($acc->status),
+                ];
+            }
+            $rows[] = ['', '', '', 'TOTAL', $totalBalance, $totalSavers . ' savers'];
+            return $this->csvDownload($rows, 'savings-accounts-' . now()->format('Y-m-d'));
+        }
+
         $accounts = $filtered->with('client', 'product')
             ->orderByDesc('balance')
             ->paginate(20);
 
         return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers'));
+    }
+
+    private function csvDownload(array $rows, string $filename): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            foreach ($rows as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        }, $filename . '.csv', [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '.csv"',
+        ]);
     }
 
     public function create(Request $request)

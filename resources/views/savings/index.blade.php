@@ -15,6 +15,15 @@
             <i class="bi bi-percent me-1"></i> Post Interest
         </button>
         @endcan
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ request()->fullUrlWithQuery(['format' => 'excel']) }}"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel (CSV)</a></li>
+                <li><a class="dropdown-item" href="{{ request()->fullUrlWithQuery(['format' => 'pdf']) }}" target="_blank"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
+            </ul>
+        </div>
         @can('create savings')
         <a href="{{ route('savings.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> Open Account</a>
         @endcan
