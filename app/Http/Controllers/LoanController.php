@@ -41,7 +41,7 @@ class LoanController extends Controller
 
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('outstanding_principal')->get();
-            $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Method', 'Status']];
+            $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Status']];
             foreach ($all as $loan) {
                 $rows[] = [
                     $loan->loan_number,
@@ -50,11 +50,10 @@ class LoanController extends Controller
                     $loan->product->name ?? '',
                     $loan->principal,
                     $loan->outstanding_principal,
-                    ucfirst($loan->interest_method),
                     ucfirst($loan->status),
                 ];
             }
-            $rows[] = ['', '', '', 'TOTAL', '', $totalOutstanding, '', $totalCount . ' loans'];
+            $rows[] = ['', '', '', 'TOTAL', '', $totalOutstanding, $totalCount . ' loans'];
             return $this->csvDownload($rows, 'loans-' . now()->format('Y-m-d'));
         }
 

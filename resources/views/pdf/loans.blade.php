@@ -53,7 +53,6 @@
             <th>Product</th>
             <th class="r">Principal</th>
             <th class="r">Outstanding</th>
-            <th>Method</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -66,7 +65,6 @@
         <td class="text-muted">{{ $loan->product->name ?? '—' }}</td>
         <td class="r">{{ number_format($loan->principal, 0) }}</td>
         <td class="r">{{ number_format($loan->outstanding_principal, 0) }}</td>
-        <td class="text-muted">{{ ucfirst($loan->interest_method) }}</td>
         <td class="{{ $loan->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($loan->status) }}</td>
     </tr>
     @endforeach
@@ -74,9 +72,8 @@
     <tfoot>
         <tr>
             <td colspan="4">TOTAL ({{ number_format($totalCount) }} loans)</td>
-            <td class="r"></td>
             <td class="r">{{ number_format($totalOutstanding, 0) }}</td>
-            <td colspan="2"></td>
+            <td></td>
         </tr>
     </tfoot>
 </table>

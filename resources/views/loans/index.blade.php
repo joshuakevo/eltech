@@ -64,7 +64,7 @@
             <thead><tr>
                 <th class="ps-3">Loan #</th><th>Client</th><th>Product</th>
                 <th class="text-end">Principal</th><th class="text-end">Outstanding</th>
-                <th>Method</th><th>Status</th><th class="pe-3">Actions</th>
+                <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>
             @forelse($loans as $loan)
@@ -82,7 +82,6 @@
                     <td class="text-end fw-semibold {{ $loan->outstanding_principal > 0 ? 'text-warning' : 'text-success' }}">
                         {{ number_format($loan->outstanding_principal, $dp) }}
                     </td>
-                    <td><span class="badge bg-light text-dark">{{ ucfirst($loan->interest_method) }}</span></td>
                     <td>
                         <span class="badge badge-status-{{ $loan->status }}">{{ ucfirst($loan->status) }}</span>
                         @if($loan->status === 'active' && $loan->maturity_date && $loan->maturity_date->isPast())
