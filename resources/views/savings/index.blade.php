@@ -87,6 +87,24 @@
         </div>
     </div>
 </div>
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Total Savings</div>
+                <div class="fs-4 fw-bold">{{ number_format($totalBalance, $dp) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Number of Savers</div>
+                <div class="fs-4 fw-bold">{{ number_format($totalSavers) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="card">
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">

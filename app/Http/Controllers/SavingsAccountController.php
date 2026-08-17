@@ -17,14 +17,19 @@ class SavingsAccountController extends Controller
 
     public function index(Request $request)
     {
-        $accounts = SavingsAccount::with('client', 'product')
+        $filtered = SavingsAccount::query()
             ->when($request->search, fn($q) => $q->where('account_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->latest()
+            ->when($request->status, fn($q) => $q->where('status', $request->status));
+
+        $totalBalance = (clone $filtered)->sum('balance');
+        $totalSavers  = (clone $filtered)->count();
+
+        $accounts = $filtered->with('client', 'product')
+            ->orderByDesc('balance')
             ->paginate(20);
 
-        return view('savings.index', compact('accounts'));
+        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers'));
     }
 
     public function create(Request $request)
