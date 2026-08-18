@@ -169,29 +169,6 @@ class SettingsController extends Controller
     }
 
     /**
-     * One-time, irreversible: wipes every client and all transactional data, then
-     * rebuilds the entire roster/balances from the 31/07/2026 member statement.
-     * Gated behind an exact typed confirmation phrase (not just a JS confirm()
-     * dialog) given the stakes -- this is meant to be run once and the button
-     * removed afterward.
-     */
-    public function runJulyStatementMigration(Request $request)
-    {
-        $request->validate([
-            'confirmation_phrase' => 'required|string',
-        ]);
-
-        if ($request->confirmation_phrase !== 'MIGRATE JULY 2026') {
-            return back()->with('error', 'Confirmation phrase did not match. Nothing was run.');
-        }
-
-        Artisan::call('eltech:migrate-statement-2026-07-31', ['--confirm' => true]);
-        $output = Artisan::output();
-
-        return back()->with('success', "Statement migration run.\n\n{$output}");
-    }
-
-    /**
      * Additive follow-up: corrects start date/term/maturity on the 17 active FDs
      * the July migration created, using the real FixedSvChk ledger instead of the
      * generic product term it guessed. No GL changes -- principal is unchanged.

@@ -375,7 +375,6 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/seed', [SettingsController::class, 'seed'])->name('settings.seed');
         Route::post('settings/clear-cache', [SettingsController::class, 'clearCache'])->name('settings.clear-cache');
         Route::post('settings/check-server-ip', [SettingsController::class, 'checkServerIp'])->name('settings.check-server-ip');
-        Route::post('settings/run-july-statement-migration', [SettingsController::class, 'runJulyStatementMigration'])->name('settings.run-july-statement-migration');
         Route::post('settings/fix-july-fd-terms', [SettingsController::class, 'fixJulyFdTerms'])->name('settings.fix-july-fd-terms');
         Route::post('settings/fix-july-loan-terms', [SettingsController::class, 'fixJulyLoanTerms'])->name('settings.fix-july-loan-terms');
         Route::post('settings/generate-july-loan-schedules', [SettingsController::class, 'generateJulyLoanSchedules'])->name('settings.generate-july-loan-schedules');
