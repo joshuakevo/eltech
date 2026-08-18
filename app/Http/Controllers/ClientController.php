@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Group;
 use App\Models\MemberShare;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
@@ -14,12 +15,44 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        $clients = Client::query()
+        $filtered = Client::query()
             ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
                 ->orWhere('client_number', 'like', "%{$request->search}%")
                 ->orWhere('phone', 'like', "%{$request->search}%"))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->segment_id, fn($q) => $q->where('segment_id', $request->segment_id))
+            ->when($request->segment_id, fn($q) => $q->where('segment_id', $request->segment_id));
+
+        $totalCount = (clone $filtered)->count();
+
+        if ($request->format === 'pdf') {
+            $all = (clone $filtered)->with('segment')->latest()->get();
+            $pdf = Pdf::loadView('pdf.clients', [
+                'clients'    => $all,
+                'totalCount' => $totalCount,
+            ])->setPaper('a4', 'portrait');
+            return $pdf->download('clients-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        if ($request->format === 'excel') {
+            $all = (clone $filtered)->with('segment')->latest()->get();
+            $rows = [['Client #', 'Name', 'Type', 'Segment', 'Phone', 'Email', 'Status', 'Membership']];
+            foreach ($all as $c) {
+                $rows[] = [
+                    $c->client_number,
+                    $c->name,
+                    ucfirst($c->client_type),
+                    $c->segment->name ?? '',
+                    $c->phone ?? '',
+                    $c->email ?? '',
+                    ucfirst($c->status),
+                    ucfirst($c->membership_fee_status ?? ''),
+                ];
+            }
+            $rows[] = ['', '', '', '', '', '', 'TOTAL', $totalCount . ' clients'];
+            return $this->csvDownload($rows, 'clients-' . now()->format('Y-m-d'));
+        }
+
+        $clients = $filtered
             ->withCount('shares')
             ->with(['shares' => fn($q) => $q->select('client_id', 'share_value', 'amount_paid', 'status'), 'segment'])
             ->latest()
@@ -27,7 +60,7 @@ class ClientController extends Controller
 
         $segments = \App\Models\ClientSegment::orderBy('name')->get();
 
-        return view('clients.index', compact('clients', 'segments'));
+        return view('clients.index', compact('clients', 'segments', 'totalCount'));
     }
 
     public function create()
