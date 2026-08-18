@@ -129,18 +129,19 @@ class AccountingService
 
         foreach ($accounts as $account) {
             $bal = $this->getAccountBalance($account->id, $fromDate, $toDate);
-            if ($bal['debit'] == 0 && $bal['credit'] == 0) continue;
+            $net = $bal['debit'] - $bal['credit'];
+            if (abs($net) < 0.001) continue;
 
             $rows[] = [
                 'account_code' => $account->account_code,
                 'account_name' => $account->account_name,
                 'account_type' => $account->account_type,
-                'debit'        => $bal['debit'],
-                'credit'       => $bal['credit'],
+                'debit'        => $net > 0 ? $net : 0,
+                'credit'       => $net < 0 ? -$net : 0,
             ];
 
-            $totalDebit  += $bal['debit'];
-            $totalCredit += $bal['credit'];
+            $totalDebit  += $net > 0 ? $net : 0;
+            $totalCredit += $net < 0 ? -$net : 0;
         }
 
         return [
