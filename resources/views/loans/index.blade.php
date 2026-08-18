@@ -22,12 +22,15 @@
     </div>
 </div>
 
-<ul class="nav nav-pills mb-4">
+<ul class="nav nav-pills mb-4 gap-2">
     <li class="nav-item">
         <a class="nav-link {{ $type === 'normal' ? 'active' : '' }}" href="{{ route('loans.index', ['type' => 'normal']) }}">Normal Loans</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link {{ $type === 'locked-up' ? 'active' : '' }}" href="{{ route('loans.index', ['type' => 'locked-up']) }}">Locked-Up Loans</a>
+        <a class="nav-link border border-danger {{ $type === 'locked-up' ? 'active bg-danger text-white' : 'text-danger' }}"
+           href="{{ route('loans.index', ['type' => 'locked-up']) }}">
+            <i class="bi bi-lock-fill me-1"></i>Locked-Up Loans
+        </a>
     </li>
 </ul>
 
