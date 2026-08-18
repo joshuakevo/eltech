@@ -97,8 +97,8 @@ class DashboardController extends Controller
         });
 
         $monthlyLoanDisbursements = $months->map(function ($m) {
-            return (float) Loan::whereYear('created_at', $m->year)
-                ->whereMonth('created_at', $m->month)
+            return (float) Loan::whereYear('disbursement_date', $m->year)
+                ->whereMonth('disbursement_date', $m->month)
                 ->whereIn('status', ['active', 'closed'])
                 ->sum('principal');
         });
