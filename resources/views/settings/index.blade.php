@@ -317,4 +317,29 @@ $groupIcons = [
         </form>
     </div>
 </div>
+
+{{-- Unbundles the lumped Jan-Jul YTD deficit inside Retained Earnings into the old system's individual income/expense accounts --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Import Jan&ndash;Jul 2026 P&amp;L Detail
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The balance sheet true-up above folded the whole Jan-Jul 2026 YTD deficit (315,792,628) into
+            a single Retained Earnings opening entry, since there was no day-by-day transaction data to
+            rebuild the period's P&amp;L from. This replaces that lump figure with the old system's actual
+            41 income and expense account balances for the period, taken straight from its Trial Balance.
+            Retained Earnings drops to the old system's own prior-period figure (832,747,593) once this
+            runs. Run this <strong>after</strong> the Chart of Accounts seeder (adds the new accounts) and
+            the True Up Balance Sheet above (which posted the lump figure this unbundles).
+        </p>
+        <form method="POST" action="{{ route('settings.import-july-pl-detail') }}"
+              onsubmit="return confirm('Import the Jan-Jul 2026 P&amp;L detail now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Import Jan&ndash;Jul 2026 P&amp;L Detail
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

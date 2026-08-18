@@ -242,4 +242,20 @@ class SettingsController extends Controller
 
         return back()->with('success', "Balance sheet true-up run.\n\n{$output}");
     }
+
+    /**
+     * One-time additive import: replaces the lumped Jan-Jul 2026 YTD deficit
+     * inside 3002 Retained Earnings with the old system's 41 individual
+     * income/expense account balances for that period. Run this after the
+     * Chart of Accounts seeder (adds the new 4100/5100 series accounts) and
+     * after the balance sheet true-up above (which is what posted the
+     * lumped figure this unbundles).
+     */
+    public function importJulyPLDetail()
+    {
+        Artisan::call('eltech:import-pl-detail-jan-jul-2026', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Jan-Jul 2026 P&L detail import run.\n\n{$output}");
+    }
 }
