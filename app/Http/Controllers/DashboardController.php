@@ -57,11 +57,14 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // ── Monthly Trends (last 6 months) ───────────────────────────────────
-        $months      = collect();
-        $monthLabels = collect();
+        // ── Monthly Trends (last 6 months, never earlier than the system's
+        //    31/07/2026 opening date -- there's no real activity before that) ──
+        $openingMonth = Carbon::parse('2026-07-01');
+        $months       = collect();
+        $monthLabels  = collect();
         for ($i = 5; $i >= 0; $i--) {
-            $m = now()->subMonths($i);
+            $m = now()->subMonths($i)->startOfMonth();
+            if ($m->lt($openingMonth)) continue;
             $months->push($m);
             $monthLabels->push($m->format('M Y'));
         }
