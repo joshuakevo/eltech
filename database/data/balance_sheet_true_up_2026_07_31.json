@@ -1,0 +1,212 @@
+[
+  {
+    "account_code": "1009",
+    "side": "debit",
+    "amount": 2308000,
+    "description": "Cash at Bank Centenary"
+  },
+  {
+    "account_code": "1006",
+    "side": "debit",
+    "amount": 8059501,
+    "description": "Cash at Bank Stanbic"
+  },
+  {
+    "account_code": "1001",
+    "side": "debit",
+    "amount": 603257,
+    "description": "Cash at Hand"
+  },
+  {
+    "account_code": "1010",
+    "side": "credit",
+    "amount": 30000,
+    "description": "Cash at Hand Kairos"
+  },
+  {
+    "account_code": "1011",
+    "side": "credit",
+    "amount": 44855,
+    "description": "Petty Cash"
+  },
+  {
+    "account_code": "1004",
+    "side": "debit",
+    "amount": 1356511,
+    "description": "MTN Mobile Money A/C"
+  },
+  {
+    "account_code": "1005",
+    "side": "debit",
+    "amount": 298754,
+    "description": "Airtel Mobile Money A/C"
+  },
+  {
+    "account_code": "1008",
+    "side": "debit",
+    "amount": 250010,
+    "description": "MTN Collection Line"
+  },
+  {
+    "account_code": "1105",
+    "side": "debit",
+    "amount": 30565664,
+    "description": "Loan Interest Receivable"
+  },
+  {
+    "account_code": "1106",
+    "side": "credit",
+    "amount": 203785529,
+    "description": "Accrued Interest"
+  },
+  {
+    "account_code": "1107",
+    "side": "debit",
+    "amount": 45513649,
+    "description": "Penalty Receivable A/C"
+  },
+  {
+    "account_code": "1108",
+    "side": "credit",
+    "amount": 45538649,
+    "description": "Accrued Penalty Charge"
+  },
+  {
+    "account_code": "1109",
+    "side": "credit",
+    "amount": 416303187,
+    "description": "Loan Provisions / Specific"
+  },
+  {
+    "account_code": "1110",
+    "side": "credit",
+    "amount": 4522377,
+    "description": "Loan Provisions / General"
+  },
+  {
+    "account_code": "1111",
+    "side": "credit",
+    "amount": 1367013,
+    "description": "Overdraft fees receivable"
+  },
+  {
+    "account_code": "1301",
+    "side": "debit",
+    "amount": 5000000,
+    "description": "Rent Expense Prepaid"
+  },
+  {
+    "account_code": "1401",
+    "side": "debit",
+    "amount": 131874091,
+    "description": "Short Term Investments"
+  },
+  {
+    "account_code": "1402",
+    "side": "debit",
+    "amount": 22052646,
+    "description": "Insurance Premium Reserve"
+  },
+  {
+    "account_code": "1403",
+    "side": "debit",
+    "amount": 42723247,
+    "description": "Capital Reserve Fund"
+  },
+  {
+    "account_code": "1404",
+    "side": "debit",
+    "amount": 10491908,
+    "description": "Treasury Bonds"
+  },
+  {
+    "account_code": "1202",
+    "side": "debit",
+    "amount": 28990000,
+    "description": "Computer Hardware at Cost"
+  },
+  {
+    "account_code": "1203",
+    "side": "debit",
+    "amount": 16631500,
+    "description": "Furniture and Fittings at Cost"
+  },
+  {
+    "account_code": "1201",
+    "side": "debit",
+    "amount": 1130000,
+    "description": "Office Equipment at Cost"
+  },
+  {
+    "account_code": "1204",
+    "side": "debit",
+    "amount": 54100000,
+    "description": "Motor Vehicle"
+  },
+  {
+    "account_code": "1205",
+    "side": "credit",
+    "amount": 37663606,
+    "description": "Accumulated Depreciation"
+  },
+  {
+    "account_code": "2016",
+    "side": "credit",
+    "amount": 2814795,
+    "description": "Group Interest Payable"
+  },
+  {
+    "account_code": "2003",
+    "side": "credit",
+    "amount": 54950180,
+    "description": "Accrued Interest Payable on Fixed deposits"
+  },
+  {
+    "account_code": "2010",
+    "side": "credit",
+    "amount": 65074621,
+    "description": "Loan Insurance A/C"
+  },
+  {
+    "account_code": "2011",
+    "side": "credit",
+    "amount": 1883472,
+    "description": "NSSF Liability"
+  },
+  {
+    "account_code": "2012",
+    "side": "credit",
+    "amount": 2855179,
+    "description": "PAYE Liability"
+  },
+  {
+    "account_code": "2013",
+    "side": "credit",
+    "amount": 23777404,
+    "description": "Unknown Funds"
+  },
+  {
+    "account_code": "2014",
+    "side": "credit",
+    "amount": 1770000,
+    "description": "Audit fees Payable"
+  },
+  {
+    "account_code": "2015",
+    "side": "credit",
+    "amount": 110800,
+    "description": "Other Payables"
+  },
+  {
+    "account_code": "1112",
+    "side": "debit",
+    "amount": 161085572,
+    "description": "Lock Up Outstanding Interest (aggregate -- each client's frozen interest is on their own Loan.outstanding_interest, sub-ledger only, same convention as regular loans' Loan Interest Receivable above)"
+  },
+  {
+    "account_code": "3002",
+    "side": "debit",
+    "amount": 1148540221,
+    "description": "Retained Earnings (prior 832,747,593 + Jan-Jul 2026 YTD deficit 315,792,628, combined)"
+  }
+]

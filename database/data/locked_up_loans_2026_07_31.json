@@ -1,0 +1,750 @@
+[
+  {
+    "fcode": "LA0003",
+    "name": "Juliet Obbo",
+    "client_number": "XJK00037",
+    "is_new_client": false,
+    "lnbal": 4970560,
+    "intbal": 2805967
+  },
+  {
+    "fcode": "LA0005",
+    "name": "Julius Shaine",
+    "client_number": "XXMK00025",
+    "is_new_client": true,
+    "lnbal": 0,
+    "intbal": -50000,
+    "first_name": "Julius",
+    "last_name": "Shaine",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-07"
+  },
+  {
+    "fcode": "LA0006",
+    "name": "Fiona Nanyunja Jjumba",
+    "client_number": "XEK00011",
+    "is_new_client": false,
+    "lnbal": 9303366,
+    "intbal": 5176067
+  },
+  {
+    "fcode": "LA00066",
+    "name": "David Asingura Wamananu",
+    "client_number": "XXDK00012",
+    "is_new_client": true,
+    "lnbal": 1477112,
+    "intbal": -66390,
+    "first_name": "David",
+    "last_name": "Asingura Wamananu",
+    "gender": "male",
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0007",
+    "name": "John Kato Sabiiti",
+    "client_number": "XMK00080",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 647536
+  },
+  {
+    "fcode": "LA00138",
+    "name": "Ronald Sserukuma",
+    "client_number": "DK00071",
+    "is_new_client": false,
+    "lnbal": 1837398,
+    "intbal": 1429205
+  },
+  {
+    "fcode": "LA0018",
+    "name": "Simon Ejadu",
+    "client_number": "XXIK00037",
+    "is_new_client": true,
+    "lnbal": 0,
+    "intbal": -54000,
+    "first_name": "Simon",
+    "last_name": "Ejadu",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-07"
+  },
+  {
+    "fcode": "LA0036",
+    "name": "Peter Amanyire",
+    "client_number": "MK00090",
+    "is_new_client": false,
+    "lnbal": 7830885,
+    "intbal": 1966191
+  },
+  {
+    "fcode": "LA0037",
+    "name": "Shadrack Baita",
+    "client_number": "XXMK00006",
+    "is_new_client": true,
+    "lnbal": 1523345,
+    "intbal": 1794998,
+    "first_name": "Shadrack",
+    "last_name": "Baita",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-07"
+  },
+  {
+    "fcode": "LA0039",
+    "name": "Paul Omit",
+    "client_number": "TK00026",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 3111605
+  },
+  {
+    "fcode": "LA0040",
+    "name": "Joshua Ndoobe",
+    "client_number": "JK00002",
+    "is_new_client": false,
+    "lnbal": 1987625,
+    "intbal": 9255020
+  },
+  {
+    "fcode": "LA0041",
+    "name": "Kalulu Kasimu",
+    "client_number": "XJK00009",
+    "is_new_client": false,
+    "lnbal": 1739788,
+    "intbal": 1525410
+  },
+  {
+    "fcode": "LA0043",
+    "name": "Edrine Wamukolo",
+    "client_number": "XJK00026",
+    "is_new_client": false,
+    "lnbal": 745144,
+    "intbal": 3461528
+  },
+  {
+    "fcode": "LA0046",
+    "name": "Henry Obbo",
+    "client_number": "XXTK00018",
+    "is_new_client": true,
+    "lnbal": 0,
+    "intbal": 490916,
+    "first_name": "Henry",
+    "last_name": "Obbo",
+    "gender": "male",
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0048",
+    "name": "Rose Jjumba Nakafeero",
+    "client_number": "MK00063",
+    "is_new_client": false,
+    "lnbal": -16000,
+    "intbal": 864281
+  },
+  {
+    "fcode": "LA0051",
+    "name": "Shaminah Nanyombi",
+    "client_number": "XLK00018",
+    "is_new_client": false,
+    "lnbal": 959602,
+    "intbal": 1803635
+  },
+  {
+    "fcode": "LA0052",
+    "name": "Francis Onyango",
+    "client_number": "XXTK0011",
+    "is_new_client": true,
+    "lnbal": -358000,
+    "intbal": 0,
+    "first_name": "Francis",
+    "last_name": "Onyango",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0055",
+    "name": "Joshua Elasu",
+    "client_number": "LK00038",
+    "is_new_client": false,
+    "lnbal": 21555665,
+    "intbal": 11707172
+  },
+  {
+    "fcode": "LA0056",
+    "name": "Catherine Rachel Nammuw",
+    "client_number": "XJK00041",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 38451
+  },
+  {
+    "fcode": "LA0059",
+    "name": "Lady Anne Atwiukirwe",
+    "client_number": "XXDK00035",
+    "is_new_client": true,
+    "lnbal": 6258616,
+    "intbal": 7594705,
+    "first_name": "Lady",
+    "last_name": "Anne Atwiukirwe",
+    "gender": "female",
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0062",
+    "name": "Milly Namakula",
+    "client_number": "XGK00023",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 211316
+  },
+  {
+    "fcode": "LA0065",
+    "name": "Stephen Barasa",
+    "client_number": "MK00071",
+    "is_new_client": false,
+    "lnbal": 30212200,
+    "intbal": 2315353
+  },
+  {
+    "fcode": "LA0066",
+    "name": "Margaret Nakiyembe",
+    "client_number": "XXBK00027",
+    "is_new_client": true,
+    "lnbal": -245735,
+    "intbal": 0,
+    "first_name": "Margaret",
+    "last_name": "Nakiyembe",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0067",
+    "name": "James Mabonga",
+    "client_number": "XMK00172",
+    "is_new_client": false,
+    "lnbal": 6530493,
+    "intbal": 2993039
+  },
+  {
+    "fcode": "LA0068",
+    "name": "Deliverance Church Nansen",
+    "client_number": "mk00185",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 484679
+  },
+  {
+    "fcode": "LA0069",
+    "name": "Juliet Namwogera",
+    "client_number": "XXXBK00069",
+    "is_new_client": true,
+    "lnbal": 393130,
+    "intbal": 515671,
+    "first_name": "Juliet",
+    "last_name": "Namwogera",
+    "gender": "female",
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0071",
+    "name": "Suzan Kemirembe",
+    "client_number": "DK00019",
+    "is_new_client": false,
+    "lnbal": 996314,
+    "intbal": 630928
+  },
+  {
+    "fcode": "LA0075",
+    "name": "Hussein Sserwadda",
+    "client_number": "XJK00013",
+    "is_new_client": false,
+    "lnbal": 1037380,
+    "intbal": 1064280
+  },
+  {
+    "fcode": "LA0076",
+    "name": "Karim Abdul Kasaijja",
+    "client_number": "XJK00072",
+    "is_new_client": false,
+    "lnbal": 10147551,
+    "intbal": 1632756
+  },
+  {
+    "fcode": "LA0078",
+    "name": "Yairo Gwebatala",
+    "client_number": "XJK00060",
+    "is_new_client": false,
+    "lnbal": 417553,
+    "intbal": 434365
+  },
+  {
+    "fcode": "LA0079",
+    "name": "Moses Walimbwa",
+    "client_number": "XXLK00024",
+    "is_new_client": true,
+    "lnbal": -116100,
+    "intbal": -20000,
+    "first_name": "Moses",
+    "last_name": "Walimbwa",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0080",
+    "name": "Rebecca Nakalinda",
+    "client_number": "XLK00026",
+    "is_new_client": false,
+    "lnbal": 77500,
+    "intbal": 918170
+  },
+  {
+    "fcode": "LA0081",
+    "name": "Micah Ritah",
+    "client_number": "RK00025",
+    "is_new_client": false,
+    "lnbal": 1067272,
+    "intbal": 382225
+  },
+  {
+    "fcode": "LA0082",
+    "name": "Joseph Ssekajigo",
+    "client_number": "RK00023",
+    "is_new_client": false,
+    "lnbal": 5810294,
+    "intbal": 3067700
+  },
+  {
+    "fcode": "LA0084",
+    "name": "Willy Mugabe",
+    "client_number": "MK00128",
+    "is_new_client": false,
+    "lnbal": 10911360,
+    "intbal": 5813432
+  },
+  {
+    "fcode": "LA0085",
+    "name": "Imelda Angela Nassolo",
+    "client_number": "DK00015",
+    "is_new_client": false,
+    "lnbal": 1443621,
+    "intbal": 335816
+  },
+  {
+    "fcode": "LA0086",
+    "name": "Fred Bakaki",
+    "client_number": "XJK00043",
+    "is_new_client": false,
+    "lnbal": 3670487,
+    "intbal": 4425427
+  },
+  {
+    "fcode": "LA0089",
+    "name": "Joseph Kyeyune",
+    "client_number": "XJK00014",
+    "is_new_client": false,
+    "lnbal": 1336772,
+    "intbal": 492326
+  },
+  {
+    "fcode": "LA0090",
+    "name": "Swaibu Ssonko",
+    "client_number": "XEK00073",
+    "is_new_client": false,
+    "lnbal": 1096920,
+    "intbal": 498164
+  },
+  {
+    "fcode": "LA0091",
+    "name": "Stanley Kyeyune",
+    "client_number": "DK00061",
+    "is_new_client": false,
+    "lnbal": 2245882,
+    "intbal": 6032653
+  },
+  {
+    "fcode": "LA0092",
+    "name": "Joseph & Daphine Serugo",
+    "client_number": "DK00013",
+    "is_new_client": false,
+    "lnbal": 514134,
+    "intbal": 15573
+  },
+  {
+    "fcode": "LA0093",
+    "name": "Billy Ivan Musoke",
+    "client_number": "DK00054",
+    "is_new_client": false,
+    "lnbal": 187,
+    "intbal": 79682
+  },
+  {
+    "fcode": "LA0094",
+    "name": "Reagan Matovu",
+    "client_number": "DK00062",
+    "is_new_client": false,
+    "lnbal": 11531770,
+    "intbal": 4208094
+  },
+  {
+    "fcode": "LA0095",
+    "name": "Joseph Osuwa",
+    "client_number": "XJK00059",
+    "is_new_client": false,
+    "lnbal": 2164559,
+    "intbal": 1779717
+  },
+  {
+    "fcode": "LA0097",
+    "name": "Fiona Higenyi",
+    "client_number": "TK00002",
+    "is_new_client": false,
+    "lnbal": 4811529,
+    "intbal": 2958766
+  },
+  {
+    "fcode": "LA0099",
+    "name": "Jane Namakoye",
+    "client_number": "XJK00019",
+    "is_new_client": false,
+    "lnbal": 154350,
+    "intbal": 645316
+  },
+  {
+    "fcode": "LA0100",
+    "name": "Josephine Nyaketcho",
+    "client_number": "XXMK00190",
+    "is_new_client": true,
+    "lnbal": 0,
+    "intbal": -732,
+    "first_name": "Josephine",
+    "last_name": "Nyaketcho",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0102",
+    "name": "Moses White Wambi",
+    "client_number": "MK00042",
+    "is_new_client": false,
+    "lnbal": -100000,
+    "intbal": 0
+  },
+  {
+    "fcode": "LA0103",
+    "name": "Florence Nyakaisiki",
+    "client_number": "XDK00068",
+    "is_new_client": false,
+    "lnbal": 551524,
+    "intbal": 636527
+  },
+  {
+    "fcode": "LA0104",
+    "name": "Francis Senabuta",
+    "client_number": "XDK00069",
+    "is_new_client": false,
+    "lnbal": 1900000,
+    "intbal": 3251693
+  },
+  {
+    "fcode": "LA0105",
+    "name": "Joseph Were",
+    "client_number": "DK00007",
+    "is_new_client": false,
+    "lnbal": 3801470,
+    "intbal": 2030453
+  },
+  {
+    "fcode": "LA0107",
+    "name": "Haddies School",
+    "client_number": "XXKK00047",
+    "is_new_client": true,
+    "lnbal": -14276,
+    "intbal": 0,
+    "first_name": "Haddies",
+    "last_name": "School",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0108",
+    "name": "Innocent Opio & Sumaya Na",
+    "client_number": "MK00110",
+    "is_new_client": false,
+    "lnbal": 33200197,
+    "intbal": 230585
+  },
+  {
+    "fcode": "LA0109",
+    "name": "Isaac Mugabi",
+    "client_number": "XEK00054",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 1705677
+  },
+  {
+    "fcode": "LA0110",
+    "name": "Josephine Mukusike",
+    "client_number": "MK00201",
+    "is_new_client": false,
+    "lnbal": 139640,
+    "intbal": 468084
+  },
+  {
+    "fcode": "LA0111",
+    "name": "Joy Primary School",
+    "client_number": "MK00253",
+    "is_new_client": false,
+    "lnbal": 3071024,
+    "intbal": 1879651
+  },
+  {
+    "fcode": "LA0112",
+    "name": "Dennis Okiring",
+    "client_number": "mk00170",
+    "is_new_client": false,
+    "lnbal": 1516920,
+    "intbal": 714673
+  },
+  {
+    "fcode": "LA0113",
+    "name": "Daniel Kalulu",
+    "client_number": "XMK00166",
+    "is_new_client": false,
+    "lnbal": 4259747,
+    "intbal": 3088596
+  },
+  {
+    "fcode": "LA0114",
+    "name": "Qavalas",
+    "client_number": "MK00242",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 1456108
+  },
+  {
+    "fcode": "LA0116",
+    "name": "Francis Kabuye",
+    "client_number": "XMK00159",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 2718643
+  },
+  {
+    "fcode": "LA0117",
+    "name": "Peter Ochwo",
+    "client_number": "XDK00041",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 822521
+  },
+  {
+    "fcode": "LA0118",
+    "name": "Meddy Lukungu",
+    "client_number": "XJK00020",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 273029
+  },
+  {
+    "fcode": "LA0119",
+    "name": "Isaac Kiyingi",
+    "client_number": "XDK00067",
+    "is_new_client": false,
+    "lnbal": 56235,
+    "intbal": 3512
+  },
+  {
+    "fcode": "LA0120",
+    "name": "Midra Ernest Musinguzi",
+    "client_number": "KK00033",
+    "is_new_client": false,
+    "lnbal": 8939988,
+    "intbal": 11122120
+  },
+  {
+    "fcode": "LA0122",
+    "name": "Lydia Mate",
+    "client_number": "XKK00013",
+    "is_new_client": false,
+    "lnbal": 4354423,
+    "intbal": 6400164
+  },
+  {
+    "fcode": "LA0123",
+    "name": "Lillian Magero",
+    "client_number": "XXJK00058",
+    "is_new_client": true,
+    "lnbal": 118626,
+    "intbal": 791521,
+    "first_name": "Lillian",
+    "last_name": "Magero",
+    "gender": null,
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0124",
+    "name": "Annet Namayanja",
+    "client_number": "XXEK00088",
+    "is_new_client": true,
+    "lnbal": 6745,
+    "intbal": 0,
+    "first_name": "Annet",
+    "last_name": "Namayanja",
+    "gender": "female",
+    "date_of_birth": null,
+    "phone": null,
+    "email": null,
+    "address": null,
+    "village": null,
+    "next_of_kin_name": null,
+    "joining_date": "2020-08-28"
+  },
+  {
+    "fcode": "LA0126",
+    "name": "Yvone Aguti",
+    "client_number": "MK00286",
+    "is_new_client": false,
+    "lnbal": 1682009,
+    "intbal": 0
+  },
+  {
+    "fcode": "LA0127",
+    "name": "Miriam Atim",
+    "client_number": "MK00267",
+    "is_new_client": false,
+    "lnbal": 3000000,
+    "intbal": 4233243
+  },
+  {
+    "fcode": "LA0128",
+    "name": "John Of Peace",
+    "client_number": "XKK00041",
+    "is_new_client": false,
+    "lnbal": 1865737,
+    "intbal": 193700
+  },
+  {
+    "fcode": "LA0129",
+    "name": "Emmanuel Christo Musasizi",
+    "client_number": "DK00063",
+    "is_new_client": false,
+    "lnbal": 7388752,
+    "intbal": 9587745
+  },
+  {
+    "fcode": "LA0130",
+    "name": "Janet Natume",
+    "client_number": "MK00265",
+    "is_new_client": false,
+    "lnbal": 1224979,
+    "intbal": 978347
+  },
+  {
+    "fcode": "LA0133",
+    "name": "Ronald Mayanja Omugaland",
+    "client_number": "MK00141",
+    "is_new_client": false,
+    "lnbal": 0,
+    "intbal": 1041176
+  },
+  {
+    "fcode": "LA0134",
+    "name": "Moses Batwala",
+    "client_number": "JK00081",
+    "is_new_client": false,
+    "lnbal": 468407,
+    "intbal": 8162252
+  },
+  {
+    "fcode": "LA0136",
+    "name": "Jonah Musisi",
+    "client_number": "BK00065",
+    "is_new_client": false,
+    "lnbal": 6869041,
+    "intbal": 674280
+  },
+  {
+    "fcode": "LA0137",
+    "name": "Getrude Nakiweewa",
+    "client_number": "MK00163",
+    "is_new_client": false,
+    "lnbal": 6275000,
+    "intbal": 3204259
+  }
+]

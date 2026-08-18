@@ -379,6 +379,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/fix-july-fd-terms', [SettingsController::class, 'fixJulyFdTerms'])->name('settings.fix-july-fd-terms');
         Route::post('settings/fix-july-loan-terms', [SettingsController::class, 'fixJulyLoanTerms'])->name('settings.fix-july-loan-terms');
         Route::post('settings/generate-july-loan-schedules', [SettingsController::class, 'generateJulyLoanSchedules'])->name('settings.generate-july-loan-schedules');
+        Route::post('settings/import-july-locked-up-loans', [SettingsController::class, 'importJulyLockedUpLoans'])->name('settings.import-july-locked-up-loans');
+        Route::post('settings/true-up-july-balance-sheet', [SettingsController::class, 'trueUpJulyBalanceSheet'])->name('settings.true-up-july-balance-sheet');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');

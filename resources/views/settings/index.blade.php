@@ -302,4 +302,53 @@ document.getElementById('migrationPhrase')?.addEventListener('input', function()
         </form>
     </div>
 </div>
+
+{{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Import Locked-Up Loans
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The old system's Lock Up Report (76 frozen, non-performing loans) was never part of the
+            statement migration -- it uses a completely different code scheme and none of it shows up in
+            any client's Loan Value. This creates 14 new clients (real locked-up debt, excluded from the
+            main import for other reasons) and 76 loans total, booked to a dedicated Locked-Up Loans
+            receivable account. Re-run the Chart of Accounts seeder first if you haven't since this was
+            added.
+        </p>
+        <form method="POST" action="{{ route('settings.import-july-locked-up-loans') }}"
+              onsubmit="return confirm('Import the 76 locked-up loans now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Import Locked-Up Loans
+            </button>
+        </form>
+    </div>
+</div>
+
+{{-- Institutional balance sheet accounts from the old system's Trial Balance, never imported --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>True Up Balance Sheet
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The statement migration only ever posted member-facing balances (savings, loans, FDs, shares,
+            groups) against the Opening Balance Equity suspense account -- it never had cash/bank
+            balances, investments, fixed assets, loan provisions, or other institutional liabilities, so
+            that suspense account currently sits at a net debit of over 1 billion. This posts everything
+            from the old system's 31/07/2026 Trial Balance that's still missing, plus the combined
+            Retained Earnings position. Independent of the Locked-Up Loans import above (no ordering
+            dependency), but also needs the Chart of Accounts seeder re-run first.
+        </p>
+        <form method="POST" action="{{ route('settings.true-up-july-balance-sheet') }}"
+              onsubmit="return confirm('Post the balance sheet true-up now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>True Up Balance Sheet
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

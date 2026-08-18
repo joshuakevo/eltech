@@ -15,17 +15,36 @@ class ChartOfAccountsSeeder extends Seeder
             ['code' => '1001', 'name' => 'Cash on Hand',                'type' => 'asset',     'parent' => '1000'],
             ['code' => '1002', 'name' => 'Cash at Bank',                'type' => 'asset',     'parent' => '1000'],
             ['code' => '1003', 'name' => 'Mobile Money Wallet',         'type' => 'asset',     'parent' => '1000'],
+            ['code' => '1009', 'name' => 'Cash at Bank Centenary',      'type' => 'asset',     'parent' => '1000', 'payment_source' => true],
+            ['code' => '1010', 'name' => 'Cash at Hand Kairos',         'type' => 'asset',     'parent' => '1000', 'payment_source' => true],
+            ['code' => '1011', 'name' => 'Petty Cash',                  'type' => 'asset',     'parent' => '1000', 'payment_source' => true],
             ['code' => '1100', 'name' => 'Loan Receivables',            'type' => 'asset',     'parent' => null],
             ['code' => '1101', 'name' => 'Loans Receivable — General',  'type' => 'asset',     'parent' => '1100'],
             ['code' => '1102', 'name' => 'Loans Receivable — Business', 'type' => 'asset',     'parent' => '1100'],
             ['code' => '1103', 'name' => 'Loans Receivable — Emergency','type' => 'asset',     'parent' => '1100'],
+            ['code' => '1104', 'name' => 'Locked-Up Loans Receivable',  'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1105', 'name' => 'Loan Interest Receivable',    'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1106', 'name' => 'Accrued Interest',            'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1107', 'name' => 'Penalty Receivable',          'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1108', 'name' => 'Accrued Penalty Charge',      'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1109', 'name' => 'Loan Provisions — Specific',  'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1110', 'name' => 'Loan Provisions — General',   'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1111', 'name' => 'Overdraft Fees Receivable',   'type' => 'asset',     'parent' => '1100'],
+            ['code' => '1112', 'name' => 'Locked-Up Loans Interest Receivable', 'type' => 'asset', 'parent' => '1100'],
             ['code' => '1200', 'name' => 'Fixed Assets',                'type' => 'asset',     'parent' => null],
             ['code' => '1201', 'name' => 'Office Equipment',            'type' => 'asset',     'parent' => '1200'],
             ['code' => '1202', 'name' => 'Computers & IT Equipment',    'type' => 'asset',     'parent' => '1200'],
             ['code' => '1203', 'name' => 'Furniture & Fittings',        'type' => 'asset',     'parent' => '1200'],
+            ['code' => '1204', 'name' => 'Motor Vehicle',               'type' => 'asset',     'parent' => '1200'],
+            ['code' => '1205', 'name' => 'Accumulated Depreciation',    'type' => 'asset',     'parent' => '1200'],
             ['code' => '1300', 'name' => 'Other Assets',                'type' => 'asset',     'parent' => null],
             ['code' => '1301', 'name' => 'Prepaid Expenses',            'type' => 'asset',     'parent' => '1300'],
             ['code' => '1302', 'name' => 'Accrued Income',              'type' => 'asset',     'parent' => '1300'],
+            ['code' => '1400', 'name' => 'Investments',                 'type' => 'asset',     'parent' => null],
+            ['code' => '1401', 'name' => 'Short Term Investments',      'type' => 'asset',     'parent' => '1400'],
+            ['code' => '1402', 'name' => 'Insurance Premium Reserve',   'type' => 'asset',     'parent' => '1400'],
+            ['code' => '1403', 'name' => 'Capital Reserve Fund',        'type' => 'asset',     'parent' => '1400'],
+            ['code' => '1404', 'name' => 'Treasury Bonds',              'type' => 'asset',     'parent' => '1400'],
 
             // ─── LIABILITIES ─────────────────────────────────────────────────
             ['code' => '2000', 'name' => 'Current Liabilities',         'type' => 'liability', 'parent' => null],
@@ -35,6 +54,12 @@ class ChartOfAccountsSeeder extends Seeder
             ['code' => '2004', 'name' => 'Accrued Expenses',            'type' => 'liability', 'parent' => '2000'],
             ['code' => '2005', 'name' => 'Group Member Savings',        'type' => 'liability', 'parent' => '2000'],
             ['code' => '2006', 'name' => 'Savings Interest Payable (Accrued, Uncredited)', 'type' => 'liability', 'parent' => '2000'],
+            ['code' => '2011', 'name' => 'NSSF Liability',              'type' => 'liability', 'parent' => '2000'],
+            ['code' => '2012', 'name' => 'PAYE Liability',               'type' => 'liability', 'parent' => '2000'],
+            ['code' => '2013', 'name' => 'Unknown Funds',                'type' => 'liability', 'parent' => '2000'],
+            ['code' => '2014', 'name' => 'Audit Fees Payable',           'type' => 'liability', 'parent' => '2000'],
+            ['code' => '2015', 'name' => 'Other Payables',               'type' => 'liability', 'parent' => '2000'],
+            ['code' => '2016', 'name' => 'Group Interest Payable',       'type' => 'liability', 'parent' => '2000'],
             ['code' => '2100', 'name' => 'Long-Term Liabilities',       'type' => 'liability', 'parent' => null],
             ['code' => '2101', 'name' => 'Borrowings',                  'type' => 'liability', 'parent' => '2100'],
 
@@ -74,10 +99,11 @@ class ChartOfAccountsSeeder extends Seeder
         // First pass: create accounts without parents
         foreach ($accounts as $acc) {
             if ($acc['parent'] === null) {
-                $model = Account::updateOrCreate(
-                    ['account_code' => $acc['code']],
-                    ['account_name' => $acc['name'], 'account_type' => $acc['type'], 'parent_id' => null, 'is_active' => true]
-                );
+                $attrs = ['account_name' => $acc['name'], 'account_type' => $acc['type'], 'parent_id' => null, 'is_active' => true];
+                if (isset($acc['payment_source'])) {
+                    $attrs['is_payment_source'] = $acc['payment_source'];
+                }
+                $model = Account::updateOrCreate(['account_code' => $acc['code']], $attrs);
                 $created[$acc['code']] = $model->id;
             }
         }
@@ -86,10 +112,11 @@ class ChartOfAccountsSeeder extends Seeder
         foreach ($accounts as $acc) {
             if ($acc['parent'] !== null) {
                 $parentId = $created[$acc['parent']] ?? null;
-                $model = Account::updateOrCreate(
-                    ['account_code' => $acc['code']],
-                    ['account_name' => $acc['name'], 'account_type' => $acc['type'], 'parent_id' => $parentId, 'is_active' => true]
-                );
+                $attrs = ['account_name' => $acc['name'], 'account_type' => $acc['type'], 'parent_id' => $parentId, 'is_active' => true];
+                if (isset($acc['payment_source'])) {
+                    $attrs['is_payment_source'] = $acc['payment_source'];
+                }
+                $model = Account::updateOrCreate(['account_code' => $acc['code']], $attrs);
                 $created[$acc['code']] = $model->id;
             }
         }

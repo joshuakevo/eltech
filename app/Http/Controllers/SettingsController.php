@@ -232,4 +232,37 @@ class SettingsController extends Controller
 
         return back()->with('success', "Loan schedule generation run.\n\n{$output}");
     }
+
+    /**
+     * One-time additive import: the old system's separate Lock Up Report (76
+     * frozen/non-performing loans) is not reflected anywhere in the statement
+     * migration. Creates 14 new clients (from the XX-excluded list, since they
+     * carry real locked-up debt) and 76 loans against a dedicated Locked-Up
+     * Loans receivable account. Run the Chart of Accounts seeder first if it
+     * hasn't been re-run since this was added (adds the 1104/1112 accounts).
+     */
+    public function importJulyLockedUpLoans()
+    {
+        Artisan::call('eltech:import-locked-up-loans-2026-07-31', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Locked-up loans import run.\n\n{$output}");
+    }
+
+    /**
+     * One-time additive import: posts the institutional balance sheet accounts
+     * (cash/bank/mobile-money, investments, fixed assets, loan provisions,
+     * other liabilities, combined Retained Earnings) from the old system's
+     * 31/07/2026 Trial Balance that the statement migration never touched.
+     * Not client-tagged. Independent of the locked-up loans import above (no
+     * ordering dependency), but both need the Chart of Accounts seeder re-run
+     * first for their new accounts to exist.
+     */
+    public function trueUpJulyBalanceSheet()
+    {
+        Artisan::call('eltech:true-up-balance-sheet-2026-07-31', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Balance sheet true-up run.\n\n{$output}");
+    }
 }
