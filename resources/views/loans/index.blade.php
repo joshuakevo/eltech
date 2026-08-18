@@ -22,11 +22,20 @@
     </div>
 </div>
 
+<ul class="nav nav-pills mb-4">
+    <li class="nav-item">
+        <a class="nav-link {{ $type === 'normal' ? 'active' : '' }}" href="{{ route('loans.index', ['type' => 'normal']) }}">Normal Loans</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{ $type === 'locked-up' ? 'active' : '' }}" href="{{ route('loans.index', ['type' => 'locked-up']) }}">Locked-Up Loans</a>
+    </li>
+</ul>
+
 <div class="row g-3 mb-4">
     <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Outstanding</div>
+                <div class="text-muted small text-uppercase">Total Outstanding{{ $type === 'locked-up' ? ' (Locked-Up)' : '' }}</div>
                 <div class="fs-4 fw-bold">{{ number_format($totalOutstanding, $dp) }}</div>
             </div>
         </div>
@@ -34,7 +43,7 @@
     <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Number of Loans</div>
+                <div class="text-muted small text-uppercase">Number of Loans{{ $type === 'locked-up' ? ' (Locked-Up)' : '' }}</div>
                 <div class="fs-4 fw-bold">{{ number_format($totalCount) }}</div>
             </div>
         </div>
@@ -43,6 +52,7 @@
 <div class="card">
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">
+            <input type="hidden" name="type" value="{{ $type }}">
             <div class="col-md-4">
                 <input type="text" name="search" class="form-control" placeholder="Search loan # or client name..." value="{{ request('search') }}">
             </div>
@@ -56,7 +66,7 @@
                 </select>
             </div>
             <div class="col-auto"><button class="btn btn-outline-primary">Filter</button></div>
-            <div class="col-auto"><a href="{{ route('loans.index') }}" class="btn btn-outline-secondary">Clear</a></div>
+            <div class="col-auto"><a href="{{ route('loans.index', ['type' => $type]) }}" class="btn btn-outline-secondary">Clear</a></div>
         </form>
     </div>
     <div class="table-responsive">
