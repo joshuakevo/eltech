@@ -57,14 +57,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // ── Monthly Trends (last 6 months, never earlier than the system's
-        //    31/07/2026 opening date -- there's no real activity before that) ──
-        $openingMonth = Carbon::parse('2026-07-01');
-        $months       = collect();
-        $monthLabels  = collect();
+        // ── Monthly Trends (last 6 months) ───────────────────────────────────
+        $months      = collect();
+        $monthLabels = collect();
         for ($i = 5; $i >= 0; $i--) {
-            $m = now()->subMonths($i)->startOfMonth();
-            if ($m->lt($openingMonth)) continue;
+            $m = now()->subMonths($i);
             $months->push($m);
             $monthLabels->push($m->format('M Y'));
         }
@@ -99,9 +96,23 @@ class DashboardController extends Controller
                 ->sum('amount');
         });
 
-        $monthlyLoanDisbursements = $months->map(function ($m) {
+        // Loans disbursed on/before the system's 31/07/2026 opening date are shown
+        // as a single lump under July -- the opening loan portfolio, same treatment
+        // as savings' opening balance -- rather than scattered across their real
+        // historical disbursement dates. Only genuinely new loans disbursed after
+        // that date are attributed to their real month.
+        $openingDate  = Carbon::parse('2026-07-31');
+        $openingTotal = (float) Loan::where('disbursement_date', '<=', $openingDate)
+            ->whereIn('status', ['active', 'closed'])
+            ->sum('principal');
+
+        $monthlyLoanDisbursements = $months->map(function ($m) use ($openingDate, $openingTotal) {
+            if ($m->year === $openingDate->year && $m->month === $openingDate->month) {
+                return $openingTotal;
+            }
             return (float) Loan::whereYear('disbursement_date', $m->year)
                 ->whereMonth('disbursement_date', $m->month)
+                ->where('disbursement_date', '>', $openingDate)
                 ->whereIn('status', ['active', 'closed'])
                 ->sum('principal');
         });
