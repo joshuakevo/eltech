@@ -25,6 +25,7 @@
                     <th>Type</th>
                     <th class="text-end">Amount</th>
                     <th>Status</th>
+                    <th class="pe-3"></th>
                 </tr>
             </thead>
             <tbody>
@@ -35,6 +36,7 @@
                     'successful' => 'success', 'failed' => 'danger', 'cancelled' => 'secondary',
                 ];
                 $isPending = in_array($mm->status, ['pending', 'processing'], true);
+                $canCancel = $isPending && $mm->type === 'deposit' && $mm->created_at->lte(now()->subMinutes(10));
                 @endphp
                 <tr @if($isPending) data-mm-poll-row data-mm-id="{{ $mm->id }}" data-mm-status-url="{{ route('client-portal.mobile-money.status', $mm) }}" @endif>
                     <td class="ps-3 small text-muted">{{ $mm->created_at->format('d M Y H:i') }}</td>
@@ -51,9 +53,20 @@
                             {{ ucfirst(str_replace('_',' ',$mm->status)) }}
                         </span>
                     </td>
+                    <td class="pe-3 text-end">
+                        @if($canCancel)
+                        <form method="POST" action="{{ route('client-portal.mobile-money.cancel', $mm) }}"
+                              onsubmit="return confirm('Cancel this deposit request? If you already approved it on your phone, do not cancel -- it will still be credited once it clears.');">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                        </form>
+                        @elseif($isPending)
+                        <span class="small text-muted">&mdash;</span>
+                        @endif
+                    </td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="text-center text-muted py-4 small">No mobile money requests yet.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4 small">No mobile money requests yet.</td></tr>
             @endforelse
             </tbody>
         </table>

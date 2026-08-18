@@ -377,4 +377,14 @@ class ClientPortalController extends Controller
             'failure_reason' => $mobileMoneyTransaction->failure_reason,
         ]);
     }
+
+    public function mobileMoneyCancel(MobileMoneyTransaction $mobileMoneyTransaction)
+    {
+        $client = $this->activeClient();
+        abort_if((int) $mobileMoneyTransaction->client_id !== (int) $client->id, 403);
+
+        $result = $this->mobileMoneyService->cancelDeposit($mobileMoneyTransaction);
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
 }

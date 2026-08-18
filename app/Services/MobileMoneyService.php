@@ -136,6 +136,45 @@ class MobileMoneyService
     }
 
     /**
+     * Client-initiated cancel of a stuck deposit request. MarzPay has no cancel/void
+     * endpoint for a collect-money request -- once sent, it either completes or times out
+     * on the customer's phone, we can't stop it mid-flight. This is a UX escape hatch for a
+     * request that's stuck, not a guaranteed financial cancellation: it forces one final
+     * reconcile() first (so a request that actually just completed is reflected as
+     * successful rather than hidden as "cancelled"), and only allows cancelling requests
+     * old enough that the provider's own PIN-prompt window has certainly expired.
+     */
+    public function cancelDeposit(MobileMoneyTransaction $mm): array
+    {
+        if ($mm->type !== 'deposit') {
+            return ['success' => false, 'message' => 'Only deposit requests can be cancelled here.'];
+        }
+
+        if (!in_array($mm->status, ['pending', 'processing'], true)) {
+            return ['success' => false, 'message' => 'This request is no longer pending.'];
+        }
+
+        if ($mm->created_at->gt(now()->subMinutes(10))) {
+            return ['success' => false, 'message' => 'This request was submitted less than 10 minutes ago -- give it a little longer before cancelling.'];
+        }
+
+        $this->reconcile($mm);
+        $mm->refresh();
+
+        if ($mm->isFinal()) {
+            return [
+                'success'          => true,
+                'already_resolved' => true,
+                'message'          => "This request already finished on its own: {$mm->status}.",
+            ];
+        }
+
+        $mm->update(['status' => 'cancelled', 'failure_reason' => 'Cancelled by member request']);
+
+        return ['success' => true, 'message' => 'Deposit request cancelled.'];
+    }
+
+    /**
      * Re-verify a transaction's TRUE status directly from MarzPay -- called from the webhook
      * receiver (which only ever uses the payload to know WHICH transaction to check, never to
      * decide the outcome) and from manual/scheduled reconciliation. Row-locked and idempotent:

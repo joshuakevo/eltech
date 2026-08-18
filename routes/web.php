@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/mobile-money/withdraw', [ClientPortalController::class, 'withdrawForm'])->name('mobile-money.withdraw-form');
         Route::post('/mobile-money/withdraw', [ClientPortalController::class, 'withdraw'])->name('mobile-money.withdraw');
         Route::get('/mobile-money/{mobileMoneyTransaction}/status', [ClientPortalController::class, 'mobileMoneyStatus'])->name('mobile-money.status');
+        Route::post('/mobile-money/{mobileMoneyTransaction}/cancel', [ClientPortalController::class, 'mobileMoneyCancel'])->name('mobile-money.cancel');
     });
 
     // ── Group portal (leader / member) ────────────────────────────────
