@@ -33,6 +33,7 @@ class LoanController extends Controller
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
 
         $totalOutstanding = (clone $filtered)->sum('outstanding_principal');
+        $totalInterest    = (clone $filtered)->sum('outstanding_interest');
         $totalCount       = (clone $filtered)->count();
 
         if ($request->format === 'pdf') {
@@ -40,14 +41,19 @@ class LoanController extends Controller
             $pdf = Pdf::loadView('pdf.loans', [
                 'loans'            => $all,
                 'totalOutstanding' => $totalOutstanding,
+                'totalInterest'    => $totalInterest,
                 'totalCount'       => $totalCount,
+                'type'             => $type,
             ])->setPaper('a4', 'landscape');
             return $pdf->download('loans-' . now()->format('Y-m-d') . '.pdf');
         }
 
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('outstanding_principal')->get();
-            $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Status']];
+            $header = $type === 'locked-up'
+                ? ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Interest', 'Status']
+                : ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Status'];
+            $rows = [$header];
             foreach ($all as $loan) {
                 $rows[] = [
                     $loan->loan_number,
@@ -55,11 +61,13 @@ class LoanController extends Controller
                     $loan->client->client_number ?? '',
                     $loan->product->name ?? '',
                     $loan->principal,
-                    $loan->outstanding_principal,
+                    $type === 'locked-up' ? $loan->outstanding_interest : $loan->outstanding_principal,
                     ucfirst($loan->status),
                 ];
             }
-            $rows[] = ['', '', '', 'TOTAL', '', $totalOutstanding, $totalCount . ' loans'];
+            $rows[] = $type === 'locked-up'
+                ? ['', '', '', 'TOTAL', $totalOutstanding, $totalInterest, $totalCount . ' loans']
+                : ['', '', '', 'TOTAL', '', $totalOutstanding, $totalCount . ' loans'];
             return $this->csvDownload($rows, 'loans-' . now()->format('Y-m-d'));
         }
 
@@ -67,7 +75,7 @@ class LoanController extends Controller
             ->orderByDesc('outstanding_principal')
             ->paginate(20);
 
-        return view('loans.index', compact('loans', 'totalOutstanding', 'totalCount', 'type'));
+        return view('loans.index', compact('loans', 'totalOutstanding', 'totalInterest', 'totalCount', 'type'));
     }
 
     public function create(Request $request)

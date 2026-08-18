@@ -32,15 +32,25 @@
 </ul>
 
 <div class="row g-3 mb-4">
-    <div class="col-md-6">
+    <div class="col-md-{{ $type === 'locked-up' ? '4' : '6' }}">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Outstanding{{ $type === 'locked-up' ? ' (Locked-Up)' : '' }}</div>
+                <div class="text-muted small text-uppercase">{{ $type === 'locked-up' ? 'Total Principal (Locked-Up)' : 'Total Outstanding' }}</div>
                 <div class="fs-4 fw-bold">{{ number_format($totalOutstanding, $dp) }}</div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
+    @if($type === 'locked-up')
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Total Interest (Locked-Up)</div>
+                <div class="fs-4 fw-bold">{{ number_format($totalInterest, $dp) }}</div>
+            </div>
+        </div>
+    </div>
+    @endif
+    <div class="col-md-{{ $type === 'locked-up' ? '4' : '6' }}">
         <div class="card h-100">
             <div class="card-body">
                 <div class="text-muted small text-uppercase">Number of Loans{{ $type === 'locked-up' ? ' (Locked-Up)' : '' }}</div>
@@ -73,7 +83,12 @@
         <table class="table table-hover align-middle mb-0">
             <thead><tr>
                 <th class="ps-3">Loan #</th><th>Client</th><th>Product</th>
-                <th class="text-end">Principal</th><th class="text-end">Outstanding</th>
+                <th class="text-end">Principal</th>
+                @if($type === 'locked-up')
+                    <th class="text-end">Interest</th>
+                @else
+                    <th class="text-end">Outstanding</th>
+                @endif
                 <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>
@@ -89,9 +104,15 @@
                     </td>
                     <td class="small text-muted">{{ $loan->product->name }}</td>
                     <td class="text-end">{{ number_format($loan->principal, $dp) }}</td>
-                    <td class="text-end fw-semibold {{ $loan->outstanding_principal > 0 ? 'text-warning' : 'text-success' }}">
-                        {{ number_format($loan->outstanding_principal, $dp) }}
-                    </td>
+                    @if($type === 'locked-up')
+                        <td class="text-end fw-semibold {{ $loan->outstanding_interest > 0 ? 'text-warning' : 'text-success' }}">
+                            {{ number_format($loan->outstanding_interest, $dp) }}
+                        </td>
+                    @else
+                        <td class="text-end fw-semibold {{ $loan->outstanding_principal > 0 ? 'text-warning' : 'text-success' }}">
+                            {{ number_format($loan->outstanding_principal, $dp) }}
+                        </td>
+                    @endif
                     <td>
                         <span class="badge badge-status-{{ $loan->status }}">{{ ucfirst($loan->status) }}</span>
                         @if($loan->status === 'active' && $loan->maturity_date && $loan->maturity_date->isPast())

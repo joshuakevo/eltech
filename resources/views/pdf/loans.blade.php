@@ -33,14 +33,17 @@
     <div class="header-right">
         <div>Generated: {{ now()->format('d M Y H:i') }}</div>
     </div>
-    <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — Loans</h1>
+    <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — {{ ($type ?? 'normal') === 'locked-up' ? 'Locked-Up Loans' : 'Loans' }}</h1>
     <p>Most recently created first</p>
 </div>
 
 <table class="summary-row">
     <tr>
         <td><span class="lbl">Number of Loans</span><span class="val">{{ number_format($totalCount) }}</span></td>
-        <td><span class="lbl">Total Outstanding</span><span class="val">{{ number_format($totalOutstanding, 0) }}</span></td>
+        <td><span class="lbl">{{ ($type ?? 'normal') === 'locked-up' ? 'Total Principal' : 'Total Outstanding' }}</span><span class="val">{{ number_format($totalOutstanding, 0) }}</span></td>
+        @if(($type ?? 'normal') === 'locked-up')
+        <td><span class="lbl">Total Interest</span><span class="val">{{ number_format($totalInterest ?? 0, 0) }}</span></td>
+        @endif
     </tr>
 </table>
 
@@ -52,7 +55,7 @@
             <th>Client</th>
             <th>Product</th>
             <th class="r">Principal</th>
-            <th class="r">Outstanding</th>
+            <th class="r">{{ ($type ?? 'normal') === 'locked-up' ? 'Interest' : 'Outstanding' }}</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -64,7 +67,7 @@
         <td><strong>{{ $loan->client->name ?? '—' }}</strong> <span class="text-muted">{{ $loan->client->client_number ?? '' }}</span></td>
         <td class="text-muted">{{ $loan->product->name ?? '—' }}</td>
         <td class="r">{{ number_format($loan->principal, 0) }}</td>
-        <td class="r">{{ number_format($loan->outstanding_principal, 0) }}</td>
+        <td class="r">{{ number_format(($type ?? 'normal') === 'locked-up' ? $loan->outstanding_interest : $loan->outstanding_principal, 0) }}</td>
         <td class="{{ $loan->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($loan->status) }}</td>
     </tr>
     @endforeach
