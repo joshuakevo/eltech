@@ -6,7 +6,7 @@
 @section('content')
 <div class="mb-4">
     <h4 class="fw-bold mb-0">Send Statements</h4>
-    <p class="text-muted small mb-0">Email savings statements to selected clients for the chosen period.</p>
+    <p class="text-muted small mb-0">Email savings statements to selected clients, or send a WhatsApp link to an individual client, for the chosen period.</p>
 </div>
 
 {{-- Filter bar --}}
@@ -72,6 +72,7 @@
                         <th>Email</th>
                         <th>Segment</th>
                         <th class="text-center">Active Accounts</th>
+                        <th class="text-center">WhatsApp</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -94,9 +95,19 @@
                         </td>
                         <td>{{ $client->segment->name ?? '—' }}</td>
                         <td class="text-center">{{ $client->savingsAccounts->count() }}</td>
+                        <td class="text-center">
+                            @if($client->whatsapp_link)
+                                <a href="{{ $client->whatsapp_link }}" target="_blank" rel="noopener"
+                                   class="btn btn-sm btn-outline-success" title="Send statement link via WhatsApp">
+                                    <i class="bi bi-whatsapp"></i>
+                                </a>
+                            @else
+                                <span class="text-muted small" title="No phone number on file">—</span>
+                            @endif
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="text-center text-muted py-4">No clients match these filters.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">No clients match these filters.</td></tr>
                 @endforelse
                 </tbody>
             </table>

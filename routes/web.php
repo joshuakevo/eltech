@@ -50,6 +50,12 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset'])->name('
 // ── MarzPay webhook (public, server-to-server, no auth/CSRF) ──────
 Route::post('marzpay/webhook', [MarzPayWebhookController::class, 'handle'])->name('marzpay.webhook');
 
+// ── Shared statement links (public, signed -- for WhatsApp/SMS sharing) ──
+Route::middleware('signed')->group(function () {
+    Route::get('statements/shared/{client}', [SendStatementController::class, 'sharedView'])->name('send-statements.shared');
+    Route::get('statements/shared/{client}/{account}/pdf', [SendStatementController::class, 'sharedPdf'])->name('send-statements.shared-pdf');
+});
+
 // ── All other routes require auth ─────────────────────────────────
 Route::middleware('auth')->group(function () {
 
