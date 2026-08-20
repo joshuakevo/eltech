@@ -61,6 +61,13 @@
                             <a href="{{ route('users.edit', $user) }}" class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            <form method="POST" action="{{ route('users.send-invite', $user) }}"
+                                  onsubmit="return confirm('Email {{ $user->name }} a link to set their password and log in?');">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Send login invite email">
+                                    <i class="bi bi-envelope"></i>
+                                </button>
+                            </form>
                             <form method="POST" action="{{ route('users.toggle-status', $user) }}">
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-{{ $user->is_active ? 'warning' : 'success' }}"

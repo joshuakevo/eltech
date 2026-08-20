@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\UserInviteMail;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -108,6 +111,26 @@ class UserController extends Controller
         $user->update(['is_active' => !$user->is_active]);
         $status = $user->is_active ? 'activated' : 'deactivated';
         return back()->with('success', "User {$status} successfully.");
+    }
+
+    /**
+     * Email the user a link to set their own password and log in -- reuses the standard
+     * Laravel password-reset broker/token (same one "Forgot Password" uses) so the link
+     * validates through the existing ResetPasswordController with no new infrastructure,
+     * just a different, welcoming email around it.
+     */
+    public function sendInvite(User $user)
+    {
+        $token = Password::broker()->createToken($user);
+        $setupUrl = route('password.reset', ['token' => $token]) . '?email=' . urlencode($user->email);
+
+        try {
+            Mail::to($user->email)->send(new UserInviteMail($user, $setupUrl));
+        } catch (\Throwable $e) {
+            return back()->with('error', "Could not send invite: {$e->getMessage()}");
+        }
+
+        return back()->with('success', "Invite sent to {$user->email}.");
     }
 
     public function assignRole(Request $request, User $user)
