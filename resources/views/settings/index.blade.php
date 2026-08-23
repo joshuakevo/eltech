@@ -390,4 +390,25 @@ $groupIcons = [
         </form>
     </div>
 </div>
+
+{{-- Read-only diagnostic: why does the Income Statement segment filter return zero? --}}
+<div class="card mt-4 border-info">
+    <div class="card-header bg-info bg-opacity-10 text-info-emphasis fw-bold">
+        <i class="bi bi-search me-2"></i>Diagnose Income Statement Segment Filter
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Read-only &mdash; writes nothing. Scans every revenue/expense transaction line (all time) and
+            reports why each one would or wouldn't show under a segment filter: no resolvable client at
+            all, a resolved client with no segment assigned, or a resolved client with a segment
+            (broken down by segment).
+        </p>
+        <form method="POST" action="{{ route('settings.diagnose-segment-income-statement') }}">
+            @csrf
+            <button type="submit" class="btn btn-outline-info">
+                <i class="bi bi-search me-2"></i>Run Diagnostic
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

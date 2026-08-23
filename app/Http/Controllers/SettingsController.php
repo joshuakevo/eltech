@@ -288,4 +288,16 @@ class SettingsController extends Controller
 
         return back()->with('success', "Default segment & RM assignment run.\n\n{$output}");
     }
+
+    /**
+     * Read-only diagnostic for "Income Statement segment filter always
+     * returns zero" -- writes nothing, safe to run any time.
+     */
+    public function diagnoseSegmentIncomeStatement()
+    {
+        Artisan::call('eltech:diagnose-segment-income-statement');
+        $output = Artisan::output();
+
+        return back()->with('success', "Segment/Income Statement diagnostic run.\n\n{$output}");
+    }
 }

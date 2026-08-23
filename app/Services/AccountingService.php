@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Account;
 use App\Models\Client;
+use App\Models\ClientSegment;
 use App\Models\FixedDeposit;
 use App\Models\Loan;
 use App\Models\MemberShare;
@@ -253,6 +254,90 @@ class AccountingService
         }
 
         return $sums;
+    }
+
+    /**
+     * Read-only diagnostic for "the Income Statement segment filter always
+     * returns zero" reports. Runs the exact same client-resolution logic as
+     * getSegmentAccountSums()/resolveClientIdsForTransactions() above, but
+     * instead of filtering to one segment, buckets every revenue/expense
+     * transaction line by why it would or wouldn't show under a segment
+     * filter: no resolvable client at all, a resolved client with no
+     * segment assigned, or a resolved client with a segment (broken down by
+     * segment). Never writes anything.
+     */
+    public function diagnoseSegmentCoverage(?string $fromDate, ?string $toDate): array
+    {
+        $revenues   = Account::where('account_type', 'revenue')->where('is_active', true)->get();
+        $expenses   = Account::where('account_type', 'expense')->where('is_active', true)->get();
+        $accountIds = $revenues->pluck('id')->merge($expenses->pluck('id'));
+
+        $query = TransactionLine::whereIn('transaction_lines.account_id', $accountIds)
+            ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
+            ->select(
+                'transaction_lines.account_id',
+                'transaction_lines.debit',
+                'transaction_lines.credit',
+                'transaction_lines.client_id',
+                'transactions.id as transaction_id',
+                'transactions.module',
+                'transactions.module_id'
+            );
+        if ($fromDate) $query->where('transactions.date', '>=', $fromDate);
+        if ($toDate)   $query->where('transactions.date', '<=', $toDate);
+
+        $lines = $query->get();
+
+        $clientByTransaction = $this->resolveClientIdsForTransactions($lines);
+
+        $resolvedClientIds = collect();
+        foreach ($lines as $line) {
+            $cid = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
+            if ($cid) $resolvedClientIds->push($cid);
+        }
+        $clientSegments = Client::whereIn('id', $resolvedClientIds->unique())->pluck('segment_id', 'id');
+        $segmentNames   = ClientSegment::pluck('name', 'id');
+
+        $totalAmount       = 0;
+        $unresolved        = 0;
+        $unresolvedAmount  = 0;
+        $noSegment         = 0;
+        $noSegmentAmount   = 0;
+        $bySegment         = [];
+
+        foreach ($lines as $line) {
+            $amount = (float) $line->debit + (float) $line->credit;
+            $totalAmount += $amount;
+
+            $cid = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
+
+            if (!$cid) {
+                $unresolved++;
+                $unresolvedAmount += $amount;
+                continue;
+            }
+
+            $segId = $clientSegments[$cid] ?? null;
+            if (!$segId) {
+                $noSegment++;
+                $noSegmentAmount += $amount;
+                continue;
+            }
+
+            $bySegment[$segId] ??= ['name' => $segmentNames[$segId] ?? "Segment #{$segId}", 'lines' => 0, 'amount' => 0];
+            $bySegment[$segId]['lines']++;
+            $bySegment[$segId]['amount'] += $amount;
+        }
+
+        return [
+            'total_lines'                => $lines->count(),
+            'total_amount'               => $totalAmount,
+            'unresolved_client_lines'    => $unresolved,
+            'unresolved_client_amount'   => $unresolvedAmount,
+            'resolved_no_segment_lines'  => $noSegment,
+            'resolved_no_segment_amount' => $noSegmentAmount,
+            'by_segment'                 => $bySegment,
+        ];
     }
 
     /**
