@@ -293,9 +293,13 @@ class SettingsController extends Controller
      * Read-only diagnostic for "Income Statement segment filter always
      * returns zero" -- writes nothing, safe to run any time.
      */
-    public function diagnoseSegmentIncomeStatement()
+    public function diagnoseSegmentIncomeStatement(Request $request)
     {
-        Artisan::call('eltech:diagnose-segment-income-statement');
+        $args = [];
+        if ($request->filled('from')) $args['--from'] = $request->from;
+        if ($request->filled('to'))   $args['--to']   = $request->to;
+
+        Artisan::call('eltech:diagnose-segment-income-statement', $args);
         $output = Artisan::output();
 
         return back()->with('success', "Segment/Income Statement diagnostic run.\n\n{$output}");

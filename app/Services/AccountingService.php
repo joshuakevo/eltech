@@ -272,6 +272,8 @@ class AccountingService
         $expenses   = Account::where('account_type', 'expense')->where('is_active', true)->get();
         $accountIds = $revenues->pluck('id')->merge($expenses->pluck('id'));
 
+        $accountNames = $revenues->concat($expenses)->pluck('account_name', 'id');
+
         $query = TransactionLine::whereIn('transaction_lines.account_id', $accountIds)
             ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
             ->select(
@@ -281,7 +283,8 @@ class AccountingService
                 'transaction_lines.client_id',
                 'transactions.id as transaction_id',
                 'transactions.module',
-                'transactions.module_id'
+                'transactions.module_id',
+                'transactions.description'
             );
         if ($fromDate) $query->where('transactions.date', '>=', $fromDate);
         if ($toDate)   $query->where('transactions.date', '<=', $toDate);
@@ -301,6 +304,7 @@ class AccountingService
         $totalAmount       = 0;
         $unresolved        = 0;
         $unresolvedAmount  = 0;
+        $unresolvedByAccount = [];
         $noSegment         = 0;
         $noSegmentAmount   = 0;
         $bySegment         = [];
@@ -314,6 +318,12 @@ class AccountingService
             if (!$cid) {
                 $unresolved++;
                 $unresolvedAmount += $amount;
+                $key = $accountNames[$line->account_id] ?? "Account #{$line->account_id}";
+                $unresolvedByAccount[$key] ??= ['lines' => 0, 'amount' => 0, 'modules' => [], 'sample_description' => $line->description];
+                $unresolvedByAccount[$key]['lines']++;
+                $unresolvedByAccount[$key]['amount'] += $amount;
+                $mod = $line->module ?: 'null';
+                $unresolvedByAccount[$key]['modules'][$mod] = ($unresolvedByAccount[$key]['modules'][$mod] ?? 0) + 1;
                 continue;
             }
 
@@ -334,6 +344,7 @@ class AccountingService
             'total_amount'               => $totalAmount,
             'unresolved_client_lines'    => $unresolved,
             'unresolved_client_amount'   => $unresolvedAmount,
+            'unresolved_by_account'      => $unresolvedByAccount,
             'resolved_no_segment_lines'  => $noSegment,
             'resolved_no_segment_amount' => $noSegmentAmount,
             'by_segment'                 => $bySegment,

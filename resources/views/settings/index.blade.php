@@ -398,16 +398,26 @@ $groupIcons = [
     </div>
     <div class="card-body">
         <p class="mb-2 small">
-            Read-only &mdash; writes nothing. Scans every revenue/expense transaction line (all time) and
-            reports why each one would or wouldn't show under a segment filter: no resolvable client at
-            all, a resolved client with no segment assigned, or a resolved client with a segment
-            (broken down by segment).
+            Read-only &mdash; writes nothing. Scans every revenue/expense transaction line in the date
+            range below (leave blank for all time) and reports why each one would or wouldn't show under
+            a segment filter: no resolvable client at all (broken down by account), a resolved client
+            with no segment assigned, or a resolved client with a segment (broken down by segment).
         </p>
-        <form method="POST" action="{{ route('settings.diagnose-segment-income-statement') }}">
+        <form method="POST" action="{{ route('settings.diagnose-segment-income-statement') }}" class="row g-2">
             @csrf
-            <button type="submit" class="btn btn-outline-info">
-                <i class="bi bi-search me-2"></i>Run Diagnostic
-            </button>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">From (optional)</label>
+                <input type="date" name="from" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">To (optional)</label>
+                <input type="date" name="to" class="form-control form-control-sm">
+            </div>
+            <div class="col-auto align-self-end">
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-search me-2"></i>Run Diagnostic
+                </button>
+            </div>
         </form>
     </div>
 </div>

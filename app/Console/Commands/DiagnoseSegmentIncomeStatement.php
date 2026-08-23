@@ -27,7 +27,14 @@ class DiagnoseSegmentIncomeStatement extends Command
         $result = $accounting->diagnoseSegmentCoverage($from, $to);
 
         $this->line("Total revenue/expense lines examined: {$result['total_lines']} (amount: " . number_format($result['total_amount'], 2) . ')');
-        $this->line("No resolvable client at all: {$result['unresolved_client_lines']} line(s), amount " . number_format($result['unresolved_client_amount'], 2) . ' -- these can NEVER show under any segment filter (institutional/overhead postings with no client tag).');
+        $this->line("No resolvable client at all: {$result['unresolved_client_lines']} line(s), amount " . number_format($result['unresolved_client_amount'], 2) . ' -- these can NEVER show under any segment filter.');
+        if (!empty($result['unresolved_by_account'])) {
+            $this->line('  Broken down by account (this is the list to check against what the Income Statement is actually showing):');
+            foreach ($result['unresolved_by_account'] as $account => $row) {
+                $modules = collect($row['modules'])->map(fn($n, $m) => "{$m}:{$n}")->implode(', ');
+                $this->line("    - {$account}: {$row['lines']} line(s), amount " . number_format($row['amount'], 2) . " [modules: {$modules}] e.g. \"{$row['sample_description']}\"");
+            }
+        }
         $this->line("Resolved client but client has NO segment set: {$result['resolved_no_segment_lines']} line(s), amount " . number_format($result['resolved_no_segment_amount'], 2) . ' -- these can NEVER show under any segment filter either.');
 
         if (empty($result['by_segment'])) {
