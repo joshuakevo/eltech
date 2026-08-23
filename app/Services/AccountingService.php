@@ -215,7 +215,11 @@ class AccountingService
      */
     protected function getSegmentAccountSums($accountIds, ?string $fromDate, ?string $toDate, int $segmentId): array
     {
-        $clientIds = Client::where('segment_id', $segmentId)->pluck('id')->all();
+        // Client::pluck() reads straight from the query builder, bypassing Eloquent's
+        // model casts entirely -- depending on the DB driver these ids can come back
+        // as strings. Cast explicitly rather than relying on in_array()'s type
+        // coercion, since $clientId below is compared against this set.
+        $clientIds = Client::where('segment_id', $segmentId)->pluck('id')->map(fn($id) => (int) $id)->all();
         if (empty($clientIds)) {
             return [];
         }
@@ -244,7 +248,7 @@ class AccountingService
         $sums = [];
         foreach ($lines as $line) {
             $clientId = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
-            if (!$clientId || !in_array($clientId, $clientIds, true)) {
+            if (!$clientId || !in_array((int) $clientId, $clientIds, true)) {
                 continue;
             }
 
