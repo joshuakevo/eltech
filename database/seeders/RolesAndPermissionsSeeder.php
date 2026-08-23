@@ -64,7 +64,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'manage shares',
 
             // Administration
-            'manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup',
+            'manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup', 'close accounts',
 
             // Groups
             'view groups', 'manage groups',

@@ -50,6 +50,7 @@
             <th>Name</th>
             <th>Type</th>
             <th>Segment</th>
+            <th>RM</th>
             <th>Phone</th>
             <th>Email</th>
             <th>Status</th>
@@ -64,6 +65,7 @@
         <td><strong>{{ $c->name }}</strong></td>
         <td class="text-muted">{{ ucfirst($c->client_type) }}</td>
         <td class="text-muted">{{ $c->segment->name ?? '—' }}</td>
+        <td class="text-muted">{{ $c->relationshipManager->name ?? '—' }}</td>
         <td class="text-muted">{{ $c->phone ?? '—' }}</td>
         <td class="text-muted">{{ $c->email ?? '—' }}</td>
         <td class="{{ $c->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($c->status) }}</td>
@@ -73,7 +75,7 @@
     </tbody>
     <tfoot>
         <tr>
-            <td colspan="9">TOTAL: {{ number_format($totalCount) }} clients</td>
+            <td colspan="10">TOTAL: {{ number_format($totalCount) }} clients</td>
         </tr>
     </tfoot>
 </table>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\ClientSegmentController;
+use App\Http\Controllers\CloseAccountsController;
 use App\Http\Controllers\LoanPenaltyTierController;
 use App\Http\Controllers\SavingsInterestTierController;
 use App\Http\Controllers\ClientController;
@@ -116,6 +117,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('clients', ClientController::class)->middleware('permission:view clients');
     Route::patch('clients/{client}/segment', [ClientController::class, 'updateSegment'])
         ->name('clients.segment.update')->middleware('permission:edit clients');
+    Route::patch('clients/{client}/relationship-manager', [ClientController::class, 'updateRelationshipManager'])
+        ->name('clients.rm.update')->middleware('permission:edit clients');
     Route::post('clients/{client}/invite', [ClientController::class, 'invite'])
         ->name('clients.invite')->middleware('permission:edit clients');
     Route::post('clients/{client}/invite-members', [ClientController::class, 'inviteGroupMembers'])
@@ -354,6 +357,12 @@ Route::middleware('auth')->group(function () {
         ->only(['index', 'create', 'store', 'edit', 'update'])
         ->middleware('permission:manage client segments');
 
+    // ── Close Accounts (admin bulk closure of savings accounts) ───────
+    Route::middleware('permission:close accounts')->group(function () {
+        Route::get('close-accounts', [CloseAccountsController::class, 'index'])->name('close-accounts.index');
+        Route::post('close-accounts', [CloseAccountsController::class, 'close'])->name('close-accounts.close');
+    });
+
     // ── User Management ───────────────────────────────────────────────
     Route::middleware('permission:manage users')->group(function () {
         Route::resource('users', UserController::class)->except(['destroy']);
@@ -389,6 +398,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/import-july-locked-up-loans', [SettingsController::class, 'importJulyLockedUpLoans'])->name('settings.import-july-locked-up-loans');
         Route::post('settings/true-up-july-balance-sheet', [SettingsController::class, 'trueUpJulyBalanceSheet'])->name('settings.true-up-july-balance-sheet');
         Route::post('settings/import-july-pl-detail', [SettingsController::class, 'importJulyPLDetail'])->name('settings.import-july-pl-detail');
+        Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
+        Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');

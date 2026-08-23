@@ -258,4 +258,34 @@ class SettingsController extends Controller
 
         return back()->with('success', "Jan-Jul 2026 P&L detail import run.\n\n{$output}");
     }
+
+    /**
+     * One-time additive import: populates client_segments and each client's
+     * segment_id / relationship_manager_id from the legacy system's client
+     * export (database/data/2026-08-client-segments-rm-import.csv). Creates
+     * a User (staff role) for each relationship manager name that doesn't
+     * already exist. Also reports legacy rows marked CLOSE for manual review
+     * via Administration > Close Accounts.
+     */
+    public function importClientSegmentsRm()
+    {
+        Artisan::call('eltech:import-client-segments-rm-2026-08', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Client segments & relationship managers import run.\n\n{$output}");
+    }
+
+    /**
+     * Follow-up to importClientSegmentsRm() above: assigns the Konnect Sacco
+     * segment and Shaddai Kamoga as RM to any client the legacy export left
+     * unassigned (blank in the source data, or not present in the export at
+     * all). Run this after the import above. Safe to re-run.
+     */
+    public function assignDefaultSegmentRm()
+    {
+        Artisan::call('eltech:assign-default-segment-rm-2026-08', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Default segment & RM assignment run.\n\n{$output}");
+    }
 }

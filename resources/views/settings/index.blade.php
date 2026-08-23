@@ -342,4 +342,52 @@ $groupIcons = [
         </form>
     </div>
 </div>
+
+{{-- Client segments & relationship managers, from the legacy system's 2026-08 client export --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Import Client Segments &amp; Relationship Managers
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Matches the legacy system's client export (database/data/2026-08-client-segments-rm-import.csv,
+            511 clients) to existing clients by client number, falling back to name. Creates the real
+            segments (Konnect Sacco, Konnect Businness, KDF, Venture Capital, Option 1) and a staff User
+            for each relationship manager name, then sets each matched client's segment and relationship
+            manager. Rows the old system flagged <strong>CLOSE</strong> under Relationship Manager are not
+            closed automatically &mdash; they're listed in the output for you to review and close via
+            Administration &gt; Close Accounts. Safe to re-run.
+        </p>
+        <form method="POST" action="{{ route('settings.import-client-segments-rm') }}"
+              onsubmit="return confirm('Import client segments and relationship managers now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Import Segments &amp; RM
+            </button>
+        </form>
+    </div>
+</div>
+
+{{-- Follow-up to the import above: assigns a default segment/RM to whatever it left unassigned --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Assign Default Segment &amp; RM to Unassigned Clients
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Run this <strong>after</strong> the Import Segments &amp; RM step above. Any client still
+            without a segment (blank in the legacy export, or not present in it at all) is assigned to
+            <strong>Konnect Sacco</strong>; any client still without a relationship manager is assigned to
+            <strong>Shaddai Kamoga</strong>. Only touches clients with no segment/RM already set &mdash;
+            safe to re-run.
+        </p>
+        <form method="POST" action="{{ route('settings.assign-default-segment-rm') }}"
+              onsubmit="return confirm('Assign Konnect Sacco / Shaddai Kamoga to all unassigned clients now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Assign Defaults
+            </button>
+        </form>
+    </div>
+</div>
 @endsection

@@ -46,6 +46,16 @@
                 </select>
             </div>
             @endif
+            @if($relationshipManagers->count())
+            <div class="col-md-3">
+                <select name="relationship_manager_id" class="form-select">
+                    <option value="">All Relationship Managers</option>
+                    @foreach($relationshipManagers as $rm)
+                    <option value="{{ $rm->id }}" @selected((string)request('relationship_manager_id')===(string)$rm->id)>{{ $rm->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="col-auto"><button class="btn btn-outline-primary">Filter</button></div>
             <div class="col-auto"><a href="{{ route('clients.index') }}" class="btn btn-outline-secondary">Clear</a></div>
         </form>
@@ -58,6 +68,7 @@
                 <th>Name</th>
                 <th>Type</th>
                 <th>Segment</th>
+                <th>RM</th>
                 <th>Phone</th>
                 <th>Email</th>
                 <th>Status</th>
@@ -80,6 +91,7 @@
                         @endif
                     </td>
                     <td>{{ $client->segment->name ?? '—' }}</td>
+                    <td class="small">{{ $client->relationshipManager->name ?? '—' }}</td>
                     <td>{{ $client->phone ?? '—' }}</td>
                     <td>{{ $client->email ?? '—' }}</td>
                     <td>
@@ -114,7 +126,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="10" class="text-center text-muted py-4">No clients found.</td></tr>
+                <tr><td colspan="11" class="text-center text-muted py-4">No clients found.</td></tr>
             @endforelse
             </tbody>
         </table>

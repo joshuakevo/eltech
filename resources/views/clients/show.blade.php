@@ -129,6 +129,33 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="rmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('clients.rm.update', $client) }}">
+                @csrf @method('PATCH')
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title"><i class="bi bi-person-badge-fill me-2 text-primary"></i>Change Relationship Manager</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Relationship Manager</label>
+                    <select name="relationship_manager_id" class="form-select">
+                        <option value="">— None —</option>
+                        @foreach($relationshipManagers as $rm)
+                        <option value="{{ $rm->id }}" @selected($client->relationship_manager_id == $rm->id)>{{ $rm->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endcan
 
 {{-- Summary stats --}}
@@ -178,6 +205,13 @@
                         {{ $client->segment->name ?? '—' }}
                         @can('edit clients')
                         <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" data-bs-toggle="modal" data-bs-target="#segmentModal">Change</button>
+                        @endcan
+                    </dd>
+                    <dt class="col-5 fw-normal text-muted">Relationship Manager</dt>
+                    <dd class="col-7">
+                        {{ $client->relationshipManager->name ?? '—' }}
+                        @can('edit clients')
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline" data-bs-toggle="modal" data-bs-target="#rmModal">Change</button>
                         @endcan
                     </dd>
                     @if($client->id_number)

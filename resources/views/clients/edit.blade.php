@@ -290,6 +290,17 @@
             </select>
         </div>
         @endif
+        @if($relationshipManagers->count())
+        <div class="col-md-6">
+            <label class="form-label">Relationship Manager</label>
+            <select name="relationship_manager_id" class="form-select">
+                <option value="">— Select —</option>
+                @foreach($relationshipManagers as $rm)
+                <option value="{{ $rm->id }}" @selected(old('relationship_manager_id',$client->relationship_manager_id)==$rm->id)>{{ $rm->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
         <div class="col-md-6">
             <label class="form-label">Account Status</label>
             <select name="status" class="form-select">

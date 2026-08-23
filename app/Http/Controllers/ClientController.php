@@ -20,12 +20,13 @@ class ClientController extends Controller
                 ->orWhere('client_number', 'like', "%{$request->search}%")
                 ->orWhere('phone', 'like', "%{$request->search}%"))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->segment_id, fn($q) => $q->where('segment_id', $request->segment_id));
+            ->when($request->segment_id, fn($q) => $q->where('segment_id', $request->segment_id))
+            ->when($request->relationship_manager_id, fn($q) => $q->where('relationship_manager_id', $request->relationship_manager_id));
 
         $totalCount = (clone $filtered)->count();
 
         if ($request->format === 'pdf') {
-            $all = (clone $filtered)->with('segment')->latest()->get();
+            $all = (clone $filtered)->with('segment', 'relationshipManager')->latest()->get();
             $pdf = Pdf::loadView('pdf.clients', [
                 'clients'    => $all,
                 'totalCount' => $totalCount,
@@ -34,40 +35,43 @@ class ClientController extends Controller
         }
 
         if ($request->format === 'excel') {
-            $all = (clone $filtered)->with('segment')->latest()->get();
-            $rows = [['Client #', 'Name', 'Type', 'Segment', 'Phone', 'Email', 'Status', 'Membership']];
+            $all = (clone $filtered)->with('segment', 'relationshipManager')->latest()->get();
+            $rows = [['Client #', 'Name', 'Type', 'Segment', 'Relationship Manager', 'Phone', 'Email', 'Status', 'Membership']];
             foreach ($all as $c) {
                 $rows[] = [
                     $c->client_number,
                     $c->name,
                     ucfirst($c->client_type),
                     $c->segment->name ?? '',
+                    $c->relationshipManager->name ?? '',
                     $c->phone ?? '',
                     $c->email ?? '',
                     ucfirst($c->status),
                     ucfirst($c->membership_fee_status ?? ''),
                 ];
             }
-            $rows[] = ['', '', '', '', '', '', 'TOTAL', $totalCount . ' clients'];
+            $rows[] = ['', '', '', '', '', '', '', 'TOTAL', $totalCount . ' clients'];
             return $this->csvDownload($rows, 'clients-' . now()->format('Y-m-d'));
         }
 
         $clients = $filtered
             ->withCount('shares')
-            ->with(['shares' => fn($q) => $q->select('client_id', 'share_value', 'amount_paid', 'status'), 'segment'])
+            ->with(['shares' => fn($q) => $q->select('client_id', 'share_value', 'amount_paid', 'status'), 'segment', 'relationshipManager'])
             ->latest()
             ->paginate(20);
 
         $segments = \App\Models\ClientSegment::orderBy('name')->get();
+        $relationshipManagers = $this->staffUsers();
 
-        return view('clients.index', compact('clients', 'segments', 'totalCount'));
+        return view('clients.index', compact('clients', 'segments', 'relationshipManagers', 'totalCount'));
     }
 
     public function create()
     {
         $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
         $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
-        return view('clients.create', compact('branches', 'segments'));
+        $relationshipManagers = $this->staffUsers();
+        return view('clients.create', compact('branches', 'segments', 'relationshipManagers'));
     }
 
     public function store(Request $request)
@@ -152,6 +156,7 @@ class ClientController extends Controller
             'preferred_communication'  => 'required|in:sms,email,whatsapp,phone_call',
             'branch_id'                => 'nullable|exists:branches,id',
             'segment_id'               => 'nullable|exists:client_segments,id',
+            'relationship_manager_id'  => 'nullable|exists:users,id',
             'status'                   => 'required|in:active,inactive,blacklisted',
             'joining_date'             => 'required|date',
         ]);
@@ -203,8 +208,9 @@ class ClientController extends Controller
             ->get();
 
         $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
+        $relationshipManagers = $this->staffUsers();
 
-        return view('clients.show', compact('client', 'paymentSourceAccounts', 'segments'));
+        return view('clients.show', compact('client', 'paymentSourceAccounts', 'segments', 'relationshipManagers'));
     }
 
     public function updateSegment(Request $request, Client $client)
@@ -218,11 +224,23 @@ class ClientController extends Controller
         return back()->with('success', 'Client segment updated.');
     }
 
+    public function updateRelationshipManager(Request $request, Client $client)
+    {
+        $data = $request->validate([
+            'relationship_manager_id' => 'nullable|exists:users,id',
+        ]);
+
+        $client->update(['relationship_manager_id' => $data['relationship_manager_id'] ?? null]);
+
+        return back()->with('success', 'Relationship manager updated.');
+    }
+
     public function edit(Client $client)
     {
         $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
         $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
-        return view('clients.edit', compact('client', 'branches', 'segments'));
+        $relationshipManagers = $this->staffUsers();
+        return view('clients.edit', compact('client', 'branches', 'segments', 'relationshipManagers'));
     }
 
     public function update(Request $request, Client $client)
@@ -260,6 +278,7 @@ class ClientController extends Controller
             'preferred_communication'  => 'nullable|in:sms,email,whatsapp,phone_call',
             'branch_id'                => 'nullable|exists:branches,id',
             'segment_id'               => 'nullable|exists:client_segments,id',
+            'relationship_manager_id'  => 'nullable|exists:users,id',
             'status'                   => 'required|in:active,inactive,blacklisted',
             'joining_date'             => 'nullable|date',
         ]);
@@ -409,6 +428,13 @@ class ClientController extends Controller
 
         $client->delete();
         return redirect()->route('clients.index')->with('success', 'Client deleted.');
+    }
+
+    private function staffUsers()
+    {
+        return User::whereDoesntHave('roles', fn($q) => $q->whereIn('name', ['group_member', 'group_leader', 'client']))
+            ->orderBy('name')
+            ->get();
     }
 
     private function generateClientNumber(): string

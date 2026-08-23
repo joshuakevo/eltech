@@ -11,7 +11,7 @@ class Client extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'client_number', 'client_type', 'name', 'branch_id', 'segment_id', 'created_by',
+        'client_number', 'client_type', 'name', 'branch_id', 'segment_id', 'relationship_manager_id', 'created_by',
         'first_name', 'middle_name', 'last_name',
         'gender', 'date_of_birth', 'marital_status', 'nationality', 'id_number', 'photo',
         'phone', 'alt_phone', 'email', 'address', 'district', 'village', 'postal_address',
@@ -44,6 +44,11 @@ class Client extends Model
     public function segment()
     {
         return $this->belongsTo(\App\Models\ClientSegment::class, 'segment_id');
+    }
+
+    public function relationshipManager()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'relationship_manager_id');
     }
 
     public function loans()
