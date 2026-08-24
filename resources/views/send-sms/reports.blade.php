@@ -13,6 +13,7 @@
     <ul class="nav nav-pills">
         <li class="nav-item"><a class="nav-link" href="{{ route('send-sms.index') }}">Send SMS</a></li>
         <li class="nav-item"><a class="nav-link active" href="{{ route('send-sms.reports') }}">Delivery Reports</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ route('send-sms.subscription') }}">Subscription</a></li>
     </ul>
 </div>
 

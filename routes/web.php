@@ -331,6 +331,7 @@ Route::middleware('auth')->group(function () {
         Route::get('send-sms', [SendSmsController::class, 'index'])->name('send-sms.index');
         Route::post('send-sms', [SendSmsController::class, 'send'])->name('send-sms.send');
         Route::get('send-sms/reports', [SendSmsController::class, 'reports'])->name('send-sms.reports');
+        Route::get('send-sms/subscription', [SmsSubscriptionController::class, 'index'])->name('send-sms.subscription');
         Route::post('send-sms/subscribe', [SmsSubscriptionController::class, 'store'])->name('send-sms.subscribe');
     });
 

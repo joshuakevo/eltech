@@ -35,15 +35,14 @@ class SendSmsController extends Controller
 
         $message = $request->has('message') ? $request->message : self::TEMPLATES[$category];
 
-        $canSend               = $this->subscription->canSend();
-        $freeTrialRemaining    = $this->subscription->freeTrialRemaining();
-        $activeSubscription    = $this->subscription->activeSubscription();
-        $subscriptionPrice     = $this->subscription->subscriptionPrice();
-        $recentSubscriptionAttempts = \App\Models\SmsSubscriptionPayment::latest()->limit(5)->get();
+        $canSend            = $this->subscription->canSend();
+        $freeTrialRemaining = $this->subscription->freeTrialRemaining();
+        $activeSubscription = $this->subscription->activeSubscription();
+        $subscriptionPrice  = $this->subscription->subscriptionPrice();
 
         return view('send-sms.index', compact(
             'category', 'dueDays', 'segments', 'rows', 'message',
-            'canSend', 'freeTrialRemaining', 'activeSubscription', 'subscriptionPrice', 'recentSubscriptionAttempts'
+            'canSend', 'freeTrialRemaining', 'activeSubscription', 'subscriptionPrice'
         ));
     }
 

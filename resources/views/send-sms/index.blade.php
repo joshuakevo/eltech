@@ -12,6 +12,7 @@
     <ul class="nav nav-pills">
         <li class="nav-item"><a class="nav-link active" href="{{ route('send-sms.index') }}">Send SMS</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ route('send-sms.reports') }}">Delivery Reports</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ route('send-sms.subscription') }}">Subscription</a></li>
     </ul>
 </div>
 
@@ -31,34 +32,6 @@
     <i class="bi bi-exclamation-triangle-fill me-1"></i>
     Your free trial has ended and there is no active SMS subscription. Sending is disabled until you subscribe.
     <button type="button" class="btn btn-sm btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#subscribeModal">Subscribe now</button>
-</div>
-@endif
-
-@if($recentSubscriptionAttempts->isNotEmpty())
-<div class="card mb-3">
-    <div class="card-header py-2 small fw-semibold">Recent Subscription Payment Attempts</div>
-    <div class="table-responsive">
-        <table class="table table-sm mb-0">
-            <thead class="table-light"><tr>
-                <th class="ps-3">Date</th><th>Phone</th><th>Amount</th><th>Status</th><th class="pe-3">Failure Reason</th>
-            </tr></thead>
-            <tbody>
-            @foreach($recentSubscriptionAttempts as $attempt)
-                <tr>
-                    <td class="ps-3 small text-muted text-nowrap">{{ $attempt->created_at->format('d M Y H:i') }}</td>
-                    <td class="small font-monospace">{{ $attempt->phone_number }}</td>
-                    <td class="small">{{ number_format($attempt->amount, 0) }}</td>
-                    <td>
-                        <span class="badge bg-{{ $attempt->status === 'successful' ? 'success' : ($attempt->status === 'failed' ? 'danger' : 'secondary') }}-subtle text-{{ $attempt->status === 'successful' ? 'success' : ($attempt->status === 'failed' ? 'danger' : 'secondary') }}">
-                            {{ ucfirst($attempt->status) }}
-                        </span>
-                    </td>
-                    <td class="pe-3 small text-muted">{{ $attempt->failure_reason ?? '—' }}</td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    </div>
 </div>
 @endif
 
