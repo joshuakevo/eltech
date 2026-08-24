@@ -6,6 +6,7 @@ use App\Models\SmsLog;
 use App\Models\SmsSubscriptionPayment;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -59,6 +60,12 @@ class SmsSubscriptionService
      */
     public function subscribe(string $phone, ?User $user): array
     {
+        $normalizedPhone = PhoneNumber::normalize($phone);
+        if (!$normalizedPhone) {
+            return ['success' => false, 'message' => "Unrecognized phone number format: {$phone}"];
+        }
+        $phone = $normalizedPhone;
+
         $amount    = $this->subscriptionPrice();
         $reference = $this->marzPay->generateReference();
 

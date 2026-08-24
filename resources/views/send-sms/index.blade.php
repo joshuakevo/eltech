@@ -34,6 +34,34 @@
 </div>
 @endif
 
+@if($recentSubscriptionAttempts->isNotEmpty())
+<div class="card mb-3">
+    <div class="card-header py-2 small fw-semibold">Recent Subscription Payment Attempts</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light"><tr>
+                <th class="ps-3">Date</th><th>Phone</th><th>Amount</th><th>Status</th><th class="pe-3">Failure Reason</th>
+            </tr></thead>
+            <tbody>
+            @foreach($recentSubscriptionAttempts as $attempt)
+                <tr>
+                    <td class="ps-3 small text-muted text-nowrap">{{ $attempt->created_at->format('d M Y H:i') }}</td>
+                    <td class="small font-monospace">{{ $attempt->phone_number }}</td>
+                    <td class="small">{{ number_format($attempt->amount, 0) }}</td>
+                    <td>
+                        <span class="badge bg-{{ $attempt->status === 'successful' ? 'success' : ($attempt->status === 'failed' ? 'danger' : 'secondary') }}-subtle text-{{ $attempt->status === 'successful' ? 'success' : ($attempt->status === 'failed' ? 'danger' : 'secondary') }}">
+                            {{ ucfirst($attempt->status) }}
+                        </span>
+                    </td>
+                    <td class="pe-3 small text-muted">{{ $attempt->failure_reason ?? '—' }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
 {{-- Subscribe Modal --}}
 <div class="modal fade" id="subscribeModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
