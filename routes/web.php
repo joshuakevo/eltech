@@ -354,7 +354,7 @@ Route::middleware('auth')->group(function () {
 
     // ── Client Segments ──────────────────────────────────────────────
     Route::resource('client-segments', ClientSegmentController::class)
-        ->only(['index', 'create', 'store', 'edit', 'update'])
+        ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
         ->middleware('permission:manage client segments');
 
     // ── Close Accounts (admin bulk closure of savings accounts) ───────

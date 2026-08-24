@@ -40,6 +40,20 @@
                         <a href="{{ route('client-segments.edit', $segment) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        @if($segment->clients_count == 0)
+                        <form method="POST" action="{{ route('client-segments.destroy', $segment) }}" class="d-inline"
+                              onsubmit="return confirm('Delete the segment \'{{ $segment->name }}\'? This cannot be undone.');">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        @else
+                        <button type="button" class="btn btn-sm btn-outline-danger" disabled
+                                title="Cannot delete — {{ $segment->clients_count }} client(s) still assigned">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        @endif
                     </td>
                 </tr>
             @empty

@@ -52,4 +52,16 @@ class ClientSegmentController extends Controller
 
         return redirect()->route('client-segments.index')->with('success', 'Segment updated successfully.');
     }
+
+    public function destroy(ClientSegment $client_segment)
+    {
+        $count = $client_segment->clients()->count();
+        if ($count > 0) {
+            return back()->with('error', "Cannot delete \"{$client_segment->name}\" — {$count} client(s) are still assigned to it. Reassign them first.");
+        }
+
+        $client_segment->delete();
+
+        return redirect()->route('client-segments.index')->with('success', 'Segment deleted.');
+    }
 }
