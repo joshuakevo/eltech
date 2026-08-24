@@ -3,13 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\MobileMoneyTransaction;
+use App\Models\SmsSubscriptionPayment;
 use App\Services\MobileMoneyService;
+use App\Services\SmsSubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class MarzPayWebhookController extends Controller
 {
-    public function __construct(protected MobileMoneyService $mobileMoneyService) {}
+    public function __construct(
+        protected MobileMoneyService $mobileMoneyService,
+        protected SmsSubscriptionService $smsSubscriptionService
+    ) {}
 
     /**
      * MarzPay's webhook signature scheme isn't documented, so this payload is NEVER trusted
@@ -34,6 +39,19 @@ class MarzPayWebhookController extends Controller
 
         if ($mm) {
             $this->mobileMoneyService->reconcile($mm);
+            return response()->json(['status' => 'ok']);
+        }
+
+        $sub = null;
+        if ($reference) {
+            $sub = SmsSubscriptionPayment::where('reference', $reference)->first();
+        }
+        if (!$sub && $uuid) {
+            $sub = SmsSubscriptionPayment::where('provider_reference', $uuid)->first();
+        }
+
+        if ($sub) {
+            $this->smsSubscriptionService->reconcile($sub);
         }
 
         return response()->json(['status' => 'ok']);

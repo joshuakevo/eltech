@@ -6,8 +6,10 @@ use App\Models\Client;
 use App\Models\ClientSegment;
 use App\Models\LoanSchedule;
 use App\Models\SavingsAccount;
+use App\Models\SmsLog;
 use App\Models\SystemSetting;
 use App\Services\SmsService;
+use App\Services\SmsSubscriptionService;
 use Illuminate\Http\Request;
 
 class SendSmsController extends Controller
@@ -19,10 +21,12 @@ class SendSmsController extends Controller
         'dormant_savings' => "Dear {name}, we noticed your savings account {account_number} has been inactive. Kindly visit us or make a deposit to keep it active. - {org}",
     ];
 
-    public function __construct(protected SmsService $sms) {}
+    public function __construct(protected SmsService $sms, protected SmsSubscriptionService $subscription) {}
 
     public function index(Request $request)
     {
+        $this->subscription->reconcileRecent();
+
         $category = $request->category ?? 'all';
         $dueDays  = (int) ($request->due_days ?? 7);
 
@@ -31,7 +35,34 @@ class SendSmsController extends Controller
 
         $message = $request->has('message') ? $request->message : self::TEMPLATES[$category];
 
-        return view('send-sms.index', compact('category', 'dueDays', 'segments', 'rows', 'message'));
+        $canSend            = $this->subscription->canSend();
+        $freeTrialRemaining = $this->subscription->freeTrialRemaining();
+        $activeSubscription = $this->subscription->activeSubscription();
+        $subscriptionPrice  = $this->subscription->subscriptionPrice();
+
+        return view('send-sms.index', compact(
+            'category', 'dueDays', 'segments', 'rows', 'message',
+            'canSend', 'freeTrialRemaining', 'activeSubscription', 'subscriptionPrice'
+        ));
+    }
+
+    public function reports(Request $request)
+    {
+        $logs = SmsLog::with('sentBy')
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->category, fn($q) => $q->where('category', $request->category))
+            ->when($request->search, fn($q) => $q->where(fn($q2) => $q2->where('phone', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn($q3) => $q3->where('name', 'like', "%{$request->search}%"))))
+            ->when($request->from_date, fn($q) => $q->whereDate('created_at', '>=', $request->from_date))
+            ->when($request->to_date, fn($q) => $q->whereDate('created_at', '<=', $request->to_date))
+            ->latest()
+            ->paginate(30)
+            ->withQueryString();
+
+        $sentCount   = SmsLog::where('status', 'sent')->count();
+        $failedCount = SmsLog::where('status', 'failed')->count();
+
+        return view('send-sms.reports', compact('logs', 'sentCount', 'failedCount'));
     }
 
     public function send(Request $request)
@@ -43,9 +74,14 @@ class SendSmsController extends Controller
             'message'  => 'required|string|max:918',
         ]);
 
+        if (!$this->subscription->canSend()) {
+            return back()->with('error', 'Your free trial has ended and there is no active SMS subscription. Subscribe below to continue sending SMS.');
+        }
+
         set_time_limit(0);
 
-        $rows = $this->resolveRecipientRows($request->category, $request->ids);
+        $rows    = $this->resolveRecipientRows($request->category, $request->ids);
+        $gateway = config('services.sms.default', 'africastalking');
 
         $sent           = 0;
         $skippedNoPhone = [];
@@ -59,6 +95,17 @@ class SendSmsController extends Controller
 
             $text   = $this->fillTemplate($request->message, $row);
             $result = $this->sms->send($row['phone'], $text);
+
+            SmsLog::create([
+                'client_id' => $row['client_id'] ?? null,
+                'phone'     => $row['phone'],
+                'message'   => $text,
+                'category'  => $request->category,
+                'status'    => $result['success'] ? 'sent' : 'failed',
+                'gateway'   => $gateway,
+                'error'     => $result['success'] ? null : $result['message'],
+                'sent_by'   => auth()->id(),
+            ]);
 
             if ($result['success']) {
                 $sent++;
@@ -159,6 +206,7 @@ class SendSmsController extends Controller
                 ->get()
                 ->filter(fn($s) => $s->loan && $s->loan->client)
                 ->map(fn($schedule) => [
+                    'client_id'      => $schedule->loan->client->id,
                     'name'           => $schedule->loan->client->name,
                     'client_number'  => $schedule->loan->client->client_number,
                     'phone'          => $schedule->loan->client->phone,
@@ -175,6 +223,7 @@ class SendSmsController extends Controller
                 ->get()
                 ->filter(fn($a) => $a->client)
                 ->map(fn($account) => [
+                    'client_id'      => $account->client->id,
                     'name'           => $account->client->name,
                     'client_number'  => $account->client->client_number,
                     'phone'          => $account->client->phone,
@@ -186,6 +235,7 @@ class SendSmsController extends Controller
         }
 
         return Client::whereIn('id', $ids)->get()->map(fn($client) => [
+            'client_id'      => $client->id,
             'name'           => $client->name,
             'client_number'  => $client->client_number,
             'phone'          => $client->phone,

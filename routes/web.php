@@ -21,6 +21,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavingsAccountController;
 use App\Http\Controllers\SavingsProductController;
 use App\Http\Controllers\SendSmsController;
+use App\Http\Controllers\SmsSubscriptionController;
 use App\Http\Controllers\SendStatementController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TellerController;
@@ -329,6 +330,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:send sms')->group(function () {
         Route::get('send-sms', [SendSmsController::class, 'index'])->name('send-sms.index');
         Route::post('send-sms', [SendSmsController::class, 'send'])->name('send-sms.send');
+        Route::get('send-sms/reports', [SendSmsController::class, 'reports'])->name('send-sms.reports');
+        Route::post('send-sms/subscribe', [SmsSubscriptionController::class, 'store'])->name('send-sms.subscribe');
     });
 
     // ── Mobile Money (admin approval of client-initiated withdrawals) ──
