@@ -37,7 +37,7 @@ class LoanController extends Controller
         $totalCount       = (clone $filtered)->count();
 
         if ($request->format === 'pdf') {
-            $all = (clone $filtered)->with('client', 'product')->orderByDesc('outstanding_principal')->get();
+            $all = (clone $filtered)->with('client', 'product')->orderByDesc('disbursement_date')->get();
             $pdf = Pdf::loadView('pdf.loans', [
                 'loans'            => $all,
                 'totalOutstanding' => $totalOutstanding,
@@ -49,7 +49,7 @@ class LoanController extends Controller
         }
 
         if ($request->format === 'excel') {
-            $all = (clone $filtered)->with('client', 'product')->orderByDesc('outstanding_principal')->get();
+            $all = (clone $filtered)->with('client', 'product')->orderByDesc('disbursement_date')->get();
             $header = $type === 'locked-up'
                 ? ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Interest', 'Status']
                 : ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Status'];
@@ -72,7 +72,7 @@ class LoanController extends Controller
         }
 
         $loans = $filtered->with('client', 'product')
-            ->orderByDesc('outstanding_principal')
+            ->orderByDesc('disbursement_date')
             ->paginate(20);
 
         return view('loans.index', compact('loans', 'totalOutstanding', 'totalInterest', 'totalCount', 'type'));

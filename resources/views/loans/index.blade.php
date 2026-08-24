@@ -92,6 +92,7 @@
                 @else
                     <th class="text-end">Outstanding</th>
                 @endif
+                <th>Disbursed</th>
                 <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>
@@ -116,6 +117,7 @@
                             {{ number_format($loan->outstanding_principal, $dp) }}
                         </td>
                     @endif
+                    <td class="small text-muted">{{ $loan->disbursement_date ? $loan->disbursement_date->format('d M Y') : '—' }}</td>
                     <td>
                         <span class="badge badge-status-{{ $loan->status }}">{{ ucfirst($loan->status) }}</span>
                         @if($loan->status === 'active' && $loan->maturity_date && $loan->maturity_date->isPast())
