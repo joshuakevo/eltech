@@ -159,10 +159,13 @@ class DashboardController extends Controller
             ->whereMonth('transaction_date', now()->subMonth()->month)
             ->sum('amount');
 
-        $lastMonthLoans = Loan::whereYear('created_at', now()->subMonth()->year)
-            ->whereMonth('created_at', now()->subMonth()->month)
-            ->whereIn('status', ['active', 'closed'])
-            ->sum('principal');
+        // Reuses $monthlyLoanDisbursements (already bucketed by disbursement_date, with
+        // the July opening-lump treatment) instead of re-querying by created_at, which
+        // would compare disbursement-date-based "this month" against a created_at-based
+        // "last month" -- an apples-to-oranges mismatch.
+        $lastMonthLoans = $monthlyLoanDisbursements->count() >= 2
+            ? $monthlyLoanDisbursements[$monthlyLoanDisbursements->count() - 2]
+            : 0;
 
         $savingsGrowth = $lastMonthSavings > 0
             ? round((($depositsThisMonth - $lastMonthSavings) / $lastMonthSavings) * 100, 1)
