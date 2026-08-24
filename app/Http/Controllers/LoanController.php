@@ -51,8 +51,8 @@ class LoanController extends Controller
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('disbursement_date')->get();
             $header = $type === 'locked-up'
-                ? ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Interest', 'Status']
-                : ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Status'];
+                ? ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Interest', 'Disbursed', 'Status']
+                : ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Disbursed', 'Status'];
             $rows = [$header];
             foreach ($all as $loan) {
                 $rows[] = [
@@ -62,12 +62,13 @@ class LoanController extends Controller
                     $loan->product->name ?? '',
                     $loan->principal,
                     $type === 'locked-up' ? $loan->outstanding_interest : $loan->outstanding_principal,
+                    $loan->disbursement_date ? $loan->disbursement_date->format('Y-m-d') : '',
                     ucfirst($loan->status),
                 ];
             }
             $rows[] = $type === 'locked-up'
-                ? ['', '', '', 'TOTAL', $totalOutstanding, $totalInterest, $totalCount . ' loans']
-                : ['', '', '', 'TOTAL', '', $totalOutstanding, $totalCount . ' loans'];
+                ? ['', '', '', 'TOTAL', $totalOutstanding, $totalInterest, '', $totalCount . ' loans']
+                : ['', '', '', 'TOTAL', '', $totalOutstanding, '', $totalCount . ' loans'];
             return $this->csvDownload($rows, 'loans-' . now()->format('Y-m-d'));
         }
 
