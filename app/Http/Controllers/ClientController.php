@@ -432,7 +432,7 @@ class ClientController extends Controller
 
     private function staffUsers()
     {
-        return User::whereDoesntHave('roles', fn($q) => $q->whereIn('name', ['group_member', 'group_leader', 'client']))
+        return User::where('is_relationship_manager', true)
             ->orderBy('name')
             ->get();
     }

@@ -43,6 +43,7 @@ class UserController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'role'      => 'required|exists:roles,name',
             'is_active' => 'boolean',
+            'is_relationship_manager' => 'boolean',
         ]);
 
         $user = User::create([
@@ -53,6 +54,7 @@ class UserController extends Controller
             'branch_id' => $data['branch_id'] ?? null,
             'client_id' => $data['client_id'] ?? null,
             'is_active' => $request->boolean('is_active', true),
+            'is_relationship_manager' => $request->boolean('is_relationship_manager'),
         ]);
 
         $user->assignRole($data['role']);
@@ -85,6 +87,7 @@ class UserController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'role'      => 'required|exists:roles,name',
             'is_active' => 'boolean',
+            'is_relationship_manager' => 'boolean',
         ]);
 
         $updateData = [
@@ -94,6 +97,7 @@ class UserController extends Controller
             'branch_id' => $data['branch_id'] ?? null,
             'client_id' => $data['client_id'] ?? null,
             'is_active' => $request->boolean('is_active', true),
+            'is_relationship_manager' => $request->boolean('is_relationship_manager'),
         ];
 
         if (!empty($data['password'])) {
@@ -111,6 +115,13 @@ class UserController extends Controller
         $user->update(['is_active' => !$user->is_active]);
         $status = $user->is_active ? 'activated' : 'deactivated';
         return back()->with('success', "User {$status} successfully.");
+    }
+
+    public function toggleRelationshipManager(User $user)
+    {
+        $user->update(['is_relationship_manager' => !$user->is_relationship_manager]);
+        $status = $user->is_relationship_manager ? 'added to' : 'removed from';
+        return back()->with('success', "{$user->name} {$status} the Relationship Manager list.");
     }
 
     /**

@@ -367,6 +367,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:manage users')->group(function () {
         Route::resource('users', UserController::class)->except(['destroy']);
         Route::post('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+        Route::post('users/{user}/toggle-rm', [UserController::class, 'toggleRelationshipManager'])->name('users.toggle-rm');
         Route::post('users/{user}/send-invite', [UserController::class, 'sendInvite'])->name('users.send-invite');
         Route::post('users/{user}/assign-role', [UserController::class, 'assignRole'])->name('users.assign-role');
         Route::post('users/{user}/permissions', [App\Http\Controllers\RoleController::class, 'updateUserPermissions'])->name('users.permissions');
@@ -401,6 +402,7 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');
+        Route::post('settings/flag-existing-rms', [SettingsController::class, 'flagExistingRms'])->name('settings.flag-existing-rms');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');

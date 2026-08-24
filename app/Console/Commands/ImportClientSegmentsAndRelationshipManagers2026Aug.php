@@ -113,6 +113,9 @@ class ImportClientSegmentsAndRelationshipManagers2026Aug extends Command
                 if ($rawRm !== '' && strcasecmp($rawRm, 'CLOSE') !== 0) {
                     $rmName = self::RM_NAME_ALIASES[$rawRm] ?? $rawRm;
                     $user = User::whereRaw('LOWER(name) = ?', [strtolower($rmName)])->first();
+                    if ($user && !$user->is_relationship_manager) {
+                        $user->update(['is_relationship_manager' => true]);
+                    }
                     if (!$user) {
                         $slug  = Str::slug($rmName, '.');
                         $email = "{$slug}@eltechfinance.local";
@@ -121,6 +124,7 @@ class ImportClientSegmentsAndRelationshipManagers2026Aug extends Command
                             'email'     => $email,
                             'password'  => Hash::make(Str::random(32)),
                             'is_active' => true,
+                            'is_relationship_manager' => true,
                         ]);
                         $user->assignRole('staff');
                         $usersCreated++;

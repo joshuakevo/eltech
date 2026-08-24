@@ -86,6 +86,14 @@
             <label class="form-check-label" for="is_active">Active</label>
         </div>
     </div>
+    <div class="col-12">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="is_relationship_manager" id="is_relationship_manager"
+                   value="1" {{ old('is_relationship_manager', $user->is_relationship_manager) ? 'checked' : '' }}>
+            <label class="form-check-label" for="is_relationship_manager">Available as Relationship Manager</label>
+        </div>
+        <div class="form-text">Shows this user in the Relationship Manager dropdown when assigning clients.</div>
+    </div>
 </div>
 <div class="mt-4 d-flex gap-2">
     <button type="submit" class="btn btn-primary">Update User</button>

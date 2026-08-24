@@ -26,6 +26,7 @@
                     <th>Role</th>
                     <th>Branch</th>
                     <th class="text-center">Status</th>
+                    <th class="text-center">RM</th>
                     <th></th>
                 </tr>
             </thead>
@@ -56,6 +57,13 @@
                             <span class="badge bg-danger-subtle text-danger">Inactive</span>
                         @endif
                     </td>
+                    <td class="text-center">
+                        @if($user->is_relationship_manager)
+                            <span class="badge bg-primary-subtle text-primary">Yes</span>
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
                     <td class="text-end">
                         <div class="d-flex gap-1 justify-content-end">
                             <a href="{{ route('users.edit', $user) }}" class="btn btn-sm btn-outline-secondary">
@@ -66,6 +74,13 @@
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-primary" title="Send login invite email">
                                     <i class="bi bi-envelope"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('users.toggle-rm', $user) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-{{ $user->is_relationship_manager ? 'secondary' : 'primary' }}"
+                                        title="{{ $user->is_relationship_manager ? 'Remove from Relationship Manager list' : 'Add to Relationship Manager list' }}">
+                                    <i class="bi bi-person-badge"></i>
                                 </button>
                             </form>
                             <form method="POST" action="{{ route('users.toggle-status', $user) }}">
@@ -79,7 +94,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="text-center py-4 text-muted">No system users found.</td></tr>
+                <tr><td colspan="8" class="text-center py-4 text-muted">No system users found.</td></tr>
             @endforelse
             </tbody>
         </table>

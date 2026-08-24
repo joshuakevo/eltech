@@ -391,6 +391,29 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- One-time fix: flag RM users created before is_relationship_manager existed --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
+        <i class="bi bi-tools me-2"></i>Flag Existing Relationship Managers
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Run this once after deploying the Relationship Manager visibility toggle. Users & Roles now
+            has an "Available as Relationship Manager" switch controlling who shows in the Clients RM
+            dropdown &mdash; but the RM users created by the import above (before that switch existed)
+            aren't flagged yet, so they'd otherwise vanish from the dropdown. This flags every user
+            already assigned as a client's RM. Safe to re-run.
+        </p>
+        <form method="POST" action="{{ route('settings.flag-existing-rms') }}"
+              onsubmit="return confirm('Flag every user already assigned as a client RM now?');">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">
+                <i class="bi bi-wrench-adjustable me-2"></i>Flag Existing RMs
+            </button>
+        </form>
+    </div>
+</div>
+
 {{-- Read-only diagnostic: why does the Income Statement segment filter return zero? --}}
 <div class="card mt-4 border-info">
     <div class="card-header bg-info bg-opacity-10 text-info-emphasis fw-bold">

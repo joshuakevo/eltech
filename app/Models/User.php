@@ -13,14 +13,15 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
     protected $fillable = [
-        'name', 'email', 'password', 'branch_id', 'phone', 'is_active', 'client_id',
+        'name', 'email', 'password', 'branch_id', 'phone', 'is_active', 'client_id', 'is_relationship_manager',
     ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'is_active'         => 'boolean',
+        'email_verified_at'       => 'datetime',
+        'is_active'               => 'boolean',
+        'is_relationship_manager' => 'boolean',
     ];
 
     public function branch()

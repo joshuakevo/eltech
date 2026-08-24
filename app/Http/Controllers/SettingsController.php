@@ -293,6 +293,20 @@ class SettingsController extends Controller
      * Read-only diagnostic for "Income Statement segment filter always
      * returns zero" -- writes nothing, safe to run any time.
      */
+    /**
+     * One-time follow-up for installs that ran importClientSegmentsRm() above
+     * before is_relationship_manager existed -- flags every user already
+     * assigned as a client's RM so they don't vanish from the Clients RM
+     * dropdown, which now filters on that flag. Safe to re-run.
+     */
+    public function flagExistingRms()
+    {
+        Artisan::call('eltech:flag-existing-rms-2026-08', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Existing RM flagging run.\n\n{$output}");
+    }
+
     public function diagnoseSegmentIncomeStatement(Request $request)
     {
         $args = [];
