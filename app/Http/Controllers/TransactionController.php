@@ -43,17 +43,18 @@ class TransactionController extends Controller
     {
         $accounts = Account::where('is_active', true)->orderBy('account_code')->get();
         $clients  = \App\Models\Client::orderBy('name')->get(['id', 'client_number', 'name']);
+        $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
         $lineRows = $this->normalizedJournalLineRowsFromOld();
 
-        return view('transactions.create', compact('accounts', 'clients', 'lineRows'));
+        return view('transactions.create', compact('accounts', 'clients', 'segments', 'lineRows'));
     }
 
     /**
-     * @return list<array{account_id: string, client_id: string, description: string, debit: string, credit: string}>
+     * @return list<array{account_id: string, client_id: string, segment_id: string, description: string, debit: string, credit: string}>
      */
     private function normalizedJournalLineRowsFromOld(): array
     {
-        $default = ['account_id' => '', 'client_id' => '', 'description' => '', 'debit' => '0', 'credit' => '0'];
+        $default = ['account_id' => '', 'client_id' => '', 'segment_id' => '', 'description' => '', 'debit' => '0', 'credit' => '0'];
         $raw     = old('lines');
         if (!is_array($raw)) {
             return [$default, $default];
@@ -79,6 +80,7 @@ class TransactionController extends Controller
             'lines'              => 'required|array|min:2',
             'lines.*.account_id' => 'required|exists:accounts,id',
             'lines.*.client_id'  => 'nullable|exists:clients,id',
+            'lines.*.segment_id' => 'nullable|exists:client_segments,id',
             'lines.*.debit'      => 'required|numeric|min:0',
             'lines.*.credit'     => 'required|numeric|min:0',
         ]);
@@ -450,18 +452,20 @@ class TransactionController extends Controller
         $transaction->load('lines.account');
         $accounts = Account::where('is_active', true)->orderBy('account_code')->get();
         $clients  = Client::orderBy('name')->get(['id', 'client_number', 'name']);
+        $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
 
         $inferredClientIds = $this->inferLineClientIds($transaction);
 
         $lineRows = $transaction->lines->map(fn($l) => [
             'account_id'  => $l->account_id,
             'client_id'   => $inferredClientIds[$l->id] ?? $l->client_id,
+            'segment_id'  => $l->segment_id,
             'description' => $l->description,
             'debit'       => $l->debit,
             'credit'      => $l->credit,
         ])->values()->toArray();
 
-        return view('transactions.edit', compact('transaction', 'accounts', 'clients', 'lineRows'));
+        return view('transactions.edit', compact('transaction', 'accounts', 'clients', 'segments', 'lineRows'));
     }
 
     /**
@@ -543,6 +547,7 @@ class TransactionController extends Controller
             'lines'              => 'required|array|min:2',
             'lines.*.account_id' => 'required|exists:accounts,id',
             'lines.*.client_id'  => 'nullable|exists:clients,id',
+            'lines.*.segment_id' => 'nullable|exists:client_segments,id',
             'lines.*.debit'      => 'required|numeric|min:0',
             'lines.*.credit'     => 'required|numeric|min:0',
         ]);
@@ -582,6 +587,7 @@ class TransactionController extends Controller
                 $transaction->lines()->create([
                     'account_id'  => $line['account_id'],
                     'client_id'   => $line['client_id'] ?: null,
+                    'segment_id'  => $line['segment_id'] ?: null,
                     'description' => $line['description'] ?? null,
                     'debit'       => $line['debit'],
                     'credit'      => $line['credit'],

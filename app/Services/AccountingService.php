@@ -45,6 +45,7 @@ class AccountingService
                     'transaction_id' => $transaction->id,
                     'account_id'     => $line['account_id'],
                     'client_id'      => $line['client_id'] ?? null,
+                    'segment_id'     => $line['segment_id'] ?? null,
                     'debit'          => $line['debit'] ?? 0,
                     'credit'         => $line['credit'] ?? 0,
                     'description'    => $line['description'] ?? null,
@@ -205,11 +206,14 @@ class AccountingService
     }
 
     /**
-     * Sum debit/credit per account, keeping only transaction lines whose transaction
-     * is attached to a client in $segmentId. Most module-generated postings (savings,
-     * loans, fixed deposits, membership fees, shares) never tag transaction_lines.client_id
-     * directly -- the client is only resolvable via transactions.module/module_id -- so this
-     * mirrors the same resolution TransactionController uses when editing those entries.
+     * Sum debit/credit per account, keeping only transaction lines attributable to
+     * $segmentId. Most module-generated postings (savings, loans, fixed deposits,
+     * membership fees, shares) never tag transaction_lines.client_id directly -- the
+     * client is only resolvable via transactions.module/module_id -- so this mirrors
+     * the same resolution TransactionController uses when editing those entries.
+     * When a line has no resolvable client at all (institutional/overhead postings,
+     * e.g. Bank Charges, Staff Welfare), it falls back to transaction_lines.segment_id,
+     * which manual journal entries can set directly per line for exactly this case.
      *
      * @return array<int, array{debit: float, credit: float}> account_id => sums
      */
@@ -220,9 +224,6 @@ class AccountingService
         // as strings. Cast explicitly rather than relying on in_array()'s type
         // coercion, since $clientId below is compared against this set.
         $clientIds = Client::where('segment_id', $segmentId)->pluck('id')->map(fn($id) => (int) $id)->all();
-        if (empty($clientIds)) {
-            return [];
-        }
 
         $query = TransactionLine::whereIn('transaction_lines.account_id', $accountIds)
             ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
@@ -231,6 +232,7 @@ class AccountingService
                 'transaction_lines.debit',
                 'transaction_lines.credit',
                 'transaction_lines.client_id',
+                'transaction_lines.segment_id',
                 'transactions.id as transaction_id',
                 'transactions.module',
                 'transactions.module_id'
@@ -248,7 +250,12 @@ class AccountingService
         $sums = [];
         foreach ($lines as $line) {
             $clientId = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
-            if (!$clientId || !in_array((int) $clientId, $clientIds, true)) {
+
+            if ($clientId) {
+                if (!in_array((int) $clientId, $clientIds, true)) {
+                    continue;
+                }
+            } elseif ((int) ($line->segment_id ?? 0) !== $segmentId) {
                 continue;
             }
 
@@ -262,13 +269,15 @@ class AccountingService
 
     /**
      * Read-only diagnostic for "the Income Statement segment filter always
-     * returns zero" reports. Runs the exact same client-resolution logic as
-     * getSegmentAccountSums()/resolveClientIdsForTransactions() above, but
-     * instead of filtering to one segment, buckets every revenue/expense
-     * transaction line by why it would or wouldn't show under a segment
-     * filter: no resolvable client at all, a resolved client with no
-     * segment assigned, or a resolved client with a segment (broken down by
-     * segment). Never writes anything.
+     * returns zero" reports. Runs the exact same resolution logic as
+     * getSegmentAccountSums()/resolveClientIdsForTransactions() above
+     * (including the transaction_lines.segment_id direct-tag fallback for
+     * lines with no resolvable client), but instead of filtering to one
+     * segment, buckets every revenue/expense transaction line by why it
+     * would or wouldn't show under a segment filter: no resolvable client
+     * and no direct segment tag, a resolved client with no segment
+     * assigned, or resolved to a segment (broken down by segment). Never
+     * writes anything.
      */
     public function diagnoseSegmentCoverage(?string $fromDate, ?string $toDate): array
     {
@@ -285,6 +294,7 @@ class AccountingService
                 'transaction_lines.debit',
                 'transaction_lines.credit',
                 'transaction_lines.client_id',
+                'transaction_lines.segment_id',
                 'transactions.id as transaction_id',
                 'transactions.module',
                 'transactions.module_id',
@@ -320,6 +330,13 @@ class AccountingService
             $cid = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
 
             if (!$cid) {
+                if ($line->segment_id) {
+                    $segId = (int) $line->segment_id;
+                    $bySegment[$segId] ??= ['name' => $segmentNames[$segId] ?? "Segment #{$segId}", 'lines' => 0, 'amount' => 0];
+                    $bySegment[$segId]['lines']++;
+                    $bySegment[$segId]['amount'] += $amount;
+                    continue;
+                }
                 $unresolved++;
                 $unresolvedAmount += $amount;
                 $key = $accountNames[$line->account_id] ?? "Account #{$line->account_id}";

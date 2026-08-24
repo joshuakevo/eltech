@@ -73,7 +73,7 @@
 
                 <table class="table table-bordered">
                     <thead class="table-light">
-                        <tr><th>Account</th><th>Description</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr>
+                        <tr><th>Account</th><th>Description</th><th>Tag</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr>
                     </thead>
                     <tbody>
                     @foreach($transaction->lines as $line)
@@ -85,6 +85,15 @@
                                 </a>
                             </td>
                             <td class="text-muted small">{{ $line->description }}</td>
+                            <td class="small">
+                                @if($line->client)
+                                    <span class="badge bg-primary-subtle text-primary"><i class="bi bi-person me-1"></i>{{ $line->client->name }}</span>
+                                @elseif($line->segment)
+                                    <span class="badge bg-info-subtle text-info"><i class="bi bi-tags me-1"></i>{{ $line->segment->name }}</span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
                             <td class="text-end">{{ $line->debit > 0 ? number_format($line->debit, $dp) : '' }}</td>
                             <td class="text-end">{{ $line->credit > 0 ? number_format($line->credit, $dp) : '' }}</td>
                         </tr>
@@ -92,7 +101,7 @@
                     </tbody>
                     <tfoot class="table-light fw-semibold">
                         <tr>
-                            <td colspan="2" class="text-end">Totals</td>
+                            <td colspan="3" class="text-end">Totals</td>
                             <td class="text-end">{{ number_format($transaction->lines->sum('debit'), $dp) }}</td>
                             <td class="text-end">{{ number_format($transaction->lines->sum('credit'), $dp) }}</td>
                         </tr>

@@ -66,8 +66,9 @@
             <table class="table table-bordered table-sm mb-0" id="linesTable">
                 <thead class="table-light">
                     <tr>
-                        <th style="width:30%">Account</th>
-                        <th style="width:20%">Client <span class="text-muted fw-normal" style="font-size:.7rem">(optional)</span></th>
+                        <th style="width:26%">Account</th>
+                        <th style="width:17%">Client <span class="text-muted fw-normal" style="font-size:.7rem">(optional)</span></th>
+                        <th style="width:17%">Segment <span class="text-muted fw-normal" style="font-size:.7rem">(if no client)</span></th>
                         <th>Description</th>
                         <th style="width:110px">Debit</th>
                         <th style="width:110px">Credit</th>
@@ -97,6 +98,16 @@
                                 @endforeach
                             </select>
                         </td>
+                        <td>
+                            <select name="lines[{{ $i }}][segment_id]" class="form-select form-select-sm ts-select">
+                                <option value="">— None —</option>
+                                @foreach($segments as $s)
+                                    <option value="{{ $s->id }}" @selected((string)($line['segment_id'] ?? '') === (string)$s->id)>
+                                        {{ $s->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </td>
                         <td><input type="text" name="lines[{{ $i }}][description]" class="form-control form-control-sm" value="{{ $line['description'] ?? '' }}"></td>
                         <td><input type="number" name="lines[{{ $i }}][debit]" step="0.01" min="0" value="{{ $line['debit'] ?? '0' }}" class="form-control form-control-sm debit-input" oninput="updateTotals()"></td>
                         <td><input type="number" name="lines[{{ $i }}][credit]" step="0.01" min="0" value="{{ $line['credit'] ?? '0' }}" class="form-control form-control-sm credit-input" oninput="updateTotals()"></td>
@@ -106,13 +117,13 @@
                 </tbody>
                 <tfoot class="table-light">
                     <tr>
-                        <td colspan="3" class="fw-semibold text-end small">Totals:</td>
+                        <td colspan="4" class="fw-semibold text-end small">Totals:</td>
                         <td><span id="totalDebit" class="fw-semibold">0.00</span></td>
                         <td><span id="totalCredit" class="fw-semibold">0.00</span></td>
                         <td></td>
                     </tr>
                     <tr id="balanceRow">
-                        <td colspan="6" class="text-center small py-1 fw-semibold" id="balanceStatus"></td>
+                        <td colspan="7" class="text-center small py-1 fw-semibold" id="balanceStatus"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -121,6 +132,9 @@
         <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>
             Tag a <strong>Client</strong> on any line to automatically update their sub-ledger
             (savings, fixed deposit, share payments, loan principal, or membership fee).
+            For lines with no specific client (e.g. institutional expenses like bank charges or staff
+            welfare), tag a <strong>Segment</strong> directly instead so it still shows up in
+            segment-filtered reports.
         </p>
 
     </div>
@@ -136,6 +150,7 @@
 let lineCount = {{ count($lineRows) }};
 const accounts = @json($accounts->map(fn($a) => ['id' => $a->id, 'label' => $a->account_code . ' — ' . $a->account_name]));
 const clientOpts = @json($clients->map(fn($c) => ['id' => $c->id, 'label' => $c->name . ' (' . $c->client_number . ')']));
+const segmentOpts = @json($segments->map(fn($s) => ['id' => $s->id, 'label' => $s->name]));
 var dp = {{ $dp }};
 function fmt(v) { return parseFloat(v).toFixed(dp); }
 
@@ -144,9 +159,11 @@ function addLine() {
     const tr = document.createElement('tr');
     const accOpts = accounts.map(a => `<option value="${a.id}">${a.label}</option>`).join('');
     const cliOpts = clientOpts.map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+    const segOpts = segmentOpts.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
     tr.innerHTML = `
         <td><select name="lines[${lineCount}][account_id]" class="form-select form-select-sm ts-select" required><option value="">Select account...</option>${accOpts}</select></td>
         <td><select name="lines[${lineCount}][client_id]" class="form-select form-select-sm ts-select"><option value="">— None —</option>${cliOpts}</select></td>
+        <td><select name="lines[${lineCount}][segment_id]" class="form-select form-select-sm ts-select"><option value="">— None —</option>${segOpts}</select></td>
         <td><input type="text" name="lines[${lineCount}][description]" class="form-control form-control-sm"></td>
         <td><input type="number" name="lines[${lineCount}][debit]"  step="0.01" min="0" value="0" class="form-control form-control-sm debit-input"  oninput="updateTotals()"></td>
         <td><input type="number" name="lines[${lineCount}][credit]" step="0.01" min="0" value="0" class="form-control form-control-sm credit-input" oninput="updateTotals()"></td>

@@ -10,7 +10,7 @@ class TransactionLine extends Model
     use HasFactory;
 
     protected $fillable = [
-        'transaction_id', 'account_id', 'client_id', 'debit', 'credit', 'description',
+        'transaction_id', 'account_id', 'client_id', 'segment_id', 'debit', 'credit', 'description',
     ];
 
     protected $casts = [
@@ -31,5 +31,10 @@ class TransactionLine extends Model
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function segment()
+    {
+        return $this->belongsTo(ClientSegment::class, 'segment_id');
     }
 }
