@@ -33,7 +33,7 @@
         <div>As of {{ $asOf }}</div>
     </div>
     <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — Balance Sheet</h1>
-    <p>Financial position as of the selected date</p>
+    <p>Financial position as of the selected date{{ $segment ? ' — Segment: ' . $segment->name : '' }}</p>
 </div>
 
 <div class="clearfix">
@@ -80,7 +80,9 @@
 
     <div class="balance-check">
         <strong>Liabilities + Equity = {{ number_format($data['liability']['total'] + $data['equity']['total'], 2) }}</strong><br>
-        @if(abs($data['asset']['total'] - ($data['liability']['total'] + $data['equity']['total'])) < 0.01)
+        @if($segment)
+            <span style="color:#6b7280">Balance check skipped for segment view — cash/institutional accounts aren't attributable to a segment.</span>
+        @elseif(abs($data['asset']['total'] - ($data['liability']['total'] + $data['equity']['total'])) < 0.01)
             <span style="color:#059669">✓ Balance sheet is balanced.</span>
         @else
             <span style="color:#dc2626">✗ Balance sheet is NOT balanced.</span>

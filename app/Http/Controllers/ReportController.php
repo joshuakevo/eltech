@@ -89,11 +89,15 @@ class ReportController extends Controller
 
     public function balanceSheet(Request $request)
     {
-        $asOf = $request->as_of ?? now()->toDateString();
-        $data = $this->accounting->getBalanceSheet($asOf);
+        $asOf      = $request->as_of ?? now()->toDateString();
+        $segmentId = $request->segment_id ? (int) $request->segment_id : null;
+
+        $data     = $this->accounting->getBalanceSheet($asOf, $segmentId);
+        $segments = \App\Models\ClientSegment::orderBy('name')->get();
+        $segment  = $segmentId ? $segments->firstWhere('id', $segmentId) : null;
 
         if ($request->format === 'pdf') {
-            $pdf = Pdf::loadView('pdf.reports.balance-sheet', compact('data', 'asOf'))
+            $pdf = Pdf::loadView('pdf.reports.balance-sheet', compact('data', 'asOf', 'segment'))
                 ->setPaper('a4', 'portrait');
             return $pdf->download('balance-sheet-' . now()->format('Y-m-d') . '.pdf');
         }
@@ -118,7 +122,7 @@ class ReportController extends Controller
             return $this->csvDownload($rows, 'balance-sheet-' . now()->format('Y-m-d'));
         }
 
-        return view('reports.balance-sheet', compact('data', 'asOf'));
+        return view('reports.balance-sheet', compact('data', 'asOf', 'segments', 'segmentId', 'segment'));
     }
 
     public function generalLedger(Request $request)

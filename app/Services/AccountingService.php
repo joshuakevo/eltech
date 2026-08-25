@@ -410,18 +410,40 @@ class AccountingService
 
     /**
      * Generate balance sheet (Assets, Liabilities, Equity).
+     *
+     * When $segmentId is given, each account's balance is restricted to lines
+     * attributable to that segment (same client/segment resolution as
+     * getIncomeStatement()/getSegmentAccountSums()). Because balance sheet
+     * accounts include institutional cash/bank accounts that are never tagged
+     * to an individual client, a segmented balance sheet will NOT balance --
+     * it only shows that segment's own receivables (loans), payables
+     * (savings/FD liabilities), share capital, and net income; cash-type
+     * accounts show zero since they aren't attributable to any one segment.
      */
-    public function getBalanceSheet(?string $asOf = null): array
+    public function getBalanceSheet(?string $asOf = null, ?int $segmentId = null): array
     {
         $asOf = $asOf ?? now()->toDateString();
 
+        $balanceSheetAccounts = Account::whereIn('account_type', ['asset', 'liability', 'equity'])
+            ->where('is_active', true)->get();
+
+        $sumsByAccount = $segmentId
+            ? $this->getSegmentAccountSums($balanceSheetAccounts->pluck('id'), null, $asOf, $segmentId)
+            : null;
+
+        $balanceFor = function (Account $acc) use ($sumsByAccount, $asOf) {
+            if ($sumsByAccount !== null) {
+                return $sumsByAccount[$acc->id] ?? ['debit' => 0, 'credit' => 0];
+            }
+            return $this->getAccountBalance($acc->id, null, $asOf);
+        };
+
         $result = [];
         foreach (['asset', 'liability', 'equity'] as $type) {
-            $accounts = Account::where('account_type', $type)->where('is_active', true)->get();
             $rows = [];
             $total = 0;
-            foreach ($accounts as $acc) {
-                $bal = $this->getAccountBalance($acc->id, null, $asOf);
+            foreach ($balanceSheetAccounts->where('account_type', $type) as $acc) {
+                $bal = $balanceFor($acc);
                 $balance = ($type === 'asset') ? $bal['debit'] - $bal['credit'] : $bal['credit'] - $bal['debit'];
                 if ($balance == 0) continue;
                 $rows[] = ['account' => $acc, 'balance' => $balance];
@@ -435,15 +457,26 @@ class AccountingService
         $revenues = Account::where('account_type', 'revenue')->where('is_active', true)->get();
         $expenses = Account::where('account_type', 'expense')->where('is_active', true)->get();
 
+        $incomeExpenseSums = $segmentId
+            ? $this->getSegmentAccountSums($revenues->pluck('id')->merge($expenses->pluck('id')), null, $asOf, $segmentId)
+            : null;
+
+        $ieBalanceFor = function (Account $acc) use ($incomeExpenseSums, $asOf) {
+            if ($incomeExpenseSums !== null) {
+                return $incomeExpenseSums[$acc->id] ?? ['debit' => 0, 'credit' => 0];
+            }
+            return $this->getAccountBalance($acc->id, null, $asOf);
+        };
+
         $totalRevenue = 0;
         foreach ($revenues as $acc) {
-            $bal = $this->getAccountBalance($acc->id, null, $asOf);
+            $bal = $ieBalanceFor($acc);
             $totalRevenue += $bal['credit'] - $bal['debit'];
         }
 
         $totalExpense = 0;
         foreach ($expenses as $acc) {
-            $bal = $this->getAccountBalance($acc->id, null, $asOf);
+            $bal = $ieBalanceFor($acc);
             $totalExpense += $bal['debit'] - $bal['credit'];
         }
 
