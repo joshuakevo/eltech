@@ -97,9 +97,10 @@
     </div>
     <div class="row g-2 mb-2">
         <div class="col-sm-4">
-            <label class="form-label mb-1">Interest Rate (%)</label>
+            <label class="form-label mb-1">Interest Rate (% <strong>per annum</strong>)</label>
             <input type="number" name="interest_rate" id="interestRate" class="form-control form-control-sm"
                    step="0.01" min="0" value="{{ old('interest_rate') }}" placeholder="From product">
+            <div id="rateHint" class="form-text small"></div>
         </div>
         <div class="col-sm-4">
             <label class="form-label mb-1">Interest Method</label>
@@ -207,6 +208,26 @@ function loanValidateStep(step) {
     if (!valid) pane.querySelector('.is-invalid')?.focus();
     return valid;
 }
+
+// ── Annual/monthly rate cross-check ──────────────────────────────────
+// This field stores an ANNUAL rate (matches loan product defaults and every
+// interest calculation in the system). Staff naturally quote rates monthly
+// ("3% a month"), which is exactly how a batch of loans ended up with rates
+// 12x too low in the past. Show the monthly equivalent live so a mistaken
+// entry is obvious before submit, rather than silently wrong in the schedule.
+document.getElementById('interestRate').addEventListener('input', function () {
+    const hint = document.getElementById('rateHint');
+    const val = parseFloat(this.value);
+    if (!val || val <= 0) { hint.textContent = ''; hint.className = 'form-text small'; return; }
+    const monthly = (val / 12).toFixed(2);
+    if (val < 10) {
+        hint.textContent = `≈ ${monthly}% per month — that's a low annual rate; if you meant ${val}% per month, enter ${(val * 12).toFixed(1)} here instead.`;
+        hint.className = 'form-text small text-danger';
+    } else {
+        hint.textContent = `≈ ${monthly}% per month`;
+        hint.className = 'form-text small text-muted';
+    }
+});
 
 // ── Product select fills step-2 defaults ─────────────────────────────
 document.getElementById('productSelect').addEventListener('change', function () {

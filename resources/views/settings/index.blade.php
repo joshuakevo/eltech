@@ -269,6 +269,48 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- August 2026: every loan's interest rate was entered monthly, not annual, and the July
+     migration's schedule dates clustered at month-end instead of the real disbursement day --}}
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-triangle me-2"></i>Loan Interest Rate &amp; Reschedule Fix
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Every loan's interest rate was entered as a <strong>monthly</strong> percentage (e.g. "2.8"
+            meaning 2.8%/month), but the system treats this field as <strong>annual</strong> everywhere it
+            calculates interest -- understating interest by 12x. This multiplies every affected loan's rate
+            by 12. A loan is left alone if its rate already matches its product's own rate (already annual)
+            or if it's already 0%.
+        </p>
+        <p class="mb-2 small">
+            It also fixes installment due dates: loans reconciled by the 31/07/2026 migration get their
+            dates moved to fall on the real disbursement day-of-month instead of month-end -- principal and
+            interest amounts on those loans are <strong>not</strong> touched, only the calendar. Any other
+            active loan gets its whole schedule rebuilt with the corrected rate (safe only if it has no
+            repayment recorded against it yet -- those are skipped and flagged).
+        </p>
+        <p class="mb-2 small text-muted">
+            Always run <strong>Preview</strong> first and check the report before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-loan-interest-fix') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.fix-loan-interest-rates') }}"
+                  onsubmit="return confirm('This will annualise loan interest rates and rewrite installment schedules. Have you reviewed the Preview output? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">

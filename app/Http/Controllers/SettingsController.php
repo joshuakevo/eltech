@@ -260,6 +260,37 @@ class SettingsController extends Controller
     }
 
     /**
+     * Dry-run preview for the interest-rate/rescheduling fix below -- shows exactly
+     * what would change (old vs new rate, which loans get a full schedule rebuild
+     * vs a date-only re-anchor) without writing anything. Always run this first.
+     */
+    public function previewLoanInterestFix()
+    {
+        Artisan::call('eltech:fix-loan-interest-rates');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Every loan's interest rate was entered as a MONTHLY percentage, but the
+     * system treats interest_rate as annual everywhere -- understating interest
+     * by 12x. This annualises every loan's rate (x12) and rebuilds/re-anchors
+     * schedules so installments fall on each loan's real disbursement
+     * day-of-month instead of the month-end dates the 31/07/2026 migration left
+     * behind. Loans already reconciled against the old system's real balances
+     * keep their principal/interest amounts untouched -- only their due dates
+     * move. Preview above first.
+     */
+    public function fixLoanInterestRates()
+    {
+        Artisan::call('eltech:fix-loan-interest-rates', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Loan interest rate fix applied.\n\n{$output}");
+    }
+
+    /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client
      * export (database/data/2026-08-client-segments-rm-import.csv). Creates

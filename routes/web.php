@@ -418,6 +418,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/import-july-locked-up-loans', [SettingsController::class, 'importJulyLockedUpLoans'])->name('settings.import-july-locked-up-loans');
         Route::post('settings/true-up-july-balance-sheet', [SettingsController::class, 'trueUpJulyBalanceSheet'])->name('settings.true-up-july-balance-sheet');
         Route::post('settings/import-july-pl-detail', [SettingsController::class, 'importJulyPLDetail'])->name('settings.import-july-pl-detail');
+        Route::post('settings/preview-loan-interest-fix', [SettingsController::class, 'previewLoanInterestFix'])->name('settings.preview-loan-interest-fix');
+        Route::post('settings/fix-loan-interest-rates', [SettingsController::class, 'fixLoanInterestRates'])->name('settings.fix-loan-interest-rates');
         Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');
