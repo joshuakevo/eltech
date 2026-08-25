@@ -408,7 +408,7 @@
         </a>
         @endcan
 
-        @canany(['manage branches', 'manage client segments', 'close accounts', 'manage users', 'manage settings', 'manage backup'])
+        @canany(['manage branches', 'manage client segments', 'close accounts', 'edit clients', 'manage users', 'manage settings', 'manage backup'])
         <div class="sidebar-section">Administration</div>
         @can('manage branches')
         <a href="{{ route('branches.index') }}" class="nav-link-item {{ request()->routeIs('branches.*') ? 'active' : '' }}">
@@ -423,6 +423,11 @@
         @can('close accounts')
         <a href="{{ route('close-accounts.index') }}" class="nav-link-item {{ request()->routeIs('close-accounts.*') ? 'active' : '' }}">
             <i class="bi bi-x-circle-fill"></i> Close Accounts
+        </a>
+        @endcan
+        @can('edit clients')
+        <a href="{{ route('client-closure.index') }}" class="nav-link-item {{ request()->routeIs('client-closure.*') ? 'active' : '' }}">
+            <i class="bi bi-person-dash-fill"></i> Clients Eligible for Closing
         </a>
         @endcan
         @can('manage users')

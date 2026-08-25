@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\ClientClosureController;
 use App\Http\Controllers\ClientSegmentController;
 use App\Http\Controllers\CloseAccountsController;
 use App\Http\Controllers\LoanPenaltyTierController;
@@ -373,6 +374,12 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:close accounts')->group(function () {
         Route::get('close-accounts', [CloseAccountsController::class, 'index'])->name('close-accounts.index');
         Route::post('close-accounts', [CloseAccountsController::class, 'close'])->name('close-accounts.close');
+    });
+
+    // ── Clients Eligible for Closing (zero product/transaction footprint) ──
+    Route::middleware('permission:edit clients')->group(function () {
+        Route::get('clients-eligible-for-closing', [ClientClosureController::class, 'index'])->name('client-closure.index');
+        Route::post('clients-eligible-for-closing/mark-inactive', [ClientClosureController::class, 'markInactive'])->name('client-closure.mark-inactive');
     });
 
     // ── User Management ───────────────────────────────────────────────
