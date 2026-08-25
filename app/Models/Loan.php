@@ -63,6 +63,11 @@ class Loan extends Model
         return $this->hasMany(LoanGuarantor::class);
     }
 
+    public function comments()
+    {
+        return $this->hasMany(LoanComment::class)->latest();
+    }
+
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');

@@ -17,6 +17,7 @@ use App\Http\Controllers\FixedDepositController;
 use App\Http\Controllers\FixedDepositProductController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanProductController;
+use App\Http\Controllers\LoanReportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavingsAccountController;
 use App\Http\Controllers\SavingsProductController;
@@ -318,6 +319,13 @@ Route::middleware('auth')->group(function () {
         Route::get('savings-balances', [ReportController::class, 'savingsBalances'])->name('savings-balances');
         Route::get('fd-maturity', [ReportController::class, 'fixedDepositMaturity'])->name('fd-maturity');
         Route::get('member-summary', [ReportController::class, 'memberSummary'])->name('member-summary');
+    });
+
+    // ── Loan Report ──────────────────────────────────────────────────
+    Route::prefix('loan-reports')->name('loan-reports.')->middleware('permission:view reports')->group(function () {
+        Route::get('disbursements', [LoanReportController::class, 'disbursements'])->name('disbursements');
+        Route::get('recoveries', [LoanReportController::class, 'recoveries'])->name('recoveries');
+        Route::post('recoveries/{loan}/comment', [LoanReportController::class, 'addComment'])->name('add-comment');
     });
 
     // ── Send Statements ───────────────────────────────────────────────

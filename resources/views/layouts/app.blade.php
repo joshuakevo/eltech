@@ -360,6 +360,19 @@
         </div>
         @endcan
 
+        @can('view reports')
+        <div class="sidebar-section">Loan Report</div>
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#loanReportMenu"
+            aria-expanded="{{ request()->routeIs('loan-reports.*') ? 'true' : 'false' }}">
+            <i class="bi bi-cash-coin"></i> Loan Report
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ request()->routeIs('loan-reports.*') ? 'show' : '' }}" id="loanReportMenu">
+            <a href="{{ route('loan-reports.disbursements') }}" class="nav-link-item {{ request()->routeIs('loan-reports.disbursements') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Loan Disbursements</a>
+            <a href="{{ route('loan-reports.recoveries') }}"    class="nav-link-item {{ request()->routeIs('loan-reports.recoveries') ? 'active' : '' }}"><i class="bi bi-chat-square-text"></i> Loan Recoveries</a>
+        </div>
+        @endcan
+
         @can('send statements')
         <a href="{{ route('send-statements.index') }}" class="nav-link-item {{ request()->routeIs('send-statements.*') ? 'active' : '' }}">
             <i class="bi bi-envelope-fill"></i> Send Statements
