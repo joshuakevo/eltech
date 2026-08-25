@@ -554,8 +554,16 @@ class ReportController extends Controller
             ->select('g.client_id', \DB::raw('SUM(gm.balance) as balance'))
             ->pluck('balance', 'client_id');
 
-        // Fetch clients registered on or before $asOf
-        $members = Client::whereDate('created_at', '<=', $asOf)
+        // Fetch clients registered on or before $asOf. Uses joining_date (the member's
+        // real historical join date) rather than created_at, which reflects when the row
+        // was inserted into this system -- e.g. every client bulk-imported on 2026-08-18
+        // shares that same created_at regardless of when they actually joined, which made
+        // any as_of date before the import wrongly return zero members. Falls back to
+        // created_at only for the rare client with no joining_date on file.
+        $members = Client::where(fn($q) => $q
+                ->whereDate('joining_date', '<=', $asOf)
+                ->orWhere(fn($q2) => $q2->whereNull('joining_date')->whereDate('created_at', '<=', $asOf))
+            )
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderBy('name')
             ->get()
