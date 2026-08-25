@@ -60,6 +60,11 @@ class ClientClosureController extends Controller
                 $sub->select(DB::raw(1))
                     ->from('transaction_lines')
                     ->whereColumn('transaction_lines.client_id', 'clients.id');
-            });
+            })
+            // A group-type client can have zero products/transactions of its own while
+            // its real activity lives on the linked Group's members/transactions instead
+            // -- same check ClientController::destroy() uses to block deletion.
+            ->whereDoesntHave('group.activeMembers')
+            ->whereDoesntHave('group.transactions');
     }
 }

@@ -10,8 +10,9 @@
 
 <div class="alert alert-info small">
     <i class="bi bi-info-circle me-1"></i>
-    These clients have <strong>no savings account, loan, fixed deposit, share, or transaction attached</strong>
-    anywhere in the system — never used since registration. Review and mark them inactive if they should be
+    These clients have <strong>no savings account, loan (including Locked-Up Loans), fixed deposit, share, or
+    transaction attached</strong> anywhere in the system — and for group clients, no active group members or
+    group transactions either — never used since registration. Review and mark them inactive if they should be
     closed. Marking inactive is reversible; it does not delete the client record.
 </div>
 
