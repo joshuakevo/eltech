@@ -40,6 +40,14 @@
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">
             <div class="col-md-4"><input type="text" name="search" class="form-control" placeholder="Loan # or client name..." value="{{ request('search') }}"></div>
+            <div class="col-md-3">
+                <select name="rm_id" class="form-select">
+                    <option value="">All Relationship Managers</option>
+                    @foreach($relationshipManagers as $rm)
+                        <option value="{{ $rm->id }}" @selected(request('rm_id') == $rm->id)>{{ $rm->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="col-auto"><button class="btn btn-outline-primary">Filter</button></div>
             <div class="col-auto"><a href="{{ route('loan-reports.recoveries') }}" class="btn btn-outline-secondary">Clear</a></div>
         </form>

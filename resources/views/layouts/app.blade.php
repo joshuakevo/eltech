@@ -347,7 +347,7 @@
         @endphp
 
         @can('view reports')
-        <div class="sidebar-section">Reports</div>
+        <div class="sidebar-section">Financial Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#reportsMenu"
             aria-expanded="{{ (request()->routeIs('reports.*') && !request()->routeIs($movedReportRoutes)) ? 'true' : 'false' }}">
             <i class="bi bi-bar-chart-line-fill"></i> Reports

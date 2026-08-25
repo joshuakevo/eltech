@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Loan;
 use App\Models\LoanComment;
 use App\Models\LoanProduct;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -66,7 +67,8 @@ class LoanReportController extends Controller
         $filtered = Loan::with('client.relationshipManager', 'comments')
             ->where('status', 'active')
             ->when($request->search, fn($q) => $q->where('loan_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
+                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")))
+            ->when($request->rm_id, fn($q) => $q->whereHas('client', fn($q2) => $q2->where('relationship_manager_id', $request->rm_id)));
 
         $totalPrincipalBalance = (clone $filtered)->sum('outstanding_principal');
         $totalInterestBalance  = (clone $filtered)->sum('outstanding_interest');
@@ -101,7 +103,9 @@ class LoanReportController extends Controller
 
         $loans = $filtered->paginate(30)->withQueryString();
 
-        return view('loan-reports.recoveries', compact('loans', 'totalPrincipalBalance', 'totalInterestBalance', 'totalCount'));
+        $relationshipManagers = User::where('is_relationship_manager', true)->orderBy('name')->get();
+
+        return view('loan-reports.recoveries', compact('loans', 'totalPrincipalBalance', 'totalInterestBalance', 'totalCount', 'relationshipManagers'));
     }
 
     public function addComment(Request $request, Loan $loan)
