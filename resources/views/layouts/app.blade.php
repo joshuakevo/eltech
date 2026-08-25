@@ -340,20 +340,22 @@
         @endcan
         @endcanany
 
+        @php
+            $loanReportRoutes = ['loan-reports.*', 'reports.loan-portfolio', 'reports.loan-aging'];
+        @endphp
+
         @can('view reports')
         <div class="sidebar-section">Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#reportsMenu"
-            aria-expanded="{{ request()->routeIs('reports.*') ? 'true' : 'false' }}">
+            aria-expanded="{{ (request()->routeIs('reports.*') && !request()->routeIs($loanReportRoutes)) ? 'true' : 'false' }}">
             <i class="bi bi-bar-chart-line-fill"></i> Reports
             <i class="bi bi-chevron-right chevron"></i>
         </button>
-        <div class="collapse nav-sub {{ request()->routeIs('reports.*') ? 'show' : '' }}" id="reportsMenu">
+        <div class="collapse nav-sub {{ (request()->routeIs('reports.*') && !request()->routeIs($loanReportRoutes)) ? 'show' : '' }}" id="reportsMenu">
             <a href="{{ route('reports.trial-balance') }}"     class="nav-link-item {{ request()->routeIs('reports.trial-balance') ? 'active' : '' }}"><i class="bi bi-check2-square"></i> Trial Balance</a>
             <a href="{{ route('reports.income-statement') }}"  class="nav-link-item {{ request()->routeIs('reports.income-statement') ? 'active' : '' }}"><i class="bi bi-graph-up"></i> Income Statement</a>
             <a href="{{ route('reports.balance-sheet') }}"     class="nav-link-item {{ request()->routeIs('reports.balance-sheet') ? 'active' : '' }}"><i class="bi bi-building"></i> Balance Sheet</a>
             <a href="{{ route('reports.general-ledger') }}"    class="nav-link-item {{ request()->routeIs('reports.general-ledger') ? 'active' : '' }}"><i class="bi bi-journal-text"></i> General Ledger</a>
-            <a href="{{ route('reports.loan-portfolio') }}"    class="nav-link-item {{ request()->routeIs('reports.loan-portfolio') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Loan Portfolio</a>
-            <a href="{{ route('reports.loan-aging') }}"        class="nav-link-item {{ request()->routeIs('reports.loan-aging') ? 'active' : '' }}"><i class="bi bi-clock-history"></i> Loan Aging</a>
             <a href="{{ route('reports.savings-balances') }}"  class="nav-link-item {{ request()->routeIs('reports.savings-balances') ? 'active' : '' }}"><i class="bi bi-piggy-bank"></i> Savings Balances</a>
             <a href="{{ route('reports.fd-maturity') }}"       class="nav-link-item {{ request()->routeIs('reports.fd-maturity') ? 'active' : '' }}"><i class="bi bi-safe"></i> FD Maturity</a>
             <a href="{{ route('reports.member-summary') }}"    class="nav-link-item {{ request()->routeIs('reports.member-summary') ? 'active' : '' }}"><i class="bi bi-people-fill"></i> Member Summary</a>
@@ -363,13 +365,15 @@
         @can('view reports')
         <div class="sidebar-section">Loan Report</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#loanReportMenu"
-            aria-expanded="{{ request()->routeIs('loan-reports.*') ? 'true' : 'false' }}">
+            aria-expanded="{{ request()->routeIs($loanReportRoutes) ? 'true' : 'false' }}">
             <i class="bi bi-cash-coin"></i> Loan Report
             <i class="bi bi-chevron-right chevron"></i>
         </button>
-        <div class="collapse nav-sub {{ request()->routeIs('loan-reports.*') ? 'show' : '' }}" id="loanReportMenu">
+        <div class="collapse nav-sub {{ request()->routeIs($loanReportRoutes) ? 'show' : '' }}" id="loanReportMenu">
             <a href="{{ route('loan-reports.disbursements') }}" class="nav-link-item {{ request()->routeIs('loan-reports.disbursements') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Loan Disbursements</a>
             <a href="{{ route('loan-reports.recoveries') }}"    class="nav-link-item {{ request()->routeIs('loan-reports.recoveries') ? 'active' : '' }}"><i class="bi bi-chat-square-text"></i> Loan Recoveries</a>
+            <a href="{{ route('reports.loan-portfolio') }}"     class="nav-link-item {{ request()->routeIs('reports.loan-portfolio') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Loan Portfolio</a>
+            <a href="{{ route('reports.loan-aging') }}"         class="nav-link-item {{ request()->routeIs('reports.loan-aging') ? 'active' : '' }}"><i class="bi bi-clock-history"></i> Loan Aging</a>
         </div>
         @endcan
 
