@@ -554,16 +554,49 @@ class ReportController extends Controller
             ->select('g.client_id', \DB::raw('SUM(gm.balance) as balance'))
             ->pluck('balance', 'client_id');
 
-        // Fetch clients registered on or before $asOf. Uses joining_date (the member's
-        // real historical join date) rather than created_at, which reflects when the row
-        // was inserted into this system -- e.g. every client bulk-imported on 2026-08-18
-        // shares that same created_at regardless of when they actually joined, which made
-        // any as_of date before the import wrongly return zero members. Falls back to
-        // created_at only for the rare client with no joining_date on file.
-        $members = Client::where(fn($q) => $q
-                ->whereDate('joining_date', '<=', $asOf)
-                ->orWhere(fn($q2) => $q2->whereNull('joining_date')->whereDate('created_at', '<=', $asOf))
-            )
+        // Which clients appear in the report as of $asOf: neither created_at (when the
+        // row was inserted into this system -- e.g. every client bulk-imported on the
+        // same day) nor joining_date (a client attribute, not a recorded transaction)
+        // reflect actual financial activity. Instead, a client is included if they have
+        // a real dated transaction on or before $asOf: a savings transaction, a loan
+        // disbursement, a fixed deposit opening, or a client-tagged GL posting (covers
+        // membership fees, manual entries, etc.). member_shares has no per-payment
+        // transaction_date on legacy rows (share_transactions is empty for the bulk
+        // import), so its own created_at -- the date the share was put on the books --
+        // is the closest thing to a transaction date available for it.
+        $savingsClientIds = \DB::table('savings_transactions')
+            ->join('savings_accounts', 'savings_accounts.id', '=', 'savings_transactions.savings_account_id')
+            ->where('savings_transactions.transaction_date', '<=', $asOf)
+            ->distinct()
+            ->pluck('savings_accounts.client_id');
+
+        $fdClientIds = \DB::table('fixed_deposits')
+            ->where('start_date', '<=', $asOf)
+            ->whereNull('deleted_at')
+            ->distinct()
+            ->pluck('client_id');
+
+        $glClientIds = \DB::table('transaction_lines')
+            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
+            ->whereNotNull('transaction_lines.client_id')
+            ->where('transactions.date', '<=', $asOf)
+            ->distinct()
+            ->pluck('transaction_lines.client_id');
+
+        $shareClientIds = \DB::table('member_shares')
+            ->whereDate('created_at', '<=', $asOf)
+            ->distinct()
+            ->pluck('client_id');
+
+        $activeClientIds = collect($loanPrincipals->keys())
+            ->merge($loanInterests->keys())
+            ->merge($savingsClientIds)
+            ->merge($fdClientIds)
+            ->merge($glClientIds)
+            ->merge($shareClientIds)
+            ->unique();
+
+        $members = Client::whereIn('id', $activeClientIds)
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderBy('name')
             ->get()
