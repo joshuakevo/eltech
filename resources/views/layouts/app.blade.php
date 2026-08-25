@@ -30,22 +30,22 @@
         .sidebar-brand .brand-icon{width:34px;height:34px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;flex-shrink:0}
         .sidebar-brand .brand-text{color:#fff;font-weight:700;font-size:.9rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sidebar-brand .brand-sub{color:rgba(255,255,255,.4);font-size:.67rem}
-        .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:.4rem 0 1rem}
+        .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:.25rem 0 .75rem}
         .sidebar-scroll::-webkit-scrollbar{width:3px}
         .sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-        .sidebar-section{font-size:.63rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28);padding:1rem 1.1rem .3rem}
-        .nav-link-item{display:flex;align-items:center;gap:.6rem;padding:.44rem 1.1rem;margin:.04rem .45rem;border-radius:6px;color:var(--sidebar-text);text-decoration:none;font-size:.81rem;transition:background .15s,color .15s;white-space:nowrap}
+        .sidebar-section{font-size:.63rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28);padding:.55rem 1.1rem .2rem}
+        .nav-link-item{display:flex;align-items:center;gap:.6rem;padding:.3rem 1.1rem;margin:.02rem .45rem;border-radius:6px;color:var(--sidebar-text);text-decoration:none;font-size:.81rem;transition:background .15s,color .15s;white-space:nowrap}
         .nav-link-item i{font-size:.92rem;opacity:.8;flex-shrink:0;width:16px;text-align:center}
         .nav-link-item:hover{background:rgba(255,255,255,.08);color:#fff}
         .nav-link-item.active{background:var(--accent);color:#fff}
         .nav-link-item.active i{opacity:1}
-        .nav-collapse-btn{display:flex;align-items:center;gap:.6rem;padding:.44rem 1.1rem;margin:.04rem .45rem;border-radius:6px;color:var(--sidebar-text);background:none;border:none;width:calc(100% - .9rem);cursor:pointer;font-size:.81rem;text-align:left;transition:background .15s,color .15s}
+        .nav-collapse-btn{display:flex;align-items:center;gap:.6rem;padding:.3rem 1.1rem;margin:.02rem .45rem;border-radius:6px;color:var(--sidebar-text);background:none;border:none;width:calc(100% - .9rem);cursor:pointer;font-size:.81rem;text-align:left;transition:background .15s,color .15s}
         .nav-collapse-btn:hover{background:rgba(255,255,255,.08);color:#fff}
         .nav-collapse-btn .chevron{margin-left:auto;font-size:.68rem;transition:transform .2s}
         .nav-collapse-btn[aria-expanded="true"] .chevron{transform:rotate(90deg)}
         .nav-collapse-btn i:first-child{font-size:.92rem;opacity:.8;flex-shrink:0;width:16px;text-align:center}
         .nav-sub{padding-left:1.4rem}
-        .nav-sub .nav-link-item{font-size:.78rem;padding:.35rem .9rem}
+        .nav-sub .nav-link-item{font-size:.78rem;padding:.22rem .9rem}
         .sidebar-footer{border-top:1px solid rgba(255,255,255,.07);padding:.7rem 1.1rem;flex-shrink:0}
 
         /* TOPBAR */
