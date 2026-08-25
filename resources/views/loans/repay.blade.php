@@ -20,11 +20,11 @@
                 <hr class="my-2">
                 <div class="d-flex justify-content-between mb-1"><span class="text-muted">Principal O/S</span><span class="fw-semibold text-warning">{{ number_format($loan->outstanding_principal, $dp) }}</span></div>
                 <div class="d-flex justify-content-between mb-1"><span class="text-muted">Interest O/S</span><span class="fw-semibold text-info">{{ number_format($loan->outstanding_interest, $dp) }}</span></div>
-                @if($penaltyDue > 0)
-                <div class="d-flex justify-content-between mb-1"><span class="text-muted">Penalty</span><span class="fw-semibold text-danger">{{ number_format($penaltyDue, $dp) }}</span></div>
-                @endif
+                <div class="d-flex justify-content-between mb-1" id="penaltyRow" style="{{ $penaltyDue > 0 ? '' : 'display:none' }}">
+                    <span class="text-muted">Penalty <small>(as of payment date)</small></span><span class="fw-semibold text-danger" id="penaltyValue">{{ number_format($penaltyDue, $dp) }}</span>
+                </div>
                 <hr class="my-2">
-                <div class="d-flex justify-content-between"><span class="fw-semibold">Total Outstanding</span><span class="fw-bold text-danger">{{ number_format($loan->total_outstanding + $penaltyDue, $dp) }}</span></div>
+                <div class="d-flex justify-content-between"><span class="fw-semibold">Total Outstanding</span><span class="fw-bold text-danger" id="totalOutstandingValue">{{ number_format($loan->total_outstanding + $penaltyDue, $dp) }}</span></div>
             </div>
         </div>
 
@@ -90,7 +90,8 @@
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Payment Date <span class="text-danger">*</span></label>
-                            <input type="date" name="payment_date" class="form-control" value="{{ old('payment_date', today()->toDateString()) }}" max="{{ today()->toDateString() }}" required>
+                            <input type="date" name="payment_date" id="paymentDate" class="form-control" value="{{ old('payment_date', today()->toDateString()) }}" max="{{ today()->toDateString() }}" required>
+                            <div class="form-text">Date the money was actually recovered — backdating to on/before an installment's due date won't incur a penalty for it.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Payment Source <span class="text-danger">*</span></label>
@@ -139,8 +140,8 @@
                             </button>
                             @endif
                             @php $totalOwed = round($loan->total_outstanding + $penaltyDue, 2); @endphp
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setAmount({{ $totalOwed }})">
-                                Full Outstanding — {{ number_format($totalOwed, $dp) }}
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="fullOutstandingBtn" onclick="setAmount(fullOutstanding())" data-base="{{ round($loan->total_outstanding, 2) }}">
+                                Full Outstanding — <span id="fullOutstandingLabel">{{ number_format($totalOwed, $dp) }}</span>
                             </button>
                             <button type="button" class="btn btn-outline-warning btn-sm" onclick="setAmount({{ $earlySettlement['total'] }})">
                                 <i class="bi bi-lightning-fill me-1"></i>Early Settlement — {{ number_format($earlySettlement['total'], $dp) }}
@@ -198,9 +199,47 @@
 var penaltyDue = {{ $penaltyDue }};
 var schedules  = @json($schedulesJson);
 var dp         = {{ $dp }};
+var penaltyPreviewUrl = '{{ route('loans.penalty-preview', $loan) }}';
 
 function fmt(val) {
     return parseFloat(val).toFixed(dp);
+}
+
+function fullOutstanding() {
+    var base = parseFloat(document.getElementById('fullOutstandingBtn').getAttribute('data-base')) || 0;
+    return base + penaltyDue;
+}
+
+function updatePenaltyDisplay() {
+    var row = document.getElementById('penaltyRow');
+    row.style.display = penaltyDue > 0 ? '' : 'none';
+    document.getElementById('penaltyValue').textContent = fmt(penaltyDue);
+    var base = parseFloat(document.getElementById('fullOutstandingBtn').getAttribute('data-base')) || 0;
+    document.getElementById('totalOutstandingValue').textContent = fmt(base + penaltyDue);
+    document.getElementById('fullOutstandingLabel').textContent = fmt(fullOutstanding());
+}
+
+// Re-fetch the penalty as-of the selected payment date — a repayment
+// backdated to on/before an installment's due date shouldn't show (or later
+// charge) a penalty for it just because today's date is later.
+var penaltyFetchController = null;
+function refreshPenaltyForDate() {
+    var date = document.getElementById('paymentDate').value;
+    if (!date) return;
+    if (penaltyFetchController) penaltyFetchController.abort();
+    penaltyFetchController = new AbortController();
+    fetch(penaltyPreviewUrl + '?payment_date=' + encodeURIComponent(date), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        signal: penaltyFetchController.signal,
+    })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+            if (!data) return;
+            penaltyDue = parseFloat(data.penalty) || 0;
+            updatePenaltyDisplay();
+            updateBreakdown();
+        })
+        .catch(function () { /* network hiccup: keep last known penalty */ });
 }
 
 function setAmount(val) {
@@ -258,6 +297,8 @@ document.getElementById('amountInput').addEventListener('input', function() {
     updateBreakdown();
     if (document.getElementById('paymentMethod').value === 'savings') onSavingsAccountChange();
 });
+
+document.getElementById('paymentDate').addEventListener('change', refreshPenaltyForDate);
 
 updateBreakdown();
 onMethodChange();

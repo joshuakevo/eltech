@@ -219,6 +219,8 @@ Route::middleware('auth')->group(function () {
         ->name('loans.repay-form')->middleware('permission:repay loans');
     Route::post('loans/{loan}/repay', [LoanController::class, 'repay'])
         ->name('loans.repay')->middleware('permission:repay loans');
+    Route::get('loans/{loan}/penalty-preview', [LoanController::class, 'penaltyPreview'])
+        ->name('loans.penalty-preview')->middleware('permission:repay loans');
     Route::post('loans/{loan}/guarantors', [LoanController::class, 'storeGuarantor'])
         ->name('loans.guarantors.store')->middleware('permission:create loans');
     Route::delete('loans/{loan}/guarantors/{guarantor}', [LoanController::class, 'destroyGuarantor'])

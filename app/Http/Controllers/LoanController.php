@@ -252,6 +252,21 @@ class LoanController extends Controller
         ));
     }
 
+    /**
+     * Live penalty preview for the repayment form: recomputes penalty as of
+     * whatever payment_date the cashier has selected (not today), so a
+     * backdated recovery date shows the same $0 (or reduced) penalty it will
+     * actually be charged on submit.
+     */
+    public function penaltyPreview(Request $request, Loan $loan)
+    {
+        $request->validate(['payment_date' => 'required|date']);
+
+        return response()->json([
+            'penalty' => $this->loanService->calculatePenaltyPublic($loan, $request->payment_date),
+        ]);
+    }
+
     public function repay(Request $request, Loan $loan)
     {
         $request->validate([

@@ -325,8 +325,11 @@ class LoanService
             $interestPaid  = 0;
             $principalPaid = 0;
 
-            // 1. Penalty first
-            $penaltyDue = $this->calculatePenalty($loan);
+            // 1. Penalty first — judged against the date the money was actually
+            // recovered, not today. A repayment backdated to on/before an
+            // installment's due date must not be penalized just because it's
+            // being entered into the system late.
+            $penaltyDue = $this->calculatePenalty($loan, $data['payment_date']);
             if ($remaining > 0 && $penaltyDue > 0) {
                 $penaltyPaid = min($remaining, $penaltyDue);
                 $remaining  -= $penaltyPaid;
@@ -418,7 +421,6 @@ class LoanService
     public function calculateEarlySettlement(Loan $loan, string $date): array
     {
         $principal = $loan->outstanding_principal;
-        $penalty   = $this->calculatePenalty($loan);
 
         $schedules = $loan->schedules()
             ->whereIn('status', ['pending', 'partial', 'overdue'])
@@ -440,6 +442,8 @@ class LoanService
             }
         }
 
+        $penalty = $this->calculatePenalty($loan, $date);
+
         return [
             'principal' => round($principal, 2),
             'interest'  => round($interestDue, 2),
@@ -448,16 +452,24 @@ class LoanService
         ];
     }
 
-    public function calculatePenaltyPublic(Loan $loan): float
+    /**
+     * @param string|null $asOfDate Date the money was actually recovered (e.g. a
+     * repayment's payment_date). Defaults to today for general "what does this
+     * loan currently owe" displays. An installment due on or after this date is
+     * not yet overdue, regardless of when the transaction is entered into the
+     * system — backdating a recovery to its true collection date must not
+     * manufacture a penalty that recovering it today wouldn't have incurred.
+     */
+    public function calculatePenaltyPublic(Loan $loan, ?string $asOfDate = null): float
     {
-        return $this->calculatePenalty($loan);
+        return $this->calculatePenalty($loan, $asOfDate);
     }
 
-    /** Returns per-installment penalty amounts keyed by schedule ID. */
-    public function penaltyBreakdown(Loan $loan): array
+    /** Returns per-installment penalty amounts keyed by schedule ID, as of a given date (default today). */
+    public function penaltyBreakdown(Loan $loan, ?string $asOfDate = null): array
     {
         $overdueSchedules = $loan->schedules()
-            ->where('due_date', '<', now()->toDateString())
+            ->where('due_date', '<', $asOfDate ?? now()->toDateString())
             ->where('status', '!=', 'paid')
             ->get();
         if ($overdueSchedules->isEmpty()) return [];
@@ -472,10 +484,10 @@ class LoanService
         return $breakdown;
     }
 
-    protected function calculatePenalty(Loan $loan): float
+    protected function calculatePenalty(Loan $loan, ?string $asOfDate = null): float
     {
         $overdueSchedules = $loan->schedules()
-            ->where('due_date', '<', now()->toDateString())
+            ->where('due_date', '<', $asOfDate ?? now()->toDateString())
             ->where('status', '!=', 'paid')
             ->get();
         if ($overdueSchedules->isEmpty()) return 0;
