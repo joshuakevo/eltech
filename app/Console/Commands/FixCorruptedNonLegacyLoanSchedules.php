@@ -25,9 +25,12 @@ use Illuminate\Support\Facades\DB;
  * saw them. Their interest_rate/principal/term_months fields are trusted
  * (already correct), only the previously-generated schedule rows are stale.
  *
- * Only touches loans with ZERO repayments recorded (regenerating a schedule
- * with real repayments allocated against it would orphan them -- out of
- * scope here, same as every other schedule-fix command in this series).
+ * Only ever WRITES to loans with ZERO repayments recorded (regenerating a
+ * schedule with real repayments allocated against it would orphan them --
+ * out of scope here, same as every other schedule-fix command in this
+ * series). A mismatched loan that DOES have repayments is still detected and
+ * printed, prefixed "NEEDS MANUAL REVIEW (has repayments)" -- never touched,
+ * on preview or --confirm, but surfaced so it isn't silently missed.
  *
  * Detection: rebuild what LoanService::buildScheduleRows() would produce
  * today from the loan's current disbursement_date/principal/rate/term/method
@@ -60,7 +63,7 @@ class FixCorruptedNonLegacyLoanSchedules extends Command
         }
 
         $fixed = 0;
-        $skippedRepay = 0;
+        $flaggedHasRepayments = 0;
         $skippedBadData = 0;
         $skippedOk = 0;
 
@@ -71,11 +74,6 @@ class FixCorruptedNonLegacyLoanSchedules extends Command
         DB::beginTransaction();
         try {
             foreach ($loans as $loan) {
-                if ($loan->repayments()->exists()) {
-                    $skippedRepay++;
-                    continue;
-                }
-
                 if (!$loan->disbursement_date || (float) $loan->principal <= 0 || (int) $loan->term_months <= 0 || (float) $loan->interest_rate <= 0 || !$loan->interest_method) {
                     $skippedBadData++;
                     continue;
@@ -96,8 +94,14 @@ class FixCorruptedNonLegacyLoanSchedules extends Command
                     continue;
                 }
 
+                // Mismatch found. If the loan already has real repayments, this is
+                // NEVER auto-fixed (regenerating would orphan the repayment
+                // allocation) -- just surfaced so it can be looked at by hand.
+                $hasRepayments = $loan->repayments()->exists();
+
                 $this->line(sprintf(
-                    '%s (id %d, %s%% %s, principal %s): schedule total interest %s -> %s',
+                    '%s%s (id %d, %s%% %s, principal %s): schedule total interest %s -> %s',
+                    $hasRepayments ? 'NEEDS MANUAL REVIEW (has repayments) ' : '',
                     $loan->loan_number,
                     $loan->id,
                     rtrim(rtrim(number_format($loan->interest_rate, 2), '0'), '.'),
@@ -106,6 +110,11 @@ class FixCorruptedNonLegacyLoanSchedules extends Command
                     number_format($currentInterest, 2),
                     number_format($freshInterest, 2)
                 ));
+
+                if ($hasRepayments) {
+                    $flaggedHasRepayments++;
+                    continue;
+                }
 
                 if ($confirm) {
                     $loanService->generateSchedule($loan);
@@ -126,8 +135,8 @@ class FixCorruptedNonLegacyLoanSchedules extends Command
 
         $this->line('');
         $this->info(sprintf(
-            'Done. Fixed: %d | Already correct: %d | Skipped (has repayments): %d | Skipped (bad/missing data): %d',
-            $fixed, $skippedOk, $skippedRepay, $skippedBadData
+            'Done. Fixed: %d | Already correct: %d | Flagged for manual review (mismatch + has repayments): %d | Skipped (bad/missing data): %d',
+            $fixed, $skippedOk, $flaggedHasRepayments, $skippedBadData
         ));
 
         if (!$confirm) {
