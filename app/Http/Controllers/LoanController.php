@@ -103,6 +103,7 @@ class LoanController extends Controller
 
         $loans = Loan::with([
                 'client.relationshipManager',
+                'client.activeSavingsAccounts',
                 'schedules' => fn ($q) => $q->where('status', '!=', 'paid')->orderBy('due_date'),
                 'repayments' => fn ($q) => $q->orderByDesc('payment_date'),
             ])
@@ -116,8 +117,9 @@ class LoanController extends Controller
                 ->orWhereHas('client', fn ($q2) => $q2->where('name', 'like', "%{$request->search}%")))
             ->get()
             ->map(function ($loan) {
-                $loan->next_schedule  = $loan->schedules->first();
-                $loan->last_recovered = optional($loan->repayments->first())->payment_date;
+                $loan->next_schedule    = $loan->schedules->first();
+                $loan->last_recovered   = optional($loan->repayments->first())->payment_date;
+                $loan->savings_balance  = $loan->client ? $loan->client->activeSavingsAccounts->sum('balance') : 0;
                 return $loan;
             })
             ->sortBy(fn ($loan) => $loan->client->name ?? '')

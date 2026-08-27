@@ -52,7 +52,8 @@
                 <th class="ps-3">Loan #</th><th>Client</th><th>RM</th>
                 <th class="text-end">Principal</th>
                 <th class="text-end">Outstanding Principal</th><th class="text-end">Outstanding Interest</th>
-                <th>Last Date Recovered</th><th>Next Due</th><th class="pe-3">Actions</th>
+                <th class="text-end">Installment</th><th class="text-end">Savings Balance</th>
+                <th>Last Date Recovered</th><th>Next Due Date</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>
             @forelse($loans as $loan)
@@ -69,6 +70,14 @@
                     <td class="text-end">{{ number_format($loan->principal, $dp) }}</td>
                     <td class="text-end fw-semibold">{{ number_format($loan->outstanding_principal, $dp) }}</td>
                     <td class="text-end fw-semibold">{{ number_format($loan->outstanding_interest, $dp) }}</td>
+                    <td class="text-end">
+                        @if($loan->next_schedule)
+                            {{ number_format($loan->next_schedule->total_due, $dp) }}
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
+                    <td class="text-end">{{ number_format($loan->savings_balance, $dp) }}</td>
                     <td class="small">
                         @if($loan->last_recovered)
                             {{ \Illuminate\Support\Carbon::parse($loan->last_recovered)->format('d M Y') }}
@@ -79,7 +88,6 @@
                     <td class="small">
                         @if($loan->next_schedule)
                             {{ \Illuminate\Support\Carbon::parse($loan->next_schedule->due_date)->format('d M Y') }}
-                            <div class="text-muted" style="font-size:.75rem">{{ number_format($loan->next_schedule->total_due, $dp) }}</div>
                         @else
                             <span class="text-muted fst-italic">Fully scheduled/paid</span>
                         @endif
@@ -94,7 +102,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="text-center text-muted py-4">No active loans due on the {{ $date->format('jS') }}.</td></tr>
+                <tr><td colspan="11" class="text-center text-muted py-4">No active loans due on the {{ $date->format('jS') }}.</td></tr>
             @endforelse
             </tbody>
         </table>
