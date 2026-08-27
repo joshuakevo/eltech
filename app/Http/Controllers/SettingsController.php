@@ -338,6 +338,33 @@ class SettingsController extends Controller
         return back()->with('success', "LN-NK00221 term fix applied.\n\n{$output}");
     }
 
+    public function previewLoanRatesBaselineRestore()
+    {
+        Artisan::call('eltech:restore-loan-rates-from-baseline');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * One-off repair: a second run of the loan interest rate fix on
+     * 2026-08-27 re-multiplied repayment-free loans' interest_rate by 12 and
+     * corrupted a few newer loans' outstanding_interest. Restores exact
+     * values from a database backup taken 2026-08-27 12:56, before that
+     * second run -- see RestoreLoanRatesFromBaseline for the full story.
+     */
+    public function restoreLoanRatesBaseline()
+    {
+        $exitCode = Artisan::call('eltech:restore-loan-rates-from-baseline', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        if ($exitCode !== 0) {
+            return back()->with('error', "Loan rates baseline restore was NOT applied.\n\n{$output}");
+        }
+
+        return back()->with('success', "Loan rates restored from baseline.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

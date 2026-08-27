@@ -402,6 +402,40 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Loan Interest Rate Damage Restore
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            The Loan Interest Rate fix was accidentally run a second time on 27 Aug, which re-multiplied
+            every repayment-free loan's interest rate by 12 and corrupted the outstanding balances of a
+            few newer loans. This restores <strong>interest_rate</strong> (and, only where the loan still has
+            zero repayments, <strong>outstanding principal/interest</strong>) from an exact database backup
+            taken 27 Aug 12:56, before that second run. LN-NK00221's schedule row is corrected to match.
+            Loans with repayments recorded since that backup are left untouched.
+        </p>
+        <p class="mb-2 small text-muted">
+            Always run <strong>Preview</strong> first and check the report before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-loan-rates-baseline-restore') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.restore-loan-rates-baseline') }}"
+                  onsubmit="return confirm('This will restore interest rates and, where safe, outstanding balances from the 27 Aug 12:56 backup. Have you reviewed the Preview output? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
