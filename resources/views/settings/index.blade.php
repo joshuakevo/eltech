@@ -549,6 +549,42 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Regenerate Legacy Pending Installments (Already Repaid Loans)
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Follow-up to "Regenerate Legacy Schedules From Current Balance" above, for legacy loans that
+            already have one or more repayments recorded (that action skips those entirely). Any
+            <strong>paid</strong> installment is left completely untouched. Any stray unpaid installment
+            dated before 01/08/2026 is removed. The remaining <strong>pending</strong> installments are
+            recomputed as a fresh amortization of the loan's current outstanding_principal (already net of
+            what's been paid), over exactly that many remaining periods.
+        </p>
+        <p class="mb-2 small text-muted">
+            A loan with a <strong>partially-paid</strong> installment is skipped and flagged for manual
+            review rather than guessed at. Always run <strong>Preview</strong> first and check every line
+            before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-regenerate-legacy-pending-installments') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.regenerate-legacy-pending-installments') }}"
+                  onsubmit="return confirm('This will recompute pending installments and raise outstanding_interest for legacy loans with existing repayments, based on their current balance. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">

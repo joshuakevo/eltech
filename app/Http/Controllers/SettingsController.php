@@ -444,6 +444,29 @@ class SettingsController extends Controller
         return back()->with('success', "Legacy loan schedules regenerated from current balance.\n\n{$output}");
     }
 
+    public function previewRegenerateLegacyPendingInstallments()
+    {
+        Artisan::call('eltech:regenerate-legacy-pending-installments');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Follow-up to regenerateLegacyLoanSchedulesFromBalance() for legacy loans
+     * that already have one or more repayments recorded: leaves any 'paid'
+     * installment untouched, skips loans with a 'partial' installment for
+     * manual review, and recomputes only the remaining 'pending'/'overdue'
+     * installments as a fresh amortization of the current outstanding_principal.
+     */
+    public function regenerateLegacyPendingInstallments()
+    {
+        Artisan::call('eltech:regenerate-legacy-pending-installments', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Legacy loan pending installments regenerated from current balance.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client
