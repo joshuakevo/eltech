@@ -273,7 +273,7 @@
         @endcan
         @endcanany
 
-        @canany(['view loan-products', 'view loans'])
+        @canany(['view loan-products', 'view loans', 'run loans'])
         <div class="sidebar-section">Loans</div>
         @can('view loan-products')
         <a href="{{ route('loan-products.index') }}" class="nav-link-item {{ request()->routeIs('loan-products.*') ? 'active' : '' }}">
@@ -288,6 +288,8 @@
                 <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $pendingLoans }}</span>
             @endif
         </a>
+        @endcan
+        @can('run loans')
         <a href="{{ route('loans.run') }}" class="nav-link-item {{ request()->routeIs('loans.run') ? 'active' : '' }}">
             <i class="bi bi-calendar2-check"></i> Run Loans
         </a>
@@ -365,7 +367,7 @@
         </div>
         @endcan
 
-        @can('view reports')
+        @can('view loan reports')
         <div class="sidebar-section">Loan Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#loanReportMenu"
             aria-expanded="{{ request()->routeIs($loanReportRoutes) ? 'true' : 'false' }}">
@@ -380,7 +382,7 @@
         </div>
         @endcan
 
-        @can('view reports')
+        @can('view savings reports')
         <div class="sidebar-section">Savings Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#savingsReportMenu"
             aria-expanded="{{ request()->routeIs($savingsReportRoutes) ? 'true' : 'false' }}">

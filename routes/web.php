@@ -210,7 +210,7 @@ Route::middleware('auth')->group(function () {
     Route::get('loans', [LoanController::class, 'index'])
         ->name('loans.index')->middleware('permission:view loans');
     Route::get('loans/run', [LoanController::class, 'run'])
-        ->name('loans.run')->middleware('permission:view loans');
+        ->name('loans.run')->middleware('permission:run loans');
     Route::get('loans/{loan}', [LoanController::class, 'show'])
         ->name('loans.show')->middleware('permission:view loans');
     Route::get('loans/{loan}/schedule', [LoanController::class, 'schedule'])
@@ -310,27 +310,33 @@ Route::middleware('auth')->group(function () {
     Route::get('fixed-deposits/{fixedDeposit}/certificate', [FixedDepositController::class, 'certificate'])
         ->name('fixed-deposits.certificate')->middleware('permission:view fixed-deposits');
 
-    // ── Reports ───────────────────────────────────────────────────────
+    // ── Reports (Financial Reports section) ────────────────────────────
     Route::prefix('reports')->name('reports.')->middleware('permission:view reports')->group(function () {
         Route::get('/', [ReportController::class, 'index'])->name('index');
         Route::get('trial-balance', [ReportController::class, 'trialBalance'])->name('trial-balance');
         Route::get('income-statement', [ReportController::class, 'incomeStatement'])->name('income-statement');
         Route::get('balance-sheet', [ReportController::class, 'balanceSheet'])->name('balance-sheet');
         Route::get('general-ledger', [ReportController::class, 'generalLedger'])->name('general-ledger');
-        Route::get('loan-portfolio', [ReportController::class, 'loanPortfolio'])->name('loan-portfolio');
-        Route::get('loan-aging', [ReportController::class, 'loanAging'])->name('loan-aging');
         Route::get('repayment-schedule', [ReportController::class, 'repaymentSchedule'])->name('repayment-schedule');
         Route::get('interest-income', [ReportController::class, 'interestIncome'])->name('interest-income');
-        Route::get('savings-balances', [ReportController::class, 'savingsBalances'])->name('savings-balances');
-        Route::get('fd-maturity', [ReportController::class, 'fixedDepositMaturity'])->name('fd-maturity');
         Route::get('member-summary', [ReportController::class, 'memberSummary'])->name('member-summary');
     });
 
-    // ── Loan Report ──────────────────────────────────────────────────
-    Route::prefix('loan-reports')->name('loan-reports.')->middleware('permission:view reports')->group(function () {
+    // ── Reports (Loan Reports section) ──────────────────────────────────
+    Route::prefix('reports')->name('reports.')->middleware('permission:view loan reports')->group(function () {
+        Route::get('loan-portfolio', [ReportController::class, 'loanPortfolio'])->name('loan-portfolio');
+        Route::get('loan-aging', [ReportController::class, 'loanAging'])->name('loan-aging');
+    });
+    Route::prefix('loan-reports')->name('loan-reports.')->middleware('permission:view loan reports')->group(function () {
         Route::get('disbursements', [LoanReportController::class, 'disbursements'])->name('disbursements');
         Route::get('recoveries', [LoanReportController::class, 'recoveries'])->name('recoveries');
         Route::post('recoveries/{loan}/comment', [LoanReportController::class, 'addComment'])->name('add-comment');
+    });
+
+    // ── Reports (Savings Reports section) ───────────────────────────────
+    Route::prefix('reports')->name('reports.')->middleware('permission:view savings reports')->group(function () {
+        Route::get('savings-balances', [ReportController::class, 'savingsBalances'])->name('savings-balances');
+        Route::get('fd-maturity', [ReportController::class, 'fixedDepositMaturity'])->name('fd-maturity');
     });
 
     // ── Send Statements ───────────────────────────────────────────────
@@ -450,6 +456,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');
         Route::post('settings/flag-existing-rms', [SettingsController::class, 'flagExistingRms'])->name('settings.flag-existing-rms');
+        Route::post('settings/preview-add-granular-permissions', [SettingsController::class, 'previewAddGranularPermissions'])->name('settings.preview-add-granular-permissions');
+        Route::post('settings/add-granular-permissions', [SettingsController::class, 'addGranularPermissions'])->name('settings.add-granular-permissions');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');

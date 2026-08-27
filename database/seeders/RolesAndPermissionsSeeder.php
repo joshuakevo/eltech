@@ -31,7 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view loan-products', 'create loan-products', 'edit loan-products',
 
             // Loans
-            'view loans', 'create loans', 'disburse loans', 'repay loans',
+            'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans',
 
             // Savings Products
             'view savings-products', 'create savings-products', 'edit savings-products',
@@ -49,7 +49,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'use teller',
 
             // Reports
-            'view reports', 'send statements', 'send sms',
+            'view reports', 'view loan reports', 'view savings reports', 'send statements', 'send sms',
 
             // Mobile Money
             'approve mobile money',
@@ -92,11 +92,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'view dashboard',
             'view clients', 'create clients', 'edit clients', 'delete clients',
             'view accounts', 'view transactions', 'create transactions', 'reverse transactions',
-            'view loans', 'create loans', 'disburse loans', 'repay loans',
+            'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans',
             'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings',
             'view fixed-deposits', 'create fixed-deposits', 'mature fixed-deposits',
             'use teller',
-            'view reports', 'send statements', 'send sms',
+            'view reports', 'view loan reports', 'view savings reports', 'send statements', 'send sms',
             'approve mobile money',
             'view groups', 'manage groups',
             'manage shares',
@@ -110,12 +110,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'view clients',
             'view accounts',
             'view loan-products',
-            'view loans',
+            'view loans', 'run loans',
             'view savings-products',
             'view savings',
             'view fd-products',
             'view fixed-deposits',
-            'view reports',
+            'view reports', 'view loan reports', 'view savings reports',
             'view groups',
             'view employees',
         ]);

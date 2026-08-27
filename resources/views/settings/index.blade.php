@@ -697,6 +697,44 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-success">
+    <div class="card-header bg-success bg-opacity-10 text-success-emphasis fw-bold">
+        <i class="bi bi-shield-plus me-2"></i>Add Granular Loan/Report Permissions
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Splits three previously-bundled permissions into their own dedicated ones, so each can be
+            granted to a specific user independently via the <strong>Direct Permissions</strong> section on
+            Edit User (Users &rarr; edit a user):
+        </p>
+        <ul class="small mb-2">
+            <li><strong>run loans</strong> -- was bundled into "view loans" (the Run Loans batch screen)</li>
+            <li><strong>view loan reports</strong> -- was bundled into "view reports" (Loan Disbursements, Loan Recoveries, Loan Portfolio, Loan Aging)</li>
+            <li><strong>view savings reports</strong> -- was bundled into "view reports" (Savings Balances, FD Maturity)</li>
+        </ul>
+        <p class="mb-2 small text-muted">
+            Purely additive -- for every role or user that currently has the old bundled permission, the new
+            one is granted alongside it. Nothing is ever removed, so nobody loses access they have today;
+            this only makes the three actions independently assignable/revokable going forward. Safe to run
+            more than once.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-add-granular-permissions') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.add-granular-permissions') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="bi bi-shield-plus me-2"></i>Apply
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">

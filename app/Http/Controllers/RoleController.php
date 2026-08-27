@@ -77,7 +77,7 @@ class RoleController extends Controller
             'Loans' => [
                 'icon'  => 'bi-cash-coin',
                 'perms' => ['view loan-products', 'create loan-products', 'edit loan-products',
-                            'view loans', 'create loans', 'disburse loans', 'repay loans'],
+                            'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans'],
             ],
             'Savings' => [
                 'icon'  => 'bi-piggy-bank-fill',
@@ -115,7 +115,7 @@ class RoleController extends Controller
             ],
             'Reports' => [
                 'icon'  => 'bi-bar-chart-fill',
-                'perms' => ['view reports'],
+                'perms' => ['view reports', 'view loan reports', 'view savings reports'],
             ],
             'Administration' => [
                 'icon'  => 'bi-gear-fill',

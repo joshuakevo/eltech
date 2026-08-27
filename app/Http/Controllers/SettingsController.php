@@ -557,6 +557,29 @@ class SettingsController extends Controller
         return back()->with('success', "August 2026 legacy repayments removed and schedules rebuilt.\n\n{$output}");
     }
 
+    public function previewAddGranularPermissions()
+    {
+        Artisan::call('eltech:add-granular-loan-report-permissions');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Splits 'run loans', 'view loan reports', 'view savings reports' out of
+     * the broader 'view loans' / 'view reports' permissions so they can be
+     * granted to a specific user independently via the per-user Direct
+     * Permissions section on Edit User. Purely additive -- never removes a
+     * permission from any role or user, so current access is preserved.
+     */
+    public function addGranularPermissions()
+    {
+        Artisan::call('eltech:add-granular-loan-report-permissions', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Granular loan/report permissions added.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client
