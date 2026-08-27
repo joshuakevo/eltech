@@ -510,36 +510,73 @@ $groupIcons = [
     </div>
 </div>
 
-<div class="card mt-4 border-danger">
-    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
-        <i class="bi bi-exclamation-octagon me-2"></i>Regenerate Legacy Schedules From Current Balance
+<div class="card mt-4 border-secondary opacity-75">
+    <div class="card-header bg-secondary bg-opacity-10 text-secondary-emphasis fw-bold">
+        <i class="bi bi-slash-circle me-2"></i>SUPERSEDED — Regenerate Legacy Schedules From Current Balance
     </div>
     <div class="card-body">
         <p class="mb-2 small">
-            Confirmed policy for legacy (31/07/2026 migration) loans: the reconciled
-            <strong>outstanding_principal</strong> is trusted as-is. This rebuilds each loan's
-            August-onward schedule as a <strong>fresh amortization</strong> of that current balance -- as
-            if the loan were re-disbursed today for that principal, at the loan's real
-            interest_rate/interest_method, over the periods remaining to its original maturity date. Due
-            dates are taken from the loan's original disbursement-anchored grid (same cadence the client
-            has always seen); only the amounts are recalculated.
-        </p>
-        <p class="mb-2 small text-muted">
-            This deliberately <strong>replaces outstanding_interest</strong> with the freshly computed
-            total, which is often well above the previously reconciled figure -- that's expected, not a
-            bug. Supersedes the "Rebuild Legacy Schedules From Disbursement" and "Generate Loan Schedules"
-            actions above for these loans. Always run <strong>Preview</strong> first and check every line
-            before <strong>Apply Fix</strong>.
+            <strong>Do not use.</strong> This recalculated interest fresh from the reconciled 31/07 balance.
+            Final decision: legacy loans must instead match the OLD system's original installment amounts
+            exactly, for client comparability -- see "Rebuild Legacy Schedules From Original Table" below,
+            which replaces this action. Buttons disabled to prevent accidental use.
         </p>
         <div class="d-flex gap-2">
-            <form method="POST" action="{{ route('settings.preview-regenerate-legacy-schedules-balance') }}">
+            <button type="button" class="btn btn-outline-info" disabled>
+                <i class="bi bi-eye me-2"></i>Preview (no changes)
+            </button>
+            <button type="button" class="btn btn-outline-danger" disabled>
+                <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4 border-secondary opacity-75">
+    <div class="card-header bg-secondary bg-opacity-10 text-secondary-emphasis fw-bold">
+        <i class="bi bi-slash-circle me-2"></i>SUPERSEDED — Regenerate Legacy Pending Installments (Already Repaid Loans)
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            <strong>Do not use.</strong> Same reason as above -- see "Rebuild Legacy Pending Installments
+            From Original Table" below, which replaces this action. Buttons disabled to prevent accidental
+            use.
+        </p>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-info" disabled>
+                <i class="bi bi-eye me-2"></i>Preview (no changes)
+            </button>
+            <button type="button" class="btn btn-outline-danger" disabled>
+                <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Rebuild Legacy Schedules From Original Table (No Repayments)
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            <strong>Final policy</strong> for legacy (31/07/2026 migration) loans with zero repayments: the
+            client compares the new system against the OLD system, so installment amounts must match the
+            OLD system's original disbursement-anchored amortization table (same principal/rate/term/method
+            as when the loan was actually disbursed), truncated to drop any month before 01/08/2026. This
+            deliberately <strong>ignores the reconciled 31/07 balance</strong> -- outstanding_principal and
+            outstanding_interest are overwritten to match the original table's kept installments, even where
+            that's a large change from the current figures. Always run <strong>Preview</strong> and read
+            every line -- some loans move by tens of millions.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-rebuild-legacy-schedules-original-table') }}">
                 @csrf
                 <button type="submit" class="btn btn-outline-info">
                     <i class="bi bi-eye me-2"></i>Preview (no changes)
                 </button>
             </form>
-            <form method="POST" action="{{ route('settings.regenerate-legacy-schedules-balance') }}"
-                  onsubmit="return confirm('This will regenerate schedules and raise outstanding_interest for legacy loans based on their current balance. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
+            <form method="POST" action="{{ route('settings.rebuild-legacy-schedules-original-table') }}"
+                  onsubmit="return confirm('This will overwrite legacy loan schedules and outstanding balances to match the ORIGINAL disbursement table, ignoring the reconciled 31/07 balance. Some loans will move by very large amounts. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
                 @csrf
                 <button type="submit" class="btn btn-outline-danger">
                     <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
@@ -551,31 +588,32 @@ $groupIcons = [
 
 <div class="card mt-4 border-danger">
     <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
-        <i class="bi bi-exclamation-octagon me-2"></i>Regenerate Legacy Pending Installments (Already Repaid Loans)
+        <i class="bi bi-exclamation-octagon me-2"></i>Rebuild Legacy Pending Installments From Original Table (Already Repaid Loans)
     </div>
     <div class="card-body">
         <p class="mb-2 small">
-            Follow-up to "Regenerate Legacy Schedules From Current Balance" above, for legacy loans that
-            already have one or more repayments recorded (that action skips those entirely). Any
-            <strong>paid</strong> installment is left completely untouched. Any stray unpaid installment
-            dated before 01/08/2026 is removed. The remaining <strong>pending</strong> installments are
-            recomputed as a fresh amortization of the loan's current outstanding_principal (already net of
-            what's been paid), over exactly that many remaining periods.
+            Companion to "Rebuild Legacy Schedules From Original Table" above, for legacy loans that already
+            have one or more repayments recorded. Any <strong>paid</strong> installment is left completely
+            untouched -- its historical split may not match the original table, and history isn't rewritten.
+            Any stray unpaid installment dated before 01/08/2026 is removed. The remaining
+            <strong>pending</strong> installments are matched by due date against the original disbursement
+            table and overwritten with its amounts.
         </p>
         <p class="mb-2 small text-muted">
-            A loan with a <strong>partially-paid</strong> installment is skipped and flagged for manual
-            review rather than guessed at. Always run <strong>Preview</strong> first and check every line
-            before <strong>Apply Fix</strong>.
+            A loan with a <strong>partially-paid</strong> installment, or a pending installment whose due
+            date has no match in the original table, is skipped and flagged for manual review rather than
+            guessed at. Always run <strong>Preview</strong> first and check every line before
+            <strong>Apply Fix</strong>.
         </p>
         <div class="d-flex gap-2">
-            <form method="POST" action="{{ route('settings.preview-regenerate-legacy-pending-installments') }}">
+            <form method="POST" action="{{ route('settings.preview-rebuild-legacy-pending-original-table') }}">
                 @csrf
                 <button type="submit" class="btn btn-outline-info">
                     <i class="bi bi-eye me-2"></i>Preview (no changes)
                 </button>
             </form>
-            <form method="POST" action="{{ route('settings.regenerate-legacy-pending-installments') }}"
-                  onsubmit="return confirm('This will recompute pending installments and raise outstanding_interest for legacy loans with existing repayments, based on their current balance. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
+            <form method="POST" action="{{ route('settings.rebuild-legacy-pending-original-table') }}"
+                  onsubmit="return confirm('This will overwrite pending installments and outstanding balances for legacy loans with existing repayments to match the ORIGINAL disbursement table. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
                 @csrf
                 <button type="submit" class="btn btn-outline-danger">
                     <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix

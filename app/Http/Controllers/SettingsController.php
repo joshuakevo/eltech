@@ -490,6 +490,49 @@ class SettingsController extends Controller
         return back()->with('success', "Corrupted non-legacy loan schedules regenerated.\n\n{$output}");
     }
 
+    public function previewRebuildLegacySchedulesOriginalTable()
+    {
+        Artisan::call('eltech:rebuild-legacy-schedules-original-table');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Final, confirmed policy: legacy loans (zero repayments) must match the
+     * OLD system's original disbursement-anchored installment amounts, not a
+     * recalculation off the reconciled 31/07 balance. Supersedes
+     * regenerateLegacyLoanSchedulesFromBalance() above.
+     */
+    public function rebuildLegacySchedulesOriginalTable()
+    {
+        Artisan::call('eltech:rebuild-legacy-schedules-original-table', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Legacy loan schedules rebuilt to match the original disbursement table.\n\n{$output}");
+    }
+
+    public function previewRebuildLegacyPendingOriginalTable()
+    {
+        Artisan::call('eltech:rebuild-legacy-pending-original-table');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Companion to rebuildLegacySchedulesOriginalTable() for legacy loans
+     * that already have a repayment recorded. Supersedes
+     * regenerateLegacyPendingInstallments() above.
+     */
+    public function rebuildLegacyPendingOriginalTable()
+    {
+        Artisan::call('eltech:rebuild-legacy-pending-original-table', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Legacy loan pending installments rebuilt to match the original disbursement table.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

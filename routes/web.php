@@ -440,6 +440,10 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/regenerate-legacy-pending-installments', [SettingsController::class, 'regenerateLegacyPendingInstallments'])->name('settings.regenerate-legacy-pending-installments');
         Route::post('settings/preview-fix-corrupted-non-legacy-schedules', [SettingsController::class, 'previewFixCorruptedNonLegacySchedules'])->name('settings.preview-fix-corrupted-non-legacy-schedules');
         Route::post('settings/fix-corrupted-non-legacy-schedules', [SettingsController::class, 'fixCorruptedNonLegacySchedules'])->name('settings.fix-corrupted-non-legacy-schedules');
+        Route::post('settings/preview-rebuild-legacy-schedules-original-table', [SettingsController::class, 'previewRebuildLegacySchedulesOriginalTable'])->name('settings.preview-rebuild-legacy-schedules-original-table');
+        Route::post('settings/rebuild-legacy-schedules-original-table', [SettingsController::class, 'rebuildLegacySchedulesOriginalTable'])->name('settings.rebuild-legacy-schedules-original-table');
+        Route::post('settings/preview-rebuild-legacy-pending-original-table', [SettingsController::class, 'previewRebuildLegacyPendingOriginalTable'])->name('settings.preview-rebuild-legacy-pending-original-table');
+        Route::post('settings/rebuild-legacy-pending-original-table', [SettingsController::class, 'rebuildLegacyPendingOriginalTable'])->name('settings.rebuild-legacy-pending-original-table');
         Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');
