@@ -467,6 +467,29 @@ class SettingsController extends Controller
         return back()->with('success', "Legacy loan pending installments regenerated from current balance.\n\n{$output}");
     }
 
+    public function previewFixCorruptedNonLegacySchedules()
+    {
+        Artisan::call('eltech:fix-corrupted-non-legacy-schedules');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * One-off correction for NORMAL (non-legacy) loans whose schedule was
+     * baked while the interest-rate corruption bug had temporarily
+     * multiplied their interest_rate by 12 (confirmed on LN-2026-00001) --
+     * interest_rate itself has since been corrected, but the schedule rows
+     * were never regenerated. Only touches loans with zero repayments.
+     */
+    public function fixCorruptedNonLegacySchedules()
+    {
+        Artisan::call('eltech:fix-corrupted-non-legacy-schedules', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Corrupted non-legacy loan schedules regenerated.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

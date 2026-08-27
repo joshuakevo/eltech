@@ -585,6 +585,43 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Fix Corrupted Non-Legacy Loan Schedules
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            For normal (non-legacy) loans whose schedule was baked while the interest-rate corruption bug
+            had temporarily multiplied <strong>interest_rate</strong> by 12 -- confirmed on LN-2026-00001
+            (displays 48% Reducing, but installment #1's interest was exactly principal &times; 0.48, the
+            annual rate applied as a per-month rate). <strong>interest_rate</strong> itself has since been
+            corrected, but the schedule rows were never regenerated to match. This finds every such loan by
+            comparing its stored schedule's total interest against a fresh calculation from its current
+            principal/rate/term, and regenerates the schedule (and outstanding_interest) where they don't
+            match.
+        </p>
+        <p class="mb-2 small text-muted">
+            Only touches loans with <strong>zero repayments</strong> recorded. Always run
+            <strong>Preview</strong> first and check every line before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-fix-corrupted-non-legacy-schedules') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.fix-corrupted-non-legacy-schedules') }}"
+                  onsubmit="return confirm('This will regenerate schedules and outstanding_interest for non-legacy loans whose stored schedule does not match a fresh calculation. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
