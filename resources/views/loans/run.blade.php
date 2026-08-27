@@ -90,11 +90,9 @@
                         @endif
                     </td>
                     <td class="pe-3">
-                        <a href="{{ route('loans.show', $loan) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
+                        <a href="{{ route('loans.show', $loan) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
                         @can('repay loans')
-                        <a href="{{ route('loans.repay-form', $loan) }}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-cash-coin"></i> Recover
-                        </a>
+                        <a href="{{ route('loans.repay-form', $loan) }}" class="btn btn-sm btn-success"><i class="bi bi-cash"></i></a>
                         @endcan
                     </td>
                 </tr>
