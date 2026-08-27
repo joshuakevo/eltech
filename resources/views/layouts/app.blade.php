@@ -288,6 +288,9 @@
                 <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $pendingLoans }}</span>
             @endif
         </a>
+        <a href="{{ route('loans.run') }}" class="nav-link-item {{ request()->routeIs('loans.run') ? 'active' : '' }}">
+            <i class="bi bi-calendar2-check"></i> Run Loans
+        </a>
         @endcan
         @endcanany
 

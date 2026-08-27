@@ -209,6 +209,8 @@ Route::middleware('auth')->group(function () {
         ->name('loans.store')->middleware('permission:create loans');
     Route::get('loans', [LoanController::class, 'index'])
         ->name('loans.index')->middleware('permission:view loans');
+    Route::get('loans/run', [LoanController::class, 'run'])
+        ->name('loans.run')->middleware('permission:view loans');
     Route::get('loans/{loan}', [LoanController::class, 'show'])
         ->name('loans.show')->middleware('permission:view loans');
     Route::get('loans/{loan}/schedule', [LoanController::class, 'schedule'])

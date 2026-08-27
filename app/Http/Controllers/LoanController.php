@@ -88,6 +88,48 @@ class LoanController extends Controller
         return view('loans.create', compact('clients', 'products', 'selectedClient'));
     }
 
+    /**
+     * "Run Loans" — active loans grouped by their anniversary day-of-month
+     * (the disbursement day, which every installment due date is anchored
+     * to), so a collector can pick a date and see everyone due that day
+     * along with when each one last paid.
+     */
+    public function run(Request $request)
+    {
+        $date = $request->date ? \Carbon\Carbon::parse($request->date) : today();
+        $day  = $date->day;
+
+        $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
+
+        $loans = Loan::with([
+                'client.relationshipManager',
+                'schedules' => fn ($q) => $q->where('status', '!=', 'paid')->orderBy('due_date'),
+                'repayments' => fn ($q) => $q->orderByDesc('payment_date'),
+            ])
+            ->where('status', 'active')
+            ->whereNotNull('disbursement_date')
+            ->whereRaw('DAY(disbursement_date) = ?', [$day])
+            ->when($lockedUpProductId, fn ($q) => $q->where(fn ($q2) => $q2
+                ->where('loan_product_id', '!=', $lockedUpProductId)
+                ->orWhereNull('loan_product_id')))
+            ->when($request->search, fn ($q) => $q->where('loan_number', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn ($q2) => $q2->where('name', 'like', "%{$request->search}%")))
+            ->get()
+            ->map(function ($loan) {
+                $loan->next_schedule  = $loan->schedules->first();
+                $loan->last_recovered = optional($loan->repayments->first())->payment_date;
+                return $loan;
+            })
+            ->sortBy(fn ($loan) => $loan->client->name ?? '')
+            ->values();
+
+        $totalPrincipalBalance = $loans->sum('outstanding_principal');
+        $totalInterestBalance  = $loans->sum('outstanding_interest');
+        $totalCount            = $loans->count();
+
+        return view('loans.run', compact('loans', 'date', 'day', 'totalPrincipalBalance', 'totalInterestBalance', 'totalCount'));
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
