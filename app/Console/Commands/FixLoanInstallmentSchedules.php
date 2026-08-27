@@ -14,15 +14,24 @@ use Illuminate\Support\Facades\DB;
  * not reflect a full amortization of the amount actually disbursed over the
  * real disbursement-to-maturity term.
  *
- * The 54 loans migrated on 31/07/2026 had their schedules built by
- * GenerateJuly2026LoanSchedules, which spreads each loan's *remaining*
- * outstanding_principal/outstanding_interest evenly across the months left
- * between 31/07/2026 and maturity_date -- not a real amortization schedule.
- * Other loans may also have schedules that drifted from term_months/principal
- * for other reasons. This command rebuilds every active loan's schedule from
- * scratch via LoanService::generateSchedule(), which anchors on
- * disbursement_date and amortizes the loan's original principal (the amount
- * actually disbursed) across its full term.
+ * This does NOT apply to the 54 loans migrated on 31/07/2026
+ * (loan_terms_2026_07_31.json). Their outstanding_principal/outstanding_interest
+ * are reconciled *remaining* balances as of 31/07/2026 -- real off-system
+ * repayment happened before the system existed and is folded into those
+ * figures, not into any loan_repayments row. Their schedules (built by
+ * GenerateJuly2026LoanSchedules, then re-anchored to the disbursement
+ * day-of-month by eltech:fix-loan-interest-rates) correctly spread that
+ * remaining balance across the installments falling after 31/07/2026 --
+ * rebuilding from the original principal at disbursement_date would discard
+ * the real repayment those balances represent. So legacy loans are always
+ * skipped here, regardless of loan_repayments.
+ *
+ * For every other ("normal") active loan -- disbursed through the app, no
+ * external reconciliation -- outstanding_principal still equals the original
+ * principal until a real repayment is recorded, so there's nothing to lose by
+ * rebuilding its schedule from scratch via LoanService::generateSchedule(),
+ * which anchors on disbursement_date and amortizes the loan's original
+ * principal (the amount actually disbursed) across its full term.
  *
  * The number of installments (term) is taken from the real calendar gap
  * between disbursement_date and maturity_date -- not the stored term_months
@@ -51,6 +60,7 @@ class FixLoanInstallmentSchedules extends Command
     private int $skippedRepay  = 0;
     private int $skippedDates  = 0;
     private int $skippedLocked = 0;
+    private int $skippedLegacy = 0;
 
     public function handle(LoanService $loanService): int
     {
@@ -62,6 +72,13 @@ class FixLoanInstallmentSchedules extends Command
         $this->line('');
 
         $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
+
+        $legacyPath = database_path('data/loan_terms_2026_07_31.json');
+        $legacyLoanNumbers = [];
+        if (file_exists($legacyPath)) {
+            $bundle = json_decode(file_get_contents($legacyPath), true) ?? [];
+            $legacyLoanNumbers = collect($bundle)->map(fn ($row) => strtolower('LN-' . $row['client_number']))->all();
+        }
 
         $loans = Loan::with(['schedules' => fn ($q) => $q->orderBy('installment_no')])
             ->where('status', 'active')
@@ -76,7 +93,7 @@ class FixLoanInstallmentSchedules extends Command
         DB::beginTransaction();
         try {
             foreach ($loans as $loan) {
-                $this->processLoan($loan, $loanService);
+                $this->processLoan($loan, in_array(strtolower($loan->loan_number), $legacyLoanNumbers, true), $loanService);
             }
 
             if ($this->confirm) {
@@ -91,15 +108,21 @@ class FixLoanInstallmentSchedules extends Command
 
         $this->line('');
         $this->info(sprintf(
-            'Done. Regenerated: %d | Skipped (has repayments): %d | Skipped (term < 1 month, bad dates): %d | Skipped (Locked-Up Loans product): %d',
-            $this->regenerated, $this->skippedRepay, $this->skippedDates, $this->skippedLocked
+            'Done. Regenerated: %d | Skipped (legacy 31/07/2026 loan): %d | Skipped (has repayments): %d | Skipped (term < 1 month, bad dates): %d | Skipped (Locked-Up Loans product): %d',
+            $this->regenerated, $this->skippedLegacy, $this->skippedRepay, $this->skippedDates, $this->skippedLocked
         ));
 
         return self::SUCCESS;
     }
 
-    private function processLoan(Loan $loan, LoanService $loanService): void
+    private function processLoan(Loan $loan, bool $isLegacy, LoanService $loanService): void
     {
+        if ($isLegacy) {
+            $this->warn("SKIP {$loan->loan_number}: legacy 31/07/2026 migrated loan, outstanding balances already reflect real off-system repayment, not touching its schedule.");
+            $this->skippedLegacy++;
+            return;
+        }
+
         if ($loan->repayments()->exists()) {
             $this->warn("SKIP {$loan->loan_number}: has real repayments recorded, not touching its schedule.");
             $this->skippedRepay++;

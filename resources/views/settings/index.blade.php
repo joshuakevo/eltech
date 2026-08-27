@@ -311,26 +311,37 @@ $groupIcons = [
     </div>
 </div>
 
-{{-- August 2026: legacy loans' schedules were spread evenly over the months
-     remaining to maturity from the reconciled balance, not amortized from the
-     real disbursement date and amount disbursed -- run after the rate fix above --}}
+{{-- August 2026: some "normal" (non-migrated) loans' installment schedules drifted
+     from a real amortization of the amount disbursed -- run after the rate fix above.
+     Does NOT touch the 54 loans migrated on 31/07/2026: their outstanding balances
+     are reconciled remaining balances (real off-system repayment happened before the
+     system existed) and their existing "spread the remaining balance over the months
+     left after 31/07/2026" schedule is correct as-is. --}}
 <div class="card mt-4 border-danger">
     <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
         <i class="bi bi-exclamation-triangle me-2"></i>Loan Installment Amount Fix
     </div>
     <div class="card-body">
         <p class="mb-2 small">
-            Rebuilds every active loan's installment schedule so amounts are a real amortization of the
-            <strong>amount disbursed</strong> across the <strong>full term from disbursement date to
-            maturity date</strong> -- not the "spread the remaining balance over the months left" schedule
-            some loans currently have. The number of installments is taken from the actual calendar gap
-            between disbursement and maturity (and <code>term_months</code> is corrected to match if it
-            disagrees).
+            Rebuilds a <strong>normal</strong> active loan's installment schedule so amounts are a real
+            amortization of the <strong>amount disbursed</strong> across the <strong>full term from
+            disbursement date to maturity date</strong>. The number of installments is taken from the
+            actual calendar gap between disbursement and maturity (and <code>term_months</code> is
+            corrected to match if it disagrees).
+        </p>
+        <p class="mb-2 small">
+            The 54 loans migrated on 31/07/2026 are always skipped: their
+            <code>outstanding_principal</code>/<code>outstanding_interest</code> already reflect real
+            off-system repayment made before the system existed, and their current schedule (remaining
+            balance spread over the installments due after 31/07/2026, anchored to the disbursement
+            day-of-month) is correct. Rebuilding them from the original principal at disbursement would
+            discard that repayment.
         </p>
         <p class="mb-2 small">
             Run the Loan Interest Rate fix above first if you haven't -- this does not touch
             <code>interest_rate</code>, it trusts whatever rate is already on the loan. Closed loans, loans
-            on the Locked-Up Loans product, and any loan with a real repayment recorded are left untouched.
+            on the Locked-Up Loans product, and any loan with a real repayment recorded are also left
+            untouched.
         </p>
         <p class="mb-2 small text-muted">
             Always run <strong>Preview</strong> first and check the report before <strong>Apply Fix</strong>.
