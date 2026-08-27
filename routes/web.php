@@ -434,6 +434,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/truncate-legacy-loan-schedules', [SettingsController::class, 'truncateLegacyLoanSchedules'])->name('settings.truncate-legacy-loan-schedules');
         Route::post('settings/preview-rebuild-legacy-loan-schedules', [SettingsController::class, 'previewRebuildLegacyLoanSchedules'])->name('settings.preview-rebuild-legacy-loan-schedules');
         Route::post('settings/rebuild-legacy-loan-schedules', [SettingsController::class, 'rebuildLegacyLoanSchedules'])->name('settings.rebuild-legacy-loan-schedules');
+        Route::post('settings/preview-regenerate-legacy-schedules-balance', [SettingsController::class, 'previewRegenerateLegacyLoanSchedulesFromBalance'])->name('settings.preview-regenerate-legacy-schedules-balance');
+        Route::post('settings/regenerate-legacy-schedules-balance', [SettingsController::class, 'regenerateLegacyLoanSchedulesFromBalance'])->name('settings.regenerate-legacy-schedules-balance');
         Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');

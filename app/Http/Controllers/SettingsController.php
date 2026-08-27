@@ -418,6 +418,32 @@ class SettingsController extends Controller
         return back()->with('success', "Legacy loan schedules rebuilt from disbursement where safe.\n\n{$output}");
     }
 
+    public function previewRegenerateLegacyLoanSchedulesFromBalance()
+    {
+        Artisan::call('eltech:regenerate-legacy-schedules-from-balance');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Supersedes rebuildLegacyLoanSchedules() / eltech:generate-loan-schedules-2026-07-31
+     * for legacy loans: rebuilds the August-onward schedule as a fresh
+     * amortization of the CURRENT outstanding_principal (trusted as-is) over
+     * the periods remaining to the loan's original maturity date, using the
+     * loan's real interest_rate/interest_method. This deliberately replaces
+     * outstanding_interest with the freshly computed total, which is often
+     * well above the previously reconciled figure -- confirmed as the wanted
+     * behaviour, so always Preview and review every line before Apply.
+     */
+    public function regenerateLegacyLoanSchedulesFromBalance()
+    {
+        Artisan::call('eltech:regenerate-legacy-schedules-from-balance', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Legacy loan schedules regenerated from current balance.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

@@ -510,6 +510,45 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Regenerate Legacy Schedules From Current Balance
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Confirmed policy for legacy (31/07/2026 migration) loans: the reconciled
+            <strong>outstanding_principal</strong> is trusted as-is. This rebuilds each loan's
+            August-onward schedule as a <strong>fresh amortization</strong> of that current balance -- as
+            if the loan were re-disbursed today for that principal, at the loan's real
+            interest_rate/interest_method, over the periods remaining to its original maturity date. Due
+            dates are taken from the loan's original disbursement-anchored grid (same cadence the client
+            has always seen); only the amounts are recalculated.
+        </p>
+        <p class="mb-2 small text-muted">
+            This deliberately <strong>replaces outstanding_interest</strong> with the freshly computed
+            total, which is often well above the previously reconciled figure -- that's expected, not a
+            bug. Supersedes the "Rebuild Legacy Schedules From Disbursement" and "Generate Loan Schedules"
+            actions above for these loans. Always run <strong>Preview</strong> first and check every line
+            before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-regenerate-legacy-schedules-balance') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.regenerate-legacy-schedules-balance') }}"
+                  onsubmit="return confirm('This will regenerate schedules and raise outstanding_interest for legacy loans based on their current balance. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
