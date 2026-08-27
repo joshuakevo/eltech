@@ -430,6 +430,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/fix-nk00221-loan-term', [SettingsController::class, 'fixNk00221LoanTerm'])->name('settings.fix-nk00221-loan-term');
         Route::post('settings/preview-loan-rates-baseline-restore', [SettingsController::class, 'previewLoanRatesBaselineRestore'])->name('settings.preview-loan-rates-baseline-restore');
         Route::post('settings/restore-loan-rates-baseline', [SettingsController::class, 'restoreLoanRatesBaseline'])->name('settings.restore-loan-rates-baseline');
+        Route::post('settings/preview-truncate-legacy-loan-schedules', [SettingsController::class, 'previewTruncateLegacyLoanSchedules'])->name('settings.preview-truncate-legacy-loan-schedules');
+        Route::post('settings/truncate-legacy-loan-schedules', [SettingsController::class, 'truncateLegacyLoanSchedules'])->name('settings.truncate-legacy-loan-schedules');
         Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');

@@ -365,6 +365,32 @@ class SettingsController extends Controller
         return back()->with('success', "Loan rates restored from baseline.\n\n{$output}");
     }
 
+    public function previewTruncateLegacyLoanSchedules()
+    {
+        Artisan::call('eltech:truncate-legacy-loan-schedules');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * One-off correction: some legacy (31/07/2026 migration) loans had their
+     * schedule wrongly rebuilt from the real disbursement date, producing
+     * installments for months before August that shouldn't exist since the
+     * client's balance was already reconciled and transferred as of
+     * 31/07/2026. Removes only the pre-August rows -- every kept
+     * installment's amount and due date is left exactly as it is, since
+     * that's the client's real agreed installment, not something to
+     * recalculate.
+     */
+    public function truncateLegacyLoanSchedules()
+    {
+        Artisan::call('eltech:truncate-legacy-loan-schedules', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Legacy loan schedules truncated to August onward.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

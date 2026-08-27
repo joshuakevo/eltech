@@ -436,6 +436,42 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Truncate Pre-August Legacy Schedules
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Some legacy (31/07/2026 migration) loans got their schedule wrongly rebuilt from the real
+            disbursement date, producing installments for months before August -- but the client's
+            balance was already reconciled and transferred as of 31/07/2026, so those months shouldn't
+            appear. This only <strong>removes</strong> the pre-August rows; every kept installment's amount
+            and due date is left exactly as it is (not recalculated). A loan is skipped if it has real
+            repayments, if removing pre-August rows would empty its schedule entirely (e.g. an
+            already-matured lump-sum loan), or if the remaining rows don't already add up to the loan's
+            outstanding balance -- those need manual review instead.
+        </p>
+        <p class="mb-2 small text-muted">
+            Always run <strong>Preview</strong> first and check the report before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-truncate-legacy-loan-schedules') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.truncate-legacy-loan-schedules') }}"
+                  onsubmit="return confirm('This will remove pre-August 2026 schedule rows from eligible legacy loans. Have you reviewed the Preview output? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
