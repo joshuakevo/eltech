@@ -290,6 +290,29 @@ class SettingsController extends Controller
         return back()->with('success', "Loan interest rate fix applied.\n\n{$output}");
     }
 
+    public function previewLoanInstallmentFix()
+    {
+        Artisan::call('eltech:fix-loan-installment-schedules');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Rebuilds active loans' installment schedules as a real amortization of
+     * the amount disbursed over the full disbursement-to-maturity term,
+     * replacing schedules that were instead spread evenly over the months
+     * remaining to maturity. Does not touch interest_rate -- run the Loan
+     * Interest Rate fix above first if it hasn't been applied yet.
+     */
+    public function fixLoanInstallments()
+    {
+        Artisan::call('eltech:fix-loan-installment-schedules', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Loan installment schedule fix applied.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

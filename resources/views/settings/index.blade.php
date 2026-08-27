@@ -311,6 +311,48 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- August 2026: legacy loans' schedules were spread evenly over the months
+     remaining to maturity from the reconciled balance, not amortized from the
+     real disbursement date and amount disbursed -- run after the rate fix above --}}
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-triangle me-2"></i>Loan Installment Amount Fix
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Rebuilds every active loan's installment schedule so amounts are a real amortization of the
+            <strong>amount disbursed</strong> across the <strong>full term from disbursement date to
+            maturity date</strong> -- not the "spread the remaining balance over the months left" schedule
+            some loans currently have. The number of installments is taken from the actual calendar gap
+            between disbursement and maturity (and <code>term_months</code> is corrected to match if it
+            disagrees).
+        </p>
+        <p class="mb-2 small">
+            Run the Loan Interest Rate fix above first if you haven't -- this does not touch
+            <code>interest_rate</code>, it trusts whatever rate is already on the loan. Closed loans, loans
+            on the Locked-Up Loans product, and any loan with a real repayment recorded are left untouched.
+        </p>
+        <p class="mb-2 small text-muted">
+            Always run <strong>Preview</strong> first and check the report before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-loan-installment-fix') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.fix-loan-installments') }}"
+                  onsubmit="return confirm('This will rebuild active loans\' installment schedules from disbursement date to maturity date. Have you reviewed the Preview output? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
