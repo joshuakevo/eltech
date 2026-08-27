@@ -426,6 +426,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/fix-loan-interest-rates', [SettingsController::class, 'fixLoanInterestRates'])->name('settings.fix-loan-interest-rates');
         Route::post('settings/preview-loan-installment-fix', [SettingsController::class, 'previewLoanInstallmentFix'])->name('settings.preview-loan-installment-fix');
         Route::post('settings/fix-loan-installments', [SettingsController::class, 'fixLoanInstallments'])->name('settings.fix-loan-installments');
+        Route::post('settings/preview-nk00221-loan-term-fix', [SettingsController::class, 'previewNk00221LoanTermFix'])->name('settings.preview-nk00221-loan-term-fix');
+        Route::post('settings/fix-nk00221-loan-term', [SettingsController::class, 'fixNk00221LoanTerm'])->name('settings.fix-nk00221-loan-term');
         Route::post('settings/import-client-segments-rm', [SettingsController::class, 'importClientSegmentsRm'])->name('settings.import-client-segments-rm');
         Route::post('settings/assign-default-segment-rm', [SettingsController::class, 'assignDefaultSegmentRm'])->name('settings.assign-default-segment-rm');
         Route::post('settings/diagnose-segment-income-statement', [SettingsController::class, 'diagnoseSegmentIncomeStatement'])->name('settings.diagnose-segment-income-statement');

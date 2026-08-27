@@ -313,6 +313,27 @@ class SettingsController extends Controller
         return back()->with('success', "Loan installment schedule fix applied.\n\n{$output}");
     }
 
+    public function previewNk00221LoanTermFix()
+    {
+        Artisan::call('eltech:fix-nk00221-loan-term');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * One-off correction: LN-NK00221's real term is 2 months (matures
+     * 13/07/2026), not the 4 months recorded from the 31/07/2026
+     * reconciliation source. See FixNk00221LoanTerm for details.
+     */
+    public function fixNk00221LoanTerm()
+    {
+        Artisan::call('eltech:fix-nk00221-loan-term', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "LN-NK00221 term fix applied.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

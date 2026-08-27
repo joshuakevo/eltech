@@ -364,6 +364,44 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- August 2026: LN-NK00221's real term is 2 months, not the 4 the 31/07/2026
+     reconciliation source recorded. Reconciled principal/interest amounts are
+     left untouched (they came from the old system's own report); only the
+     term/maturity and schedule shape are corrected -- rebuilt as a single
+     already-overdue installment since the real maturity (13/07/2026) is
+     before the 31/07/2026 reconciliation date. --}}
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-triangle me-2"></i>LN-NK00221 Term Fix
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Corrects LN-NK00221's term to <strong>2 months</strong> (maturity <strong>13 Jul 2026</strong>,
+            not 13 Sep 2026 as recorded from the 31/07/2026 reconciliation source). The reconciled
+            outstanding principal/interest are left untouched; the schedule is rebuilt as a single
+            installment already <strong>overdue</strong> as of the reconciliation date.
+        </p>
+        <p class="mb-2 small text-muted">
+            Always run <strong>Preview</strong> first and check the report before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-nk00221-loan-term-fix') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.fix-nk00221-loan-term') }}"
+                  onsubmit="return confirm('This will set LN-NK00221\'s term to 2 months and rebuild its schedule as overdue. Have you reviewed the Preview output? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">
