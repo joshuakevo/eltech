@@ -49,8 +49,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead><tr>
-                <th class="ps-3">Loan #</th><th>Client</th><th>RM</th>
-                <th class="text-end">Principal</th>
+                <th class="ps-3">Loan #</th><th>Client</th>
                 <th class="text-end">Outstanding Principal</th><th class="text-end">Outstanding Interest</th>
                 <th class="text-end">Installment</th><th class="text-end">Savings Balance</th>
                 <th>Last Date Recovered</th><th>Next Due Date</th><th class="pe-3">Actions</th>
@@ -66,8 +65,6 @@
                             <span class="text-muted fst-italic">Deleted client</span>
                         @endif
                     </td>
-                    <td class="small">{{ $loan->client->relationshipManager->name ?? '—' }}</td>
-                    <td class="text-end">{{ number_format($loan->principal, $dp) }}</td>
                     <td class="text-end fw-semibold">{{ number_format($loan->outstanding_principal, $dp) }}</td>
                     <td class="text-end fw-semibold">{{ number_format($loan->outstanding_interest, $dp) }}</td>
                     <td class="text-end">
@@ -102,7 +99,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="11" class="text-center text-muted py-4">No active loans due on the {{ $date->format('jS') }}.</td></tr>
+                <tr><td colspan="9" class="text-center text-muted py-4">No active loans due on the {{ $date->format('jS') }}.</td></tr>
             @endforelse
             </tbody>
         </table>

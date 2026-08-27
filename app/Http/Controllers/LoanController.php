@@ -102,7 +102,6 @@ class LoanController extends Controller
         $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
 
         $loans = Loan::with([
-                'client.relationshipManager',
                 'client.activeSavingsAccounts',
                 'schedules' => fn ($q) => $q->where('status', '!=', 'paid')->orderBy('due_date'),
                 'repayments' => fn ($q) => $q->orderByDesc('payment_date'),
