@@ -472,6 +472,44 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Rebuild Legacy Schedules From Disbursement
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            For some legacy loans (confirmed on LN-MK00106), the 31/07/2026 migration's reconciled
+            interest was incomplete -- the client's real remaining balance is the one implied by the
+            loan's <strong>original disbursement-anchored amortization table</strong> (same installment
+            amount as always), truncated to drop any month before August. This rebuilds a loan's schedule
+            that way <strong>only</strong> when the table's remaining principal already closely matches its
+            currently reconciled outstanding balance -- proof that loan's real repayments tracked the
+            clean schedule. Every other legacy loan is <strong>left untouched and flagged</strong> for manual
+            review instead, since a big mismatch there means real off-system repayments diverged from the
+            schedule and the reconciled figure, not the table, is the trustworthy one.
+        </p>
+        <p class="mb-2 small text-muted">
+            This can meaningfully raise a loan's outstanding_interest. Always run <strong>Preview</strong>
+            first and check every line before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-rebuild-legacy-loan-schedules') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.rebuild-legacy-loan-schedules') }}"
+                  onsubmit="return confirm('This will rebuild schedules and raise outstanding balances for loans where the clean table matches. Have you reviewed the Preview output line by line? This cannot be undone automatically.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">

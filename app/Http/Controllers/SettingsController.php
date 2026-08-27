@@ -391,6 +391,33 @@ class SettingsController extends Controller
         return back()->with('success', "Legacy loan schedules truncated to August onward.\n\n{$output}");
     }
 
+    public function previewRebuildLegacyLoanSchedules()
+    {
+        Artisan::call('eltech:rebuild-legacy-loan-schedules');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * One-off correction: some legacy loans' real remaining balance is the one
+     * implied by their original disbursement-anchored amortization table (the
+     * 31/07/2026 migration's reconciled interest was incomplete for them) --
+     * confirmed against LN-MK00106. Only rebuilds a loan when the table's
+     * remaining principal already closely matches its reconciled
+     * outstanding_principal (proof its real payments tracked the clean
+     * schedule); every other loan is left untouched and flagged for manual
+     * review, since guessing at a mismatch that large risks over- or
+     * under-billing a real client.
+     */
+    public function rebuildLegacyLoanSchedules()
+    {
+        Artisan::call('eltech:rebuild-legacy-loan-schedules', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "Legacy loan schedules rebuilt from disbursement where safe.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client
