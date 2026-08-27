@@ -533,6 +533,30 @@ class SettingsController extends Controller
         return back()->with('success', "Legacy loan pending installments rebuilt to match the original disbursement table.\n\n{$output}");
     }
 
+    public function previewRemoveAugustLegacyRepayments()
+    {
+        Artisan::call('eltech:remove-august-legacy-repayments');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Removes August 2026 repayments recorded on legacy loans (each via the
+     * app's own TransactionController::destroy() reversal, so the GL and
+     * loan sub-ledger unwind correctly), then rebuilds those loans'
+     * schedules to match the original disbursement table -- so every
+     * installment is uniform before the client re-enters the same real
+     * payments against the corrected numbers.
+     */
+    public function removeAugustLegacyRepayments()
+    {
+        Artisan::call('eltech:remove-august-legacy-repayments', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "August 2026 legacy repayments removed and schedules rebuilt.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

@@ -625,6 +625,43 @@ $groupIcons = [
 
 <div class="card mt-4 border-danger">
     <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
+        <i class="bi bi-exclamation-octagon me-2"></i>Remove August 2026 Legacy Repayments &amp; Rebuild
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            For re-entering real repayments cleanly now that legacy schedules match the OLD system: removes
+            every repayment recorded in <strong>August 2026</strong> on a legacy loan, then rebuilds that
+            loan's schedule so every installment -- including the one that was paid -- is uniform and
+            matches the original disbursement table. Each repayment is removed via the app's own
+            <strong>Transaction reversal</strong> (same as deleting it from the Transactions screen): its GL
+            journal is deleted and the loan's outstanding balances / schedule status are restored first,
+            never a raw database delete.
+        </p>
+        <p class="mb-2 small text-muted">
+            After running this, re-enter the same real repayments through the normal Loan Repayment screen
+            -- they'll now post against the corrected installment amounts. Always run
+            <strong>Preview</strong> first and check every line before <strong>Apply Fix</strong>.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-remove-august-legacy-repayments') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.remove-august-legacy-repayments') }}"
+                  onsubmit="return confirm('This will permanently remove every August 2026 repayment recorded on a legacy loan (reversing its GL entry and restoring the loan balance/schedule), then rebuild those schedules from the original table. You will need to re-enter the real repayments afterward. Have you reviewed the Preview output line by line?');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Apply Fix
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10 text-danger-emphasis fw-bold">
         <i class="bi bi-exclamation-octagon me-2"></i>Fix Corrupted Non-Legacy Loan Schedules
     </div>
     <div class="card-body">
