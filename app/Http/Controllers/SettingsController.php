@@ -284,8 +284,12 @@ class SettingsController extends Controller
      */
     public function fixLoanInterestRates()
     {
-        Artisan::call('eltech:fix-loan-interest-rates', ['--confirm' => true]);
+        $exitCode = Artisan::call('eltech:fix-loan-interest-rates', ['--confirm' => true]);
         $output = Artisan::output();
+
+        if ($exitCode !== 0) {
+            return back()->with('error', "Loan interest rate fix was NOT applied.\n\n{$output}");
+        }
 
         return back()->with('success', "Loan interest rate fix applied.\n\n{$output}");
     }

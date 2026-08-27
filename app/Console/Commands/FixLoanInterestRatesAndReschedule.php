@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\AuditLog;
 use App\Models\Loan;
 use App\Services\LoanService;
 use Carbon\Carbon;
@@ -50,8 +51,10 @@ use Illuminate\Support\Facades\DB;
  */
 class FixLoanInterestRatesAndReschedule extends Command
 {
-    protected $signature = 'eltech:fix-loan-interest-rates {--confirm : Actually write changes; omit for a dry-run report}';
+    protected $signature = 'eltech:fix-loan-interest-rates {--confirm : Actually write changes; omit for a dry-run report} {--force : Bypass the already-applied guard (only if you are certain the current rates are still monthly)}';
     protected $description = "Annualise loan interest rates (x12, they were entered monthly) and reschedule installment dates to the real disbursement day-of-month";
+
+    private const APPLY_DESCRIPTION = 'POST /settings/fix-loan-interest-rates';
 
     private bool $confirm = false;
 
@@ -64,6 +67,20 @@ class FixLoanInterestRatesAndReschedule extends Command
     public function handle(LoanService $loanService): int
     {
         $this->confirm = (bool) $this->option('confirm');
+
+        if ($this->confirm && !$this->option('force')) {
+            $alreadyApplied = AuditLog::where('description', self::APPLY_DESCRIPTION)->exists();
+            if ($alreadyApplied) {
+                $this->error(
+                    "This fix has already been applied before (found a prior '" . self::APPLY_DESCRIPTION . "' audit log entry).\n" .
+                    "It is NOT safe to re-run: its only way to detect an already-annual rate is comparing it to the loan " .
+                    "product's own default rate, which fails for any loan with a legitimately custom rate -- a second run " .
+                    "will silently multiply those rates by 12 again and corrupt schedules for loans without repayments.\n" .
+                    "If you are certain every affected loan's rate is still a genuine monthly figure, re-run with --force."
+                );
+                return self::FAILURE;
+            }
+        }
 
         if (!$this->confirm) {
             $this->warn('DRY RUN — no changes will be saved. Re-run with --confirm to apply.');
