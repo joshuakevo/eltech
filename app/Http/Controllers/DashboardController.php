@@ -61,7 +61,7 @@ class DashboardController extends Controller
         $months      = collect();
         $monthLabels = collect();
         for ($i = 5; $i >= 0; $i--) {
-            $m = now()->subMonths($i);
+            $m = now()->startOfMonth()->subMonths($i);
             $months->push($m);
             $monthLabels->push($m->format('M Y'));
         }
