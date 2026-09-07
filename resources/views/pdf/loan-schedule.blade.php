@@ -172,7 +172,7 @@
 
 <div class="footer clearfix">
     <div style="float:right">Page 1</div>
-    <div>This schedule is computer generated. @php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</div>
+    <div>This schedule is computer generated. &copy; {{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</div>
 </div>
 
 </div>

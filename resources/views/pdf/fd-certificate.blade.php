@@ -150,7 +150,7 @@
         {{-- Narrative paragraph --}}
         <div class="cert-body">
             This is to certify that <strong>{{ $fixedDeposit->client->name }}</strong>
-            has placed a Fixed Deposit with <strong>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</strong>
+            has placed a Fixed Deposit with <strong>{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</strong>
             under the product <strong>{{ $fixedDeposit->product->name }}</strong>,
             with a principal amount of
             <span class="underline-val">UGX {{ number_format($fixedDeposit->principal, $dp) }}</span>

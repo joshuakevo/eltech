@@ -12,11 +12,12 @@ use App\Models\SavingsTransaction;
 use App\Models\SystemSetting;
 use App\Services\LoanService;
 use App\Services\MobileMoneyService;
+use App\Services\SavingsService;
 use Illuminate\Http\Request;
 
 class ClientPortalController extends Controller
 {
-    public function __construct(protected LoanService $loanService, protected MobileMoneyService $mobileMoneyService) {}
+    public function __construct(protected LoanService $loanService, protected MobileMoneyService $mobileMoneyService, protected SavingsService $savingsService) {}
 
     private function abortIfMobileMoneyDisabled(): void
     {
@@ -218,12 +219,17 @@ class ClientPortalController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        $projectedInterest = $savingsAccount->product->interest_method === 'tiered'
+            ? $this->savingsService->previewAccruedInterest($savingsAccount)
+            : 0;
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.savings-statement', [
-            'account'      => $savingsAccount,
-            'client'       => $client,
-            'transactions' => $transactions,
-            'fromDate'     => null,
-            'toDate'       => null,
+            'account'            => $savingsAccount,
+            'client'             => $client,
+            'transactions'       => $transactions,
+            'fromDate'           => null,
+            'toDate'             => null,
+            'projectedInterest'  => $projectedInterest,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("savings-statement-{$savingsAccount->account_number}.pdf");

@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@php $projectedInterest = $projectedInterest ?? 0; @endphp
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -75,13 +76,11 @@
         <tr><td class="label">Product</td><td class="value">{{ $account->product->name }}</td></tr>
         <tr><td class="label">Date Opened</td><td class="value">{{ $account->opened_date->format('d M Y') }}</td></tr>
         <tr><td class="label">Status</td><td class="value">{{ strtoupper($account->status) }}</td></tr>
-        @if($account->product->interest_method === 'tiered')
         <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
+        @if($account->product->interest_method === 'tiered')
         <tr><td class="label">Accrued Interest (pending)</td><td class="value" style="color:#2563eb">{{ number_format($projectedInterest, $dp) }}</td></tr>
-        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance + $projectedInterest, $dp) }}</td></tr>
-        @else
-        <tr><td class="label">Current Balance</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
         @endif
+        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance + $projectedInterest, $dp) }}</td></tr>
     </table>
 </td>
 </tr>
@@ -151,7 +150,7 @@
 
 <div class="footer clearfix">
     <div style="float:right">Page 1</div>
-    <div>This statement is computer generated. @php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</div>
+    <div>This statement is computer generated. &copy; {{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</div>
 </div>
 
 </div>
