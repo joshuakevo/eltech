@@ -27,17 +27,21 @@ class SavingsAccountController extends Controller
 
         if ($request->format === 'pdf') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
+            $this->attachProjectedInterest($all);
+            $totalWithInterest = $totalBalance + $all->sum('projected_interest');
             $pdf = Pdf::loadView('pdf.savings-accounts', [
-                'accounts'     => $all,
-                'totalBalance' => $totalBalance,
-                'totalSavers'  => $totalSavers,
+                'accounts'          => $all,
+                'totalBalance'      => $totalBalance,
+                'totalWithInterest' => $totalWithInterest,
+                'totalSavers'       => $totalSavers,
             ])->setPaper('a4', 'portrait');
             return $pdf->download('savings-accounts-' . now()->format('Y-m-d') . '.pdf');
         }
 
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
-            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance', 'Status']];
+            $this->attachProjectedInterest($all);
+            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance (excl. Interest)', 'Balance (incl. Interest)', 'Status']];
             foreach ($all as $acc) {
                 $rows[] = [
                     $acc->account_number,
@@ -45,10 +49,11 @@ class SavingsAccountController extends Controller
                     $acc->client->client_number ?? '',
                     $acc->product->name ?? '',
                     $acc->balance,
+                    $acc->balance + $acc->projected_interest,
                     ucfirst($acc->status),
                 ];
             }
-            $rows[] = ['', '', '', 'TOTAL', $totalBalance, $totalSavers . ' savers'];
+            $rows[] = ['', '', '', 'TOTAL', $totalBalance, $totalBalance + $all->sum('projected_interest'), $totalSavers . ' savers'];
             return $this->csvDownload($rows, 'savings-accounts-' . now()->format('Y-m-d'));
         }
 
@@ -56,7 +61,40 @@ class SavingsAccountController extends Controller
             ->orderByDesc('balance')
             ->paginate(20);
 
-        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers'));
+        $this->attachProjectedInterest($accounts->getCollection());
+        $totalWithInterest = $totalBalance + $this->sumProjectedInterest(clone $filtered);
+
+        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers', 'totalWithInterest'));
+    }
+
+    /**
+     * True total of not-yet-posted tiered interest across every account
+     * matching the query (not just one page) -- only tiered-product accounts
+     * are iterated, since flat-rate products always project to 0.
+     */
+    private function sumProjectedInterest($query): float
+    {
+        $tiered = (clone $query)->whereHas('product', fn($q) => $q->where('interest_method', 'tiered'))->get();
+        $sum = 0.0;
+        foreach ($tiered as $acc) {
+            $sum += $this->savingsService->previewAccruedInterest($acc);
+        }
+        return $sum;
+    }
+
+    /**
+     * Sets a transient `projected_interest` attribute on each account: for
+     * tiered-interest products this is the same silently-accrued, not-yet-
+     * posted interest already shown as "Accrued Interest" / used to compute
+     * "Balance (incl. Interest)" on the account show/statement pages
+     * (SavingsService::previewAccruedInterest). Flat-rate products post
+     * automatically, so this is always 0 for them.
+     */
+    private function attachProjectedInterest($accounts): void
+    {
+        foreach ($accounts as $acc) {
+            $acc->projected_interest = $this->savingsService->previewAccruedInterest($acc);
+        }
     }
 
     public function create(Request $request)

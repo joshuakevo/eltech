@@ -97,15 +97,23 @@
     </div>
 </div>
 <div class="row g-3 mb-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Savings</div>
+                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(excl. interest)</span></div>
                 <div class="fs-4 fw-bold">{{ number_format($totalBalance, $dp) }}</div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(incl. accrued interest)</span></div>
+                <div class="fs-4 fw-bold text-success">{{ number_format($totalWithInterest, $dp) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
                 <div class="text-muted small text-uppercase">Number of Savers</div>
@@ -133,7 +141,9 @@
         <table class="table table-hover align-middle mb-0">
             <thead><tr>
                 <th class="ps-3">Account #</th><th>Client</th><th>Product</th>
-                <th class="text-end">Balance</th><th>Status</th><th class="pe-3">Actions</th>
+                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(excl. interest)</span></th>
+                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(incl. interest)</span></th>
+                <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>
             @forelse($accounts as $acc)
@@ -148,6 +158,9 @@
                     </td>
                     <td class="small text-muted">{{ $acc->product->name }}</td>
                     <td class="text-end fw-semibold">{{ number_format($acc->balance, $dp) }}</td>
+                    <td class="text-end fw-semibold {{ $acc->projected_interest > 0 ? 'text-success' : '' }}">
+                        {{ number_format($acc->balance + $acc->projected_interest, $dp) }}
+                    </td>
                     <td><span class="badge badge-status-{{ $acc->status }}">{{ ucfirst($acc->status) }}</span></td>
                     <td class="pe-3">
                         <a href="{{ route('savings.show', $acc) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
@@ -160,7 +173,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="text-center text-muted py-4">No savings accounts found.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No savings accounts found.</td></tr>
             @endforelse
             </tbody>
         </table>

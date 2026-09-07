@@ -40,7 +40,8 @@
 <table class="summary-row">
     <tr>
         <td><span class="lbl">Number of Savers</span><span class="val">{{ number_format($totalSavers) }}</span></td>
-        <td><span class="lbl">Total Savings</span><span class="val">{{ number_format($totalBalance, 0) }}</span></td>
+        <td><span class="lbl">Total Savings (excl. interest)</span><span class="val">{{ number_format($totalBalance, 0) }}</span></td>
+        <td><span class="lbl">Total Savings (incl. interest)</span><span class="val">{{ number_format($totalWithInterest, 0) }}</span></td>
     </tr>
 </table>
 
@@ -51,7 +52,8 @@
             <th>Account #</th>
             <th>Client</th>
             <th>Product</th>
-            <th class="r">Balance</th>
+            <th class="r">Balance (excl. Interest)</th>
+            <th class="r">Balance (incl. Interest)</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -63,6 +65,7 @@
         <td><strong>{{ $acc->client->name ?? '—' }}</strong> <span class="text-muted">{{ $acc->client->client_number ?? '' }}</span></td>
         <td class="text-muted">{{ $acc->product->name ?? '—' }}</td>
         <td class="r">{{ number_format($acc->balance, 0) }}</td>
+        <td class="r">{{ number_format($acc->balance + $acc->projected_interest, 0) }}</td>
         <td class="{{ $acc->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($acc->status) }}</td>
     </tr>
     @endforeach
@@ -71,6 +74,7 @@
         <tr>
             <td colspan="4">TOTAL ({{ number_format($totalSavers) }} savers)</td>
             <td class="r">{{ number_format($totalBalance, 0) }}</td>
+            <td class="r">{{ number_format($totalWithInterest, 0) }}</td>
             <td></td>
         </tr>
     </tfoot>
