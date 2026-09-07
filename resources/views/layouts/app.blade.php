@@ -33,19 +33,20 @@
         .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:.25rem 0 .75rem}
         .sidebar-scroll::-webkit-scrollbar{width:3px}
         .sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-        .sidebar-section{font-size:.63rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28);padding:.55rem 1.1rem .2rem}
         .nav-link-item{display:flex;align-items:center;gap:.6rem;padding:.3rem 1.1rem;margin:.02rem .45rem;border-radius:6px;color:var(--sidebar-text);text-decoration:none;font-size:.81rem;transition:background .15s,color .15s;white-space:nowrap}
         .nav-link-item i{font-size:.92rem;opacity:.8;flex-shrink:0;width:16px;text-align:center}
         .nav-link-item:hover{background:rgba(255,255,255,.08);color:#fff}
         .nav-link-item.active{background:var(--accent);color:#fff}
         .nav-link-item.active i{opacity:1}
-        .nav-collapse-btn{display:flex;align-items:center;gap:.6rem;padding:.3rem 1.1rem;margin:.02rem .45rem;border-radius:6px;color:var(--sidebar-text);background:none;border:none;width:calc(100% - .9rem);cursor:pointer;font-size:.81rem;text-align:left;transition:background .15s,color .15s}
+        .nav-collapse-btn{display:flex;align-items:center;gap:.6rem;padding:.4rem 1.1rem;margin:.4rem .45rem .04rem;border-radius:6px;color:rgba(255,255,255,.85);background:none;border:none;width:calc(100% - .9rem);cursor:pointer;font-size:.79rem;font-weight:600;letter-spacing:.01em;text-align:left;transition:background .15s,color .15s}
+        .nav-collapse-btn:first-of-type{margin-top:.15rem}
         .nav-collapse-btn:hover{background:rgba(255,255,255,.08);color:#fff}
-        .nav-collapse-btn .chevron{margin-left:auto;font-size:.68rem;transition:transform .2s}
-        .nav-collapse-btn[aria-expanded="true"] .chevron{transform:rotate(90deg)}
-        .nav-collapse-btn i:first-child{font-size:.92rem;opacity:.8;flex-shrink:0;width:16px;text-align:center}
-        .nav-sub{padding-left:1.4rem}
-        .nav-sub .nav-link-item{font-size:.78rem;padding:.22rem .9rem}
+        .nav-collapse-btn.show,.nav-collapse-btn[aria-expanded="true"]{color:#fff}
+        .nav-collapse-btn .chevron{margin-left:auto;font-size:.65rem;opacity:.6;transition:transform .2s}
+        .nav-collapse-btn[aria-expanded="true"] .chevron{transform:rotate(90deg);opacity:1}
+        .nav-collapse-btn i:first-child{font-size:.9rem;opacity:.85;flex-shrink:0;width:16px;text-align:center}
+        .nav-sub{padding-left:.55rem}
+        .nav-sub .nav-link-item{font-size:.78rem;padding:.28rem .9rem .28rem 1.5rem}
         .sidebar-footer{border-top:1px solid rgba(255,255,255,.07);padding:.7rem 1.1rem;flex-shrink:0}
 
         /* TOPBAR */
@@ -238,111 +239,152 @@
             <i class="bi bi-speedometer2"></i> Dashboard
         </a>
 
-        @can('view clients')
-        <div class="sidebar-section">Clients</div>
-        <a href="{{ route('clients.index') }}" class="nav-link-item {{ request()->routeIs('clients.*') && !request()->routeIs('clients.shares.*') ? 'active' : '' }}">
+        @php
+            $clientsGroupActive    = request()->routeIs('clients.*', 'shares.*', 'groups.*');
+            $savingsGroupActive    = request()->routeIs('savings-products.*', 'savings.*');
+            $loansGroupActive      = request()->routeIs('loan-products.*', 'loans.*');
+            $fdGroupActive         = request()->routeIs('fd-products.*', 'fixed-deposits.*');
+            $hrGroupActive         = request()->routeIs('employees.*', 'payroll.*');
+            $accountingGroupActive = request()->routeIs('accounts.*', 'transactions.*', 'periods.*');
+        @endphp
+
+        @canany(['view clients', 'manage shares', 'view groups'])
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#clientsMenu" aria-expanded="{{ $clientsGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-people-fill"></i> Clients
-        </a>
-        @endcan
-
-        @can('manage shares')
-        @if(\App\Models\SystemSetting::get('shares_module_enabled', '1'))
-        <a href="{{ route('shares.index') }}" class="nav-link-item {{ request()->routeIs('shares.*') ? 'active' : '' }}">
-            <i class="bi bi-pie-chart-fill"></i> Member Shares
-        </a>
-        @endif
-        @endcan
-
-        @can('view groups')
-        <a href="{{ route('groups.index') }}" class="nav-link-item {{ request()->routeIs('groups.*') ? 'active' : '' }}">
-            <i class="bi bi-collection-fill"></i> Groups
-        </a>
-        @endcan
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $clientsGroupActive ? 'show' : '' }}" id="clientsMenu">
+            @can('view clients')
+            <a href="{{ route('clients.index') }}" class="nav-link-item {{ request()->routeIs('clients.*') && !request()->routeIs('clients.shares.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill"></i> Clients
+            </a>
+            @endcan
+            @can('manage shares')
+            @if(\App\Models\SystemSetting::get('shares_module_enabled', '1'))
+            <a href="{{ route('shares.index') }}" class="nav-link-item {{ request()->routeIs('shares.*') ? 'active' : '' }}">
+                <i class="bi bi-pie-chart-fill"></i> Member Shares
+            </a>
+            @endif
+            @endcan
+            @can('view groups')
+            <a href="{{ route('groups.index') }}" class="nav-link-item {{ request()->routeIs('groups.*') ? 'active' : '' }}">
+                <i class="bi bi-collection-fill"></i> Groups
+            </a>
+            @endcan
+        </div>
+        @endcanany
 
         @canany(['view savings-products', 'view savings'])
-        <div class="sidebar-section">Savings</div>
-        @can('view savings-products')
-        <a href="{{ route('savings-products.index') }}" class="nav-link-item {{ request()->routeIs('savings-products.*') ? 'active' : '' }}">
-            <i class="bi bi-grid-3x3-gap"></i> Savings Products
-        </a>
-        @endcan
-        @can('view savings')
-        <a href="{{ route('savings.index') }}" class="nav-link-item {{ request()->routeIs('savings.*') ? 'active' : '' }}">
-            <i class="bi bi-piggy-bank-fill"></i> Savings Accounts
-        </a>
-        @endcan
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#savingsMenu" aria-expanded="{{ $savingsGroupActive ? 'true' : 'false' }}">
+            <i class="bi bi-piggy-bank-fill"></i> Savings
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $savingsGroupActive ? 'show' : '' }}" id="savingsMenu">
+            @can('view savings-products')
+            <a href="{{ route('savings-products.index') }}" class="nav-link-item {{ request()->routeIs('savings-products.*') ? 'active' : '' }}">
+                <i class="bi bi-grid-3x3-gap"></i> Savings Products
+            </a>
+            @endcan
+            @can('view savings')
+            <a href="{{ route('savings.index') }}" class="nav-link-item {{ request()->routeIs('savings.*') ? 'active' : '' }}">
+                <i class="bi bi-piggy-bank-fill"></i> Savings Accounts
+            </a>
+            @endcan
+        </div>
         @endcanany
 
         @canany(['view loan-products', 'view loans', 'run loans'])
-        <div class="sidebar-section">Loans</div>
-        @can('view loan-products')
-        <a href="{{ route('loan-products.index') }}" class="nav-link-item {{ request()->routeIs('loan-products.*') ? 'active' : '' }}">
-            <i class="bi bi-grid-3x3-gap"></i> Loan Products
-        </a>
-        @endcan
-        @can('view loans')
-        <a href="{{ route('loans.index') }}" class="nav-link-item {{ request()->routeIs('loans.*') ? 'active' : '' }}">
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#loansMenu" aria-expanded="{{ $loansGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-cash-stack"></i> Loans
-            @php $pendingLoans = \App\Models\Loan::where('status','pending')->count(); @endphp
-            @if($pendingLoans > 0)
-                <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $pendingLoans }}</span>
-            @endif
-        </a>
-        @endcan
-        @can('run loans')
-        <a href="{{ route('loans.run') }}" class="nav-link-item {{ request()->routeIs('loans.run') ? 'active' : '' }}">
-            <i class="bi bi-calendar2-check"></i> Run Loans
-        </a>
-        @endcan
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $loansGroupActive ? 'show' : '' }}" id="loansMenu">
+            @can('view loan-products')
+            <a href="{{ route('loan-products.index') }}" class="nav-link-item {{ request()->routeIs('loan-products.*') ? 'active' : '' }}">
+                <i class="bi bi-grid-3x3-gap"></i> Loan Products
+            </a>
+            @endcan
+            @can('view loans')
+            <a href="{{ route('loans.index') }}" class="nav-link-item {{ request()->routeIs('loans.*') ? 'active' : '' }}">
+                <i class="bi bi-cash-stack"></i> Loans
+                @php $pendingLoans = \App\Models\Loan::where('status','pending')->count(); @endphp
+                @if($pendingLoans > 0)
+                    <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $pendingLoans }}</span>
+                @endif
+            </a>
+            @endcan
+            @can('run loans')
+            <a href="{{ route('loans.run') }}" class="nav-link-item {{ request()->routeIs('loans.run') ? 'active' : '' }}">
+                <i class="bi bi-calendar2-check"></i> Run Loans
+            </a>
+            @endcan
+        </div>
         @endcanany
 
         @canany(['view fd-products', 'view fixed-deposits'])
-        <div class="sidebar-section">Fixed Deposits</div>
-        @can('view fd-products')
-        <a href="{{ route('fd-products.index') }}" class="nav-link-item {{ request()->routeIs('fd-products.*') ? 'active' : '' }}">
-            <i class="bi bi-grid-3x3-gap"></i> FD Products
-        </a>
-        @endcan
-        @can('view fixed-deposits')
-        <a href="{{ route('fixed-deposits.index') }}" class="nav-link-item {{ request()->routeIs('fixed-deposits.*') ? 'active' : '' }}">
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#fdMenu" aria-expanded="{{ $fdGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-safe-fill"></i> Fixed Deposits
-            @php $maturedFDs = \App\Models\FixedDeposit::where('status','active')->where('maturity_date','<=',now()->toDateString())->count(); @endphp
-            @if($maturedFDs > 0)
-                <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $maturedFDs }}</span>
-            @endif
-        </a>
-        @endcan
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $fdGroupActive ? 'show' : '' }}" id="fdMenu">
+            @can('view fd-products')
+            <a href="{{ route('fd-products.index') }}" class="nav-link-item {{ request()->routeIs('fd-products.*') ? 'active' : '' }}">
+                <i class="bi bi-grid-3x3-gap"></i> FD Products
+            </a>
+            @endcan
+            @can('view fixed-deposits')
+            <a href="{{ route('fixed-deposits.index') }}" class="nav-link-item {{ request()->routeIs('fixed-deposits.*') ? 'active' : '' }}">
+                <i class="bi bi-safe-fill"></i> Fixed Deposits
+                @php $maturedFDs = \App\Models\FixedDeposit::where('status','active')->where('maturity_date','<=',now()->toDateString())->count(); @endphp
+                @if($maturedFDs > 0)
+                    <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $maturedFDs }}</span>
+                @endif
+            </a>
+            @endcan
+        </div>
         @endcanany
 
-        <div class="sidebar-section">HR &amp; Payroll</div>
-        @can('view employees')
-        <a href="{{ route('employees.index') }}" class="nav-link-item {{ request()->routeIs('employees.*') ? 'active' : '' }}">
-            <i class="bi bi-person-badge me-1"></i> Employees
-        </a>
-        @endcan
-        @can('view payroll')
-        <a href="{{ route('payroll.index') }}" class="nav-link-item {{ request()->routeIs('payroll.*') ? 'active' : '' }}">
-            <i class="bi bi-cash-coin me-1"></i> Payroll
-        </a>
-        @endcan
+        @canany(['view employees', 'view payroll'])
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#hrMenu" aria-expanded="{{ $hrGroupActive ? 'true' : 'false' }}">
+            <i class="bi bi-person-badge"></i> HR &amp; Payroll
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $hrGroupActive ? 'show' : '' }}" id="hrMenu">
+            @can('view employees')
+            <a href="{{ route('employees.index') }}" class="nav-link-item {{ request()->routeIs('employees.*') ? 'active' : '' }}">
+                <i class="bi bi-person-badge"></i> Employees
+            </a>
+            @endcan
+            @can('view payroll')
+            <a href="{{ route('payroll.index') }}" class="nav-link-item {{ request()->routeIs('payroll.*') ? 'active' : '' }}">
+                <i class="bi bi-cash-coin"></i> Payroll
+            </a>
+            @endcan
+        </div>
+        @endcanany
 
-        @canany(['view accounts', 'view transactions'])
-        <div class="sidebar-section">Accounting</div>
-        @can('view accounts')
-        <a href="{{ route('accounts.index') }}" class="nav-link-item {{ request()->routeIs('accounts.*') ? 'active' : '' }}">
-            <i class="bi bi-journal-text"></i> Chart of Accounts
-        </a>
-        @endcan
-        @can('view transactions')
-        <a href="{{ route('transactions.index') }}" class="nav-link-item {{ request()->routeIs('transactions.*') ? 'active' : '' }}">
-            <i class="bi bi-arrow-left-right"></i> Journal Entries
-        </a>
-        @endcan
-        @can('manage settings')
-        <a href="{{ route('periods.index') }}" class="nav-link-item {{ request()->routeIs('periods.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar2-check"></i> Financial Periods
-        </a>
-        @endcan
+        @canany(['view accounts', 'view transactions', 'manage settings'])
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#accountingMenu" aria-expanded="{{ $accountingGroupActive ? 'true' : 'false' }}">
+            <i class="bi bi-journal-text"></i> Accounting
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $accountingGroupActive ? 'show' : '' }}" id="accountingMenu">
+            @can('view accounts')
+            <a href="{{ route('accounts.index') }}" class="nav-link-item {{ request()->routeIs('accounts.*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i> Chart of Accounts
+            </a>
+            @endcan
+            @can('view transactions')
+            <a href="{{ route('transactions.index') }}" class="nav-link-item {{ request()->routeIs('transactions.*') ? 'active' : '' }}">
+                <i class="bi bi-arrow-left-right"></i> Journal Entries
+            </a>
+            @endcan
+            @can('manage settings')
+            <a href="{{ route('periods.index') }}" class="nav-link-item {{ request()->routeIs('periods.*') ? 'active' : '' }}">
+                <i class="bi bi-calendar2-check"></i> Financial Periods
+            </a>
+            @endcan
+        </div>
         @endcanany
 
         @php
@@ -352,7 +394,6 @@
         @endphp
 
         @can('view reports')
-        <div class="sidebar-section">Financial Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#reportsMenu"
             aria-expanded="{{ (request()->routeIs('reports.*') && !request()->routeIs($movedReportRoutes)) ? 'true' : 'false' }}">
             <i class="bi bi-bar-chart-line-fill"></i> Reports
@@ -368,7 +409,6 @@
         @endcan
 
         @can('view loan reports')
-        <div class="sidebar-section">Loan Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#loanReportMenu"
             aria-expanded="{{ request()->routeIs($loanReportRoutes) ? 'true' : 'false' }}">
             <i class="bi bi-cash-coin"></i> Loan Reports
@@ -383,7 +423,6 @@
         @endcan
 
         @can('view savings reports')
-        <div class="sidebar-section">Savings Reports</div>
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#savingsReportMenu"
             aria-expanded="{{ request()->routeIs($savingsReportRoutes) ? 'true' : 'false' }}">
             <i class="bi bi-piggy-bank"></i> Savings Reports
@@ -413,57 +452,69 @@
         </a>
         @endcan
 
+        @php
+            $adminGroupActive = request()->routeIs(
+                'branches.*', 'client-segments.*', 'close-accounts.*', 'client-closure.*',
+                'users.*', 'roles.*', 'settings.*', 'loan-penalty-tiers.*',
+                'savings-interest-tiers.*', 'audit.*', 'backup.*'
+            );
+        @endphp
         @canany(['manage branches', 'manage client segments', 'close accounts', 'edit clients', 'manage users', 'manage settings', 'manage backup'])
-        <div class="sidebar-section">Administration</div>
-        @can('manage branches')
-        <a href="{{ route('branches.index') }}" class="nav-link-item {{ request()->routeIs('branches.*') ? 'active' : '' }}">
-            <i class="bi bi-diagram-3-fill"></i> Branches
-        </a>
-        @endcan
-        @can('manage client segments')
-        <a href="{{ route('client-segments.index') }}" class="nav-link-item {{ request()->routeIs('client-segments.*') ? 'active' : '' }}">
-            <i class="bi bi-tags-fill"></i> Client Segments
-        </a>
-        @endcan
-        @can('close accounts')
-        <a href="{{ route('close-accounts.index') }}" class="nav-link-item {{ request()->routeIs('close-accounts.*') ? 'active' : '' }}">
-            <i class="bi bi-x-circle-fill"></i> Close Accounts
-        </a>
-        @endcan
-        @can('edit clients')
-        <a href="{{ route('client-closure.index') }}" class="nav-link-item {{ request()->routeIs('client-closure.*') ? 'active' : '' }}">
-            <i class="bi bi-person-dash-fill"></i> Clients Eligible for Closing
-        </a>
-        @endcan
-        @can('manage users')
-        <a href="{{ route('users.index') }}" class="nav-link-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
-            <i class="bi bi-person-badge-fill"></i> Users & Roles
-        </a>
-        @endcan
-        @role('super_admin')
-        <a href="{{ route('roles.index') }}" class="nav-link-item {{ request()->routeIs('roles.*') ? 'active' : '' }}">
-            <i class="bi bi-shield-shaded"></i> Roles &amp; Permissions
-        </a>
-        @endrole
-        @can('manage settings')
-        <a href="{{ route('settings.index') }}" class="nav-link-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
-            <i class="bi bi-gear-fill"></i> System Settings
-        </a>
-        <a href="{{ route('loan-penalty-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('loan-penalty-tiers.*') ? 'active' : '' }}">
-            <i class="bi bi-exclamation-diamond-fill"></i> Loan Penalty Tiers
-        </a>
-        <a href="{{ route('savings-interest-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('savings-interest-tiers.*') ? 'active' : '' }}">
-            <i class="bi bi-graph-up-arrow"></i> Savings Interest Tiers
-        </a>
-        <a href="{{ route('audit.index') }}" class="nav-link-item {{ request()->routeIs('audit.*') ? 'active' : '' }}">
-            <i class="bi bi-shield-lock-fill"></i> Audit Log
-        </a>
-        @endcan
-        @can('manage backup')
-        <a href="{{ route('backup.index') }}" class="nav-link-item {{ request()->routeIs('backup.*') ? 'active' : '' }}">
-            <i class="bi bi-database-fill-down"></i> Database Backup
-        </a>
-        @endcan
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#adminMenu" aria-expanded="{{ $adminGroupActive ? 'true' : 'false' }}">
+            <i class="bi bi-gear-fill"></i> Administration
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ $adminGroupActive ? 'show' : '' }}" id="adminMenu">
+            @can('manage branches')
+            <a href="{{ route('branches.index') }}" class="nav-link-item {{ request()->routeIs('branches.*') ? 'active' : '' }}">
+                <i class="bi bi-diagram-3-fill"></i> Branches
+            </a>
+            @endcan
+            @can('manage client segments')
+            <a href="{{ route('client-segments.index') }}" class="nav-link-item {{ request()->routeIs('client-segments.*') ? 'active' : '' }}">
+                <i class="bi bi-tags-fill"></i> Client Segments
+            </a>
+            @endcan
+            @can('close accounts')
+            <a href="{{ route('close-accounts.index') }}" class="nav-link-item {{ request()->routeIs('close-accounts.*') ? 'active' : '' }}">
+                <i class="bi bi-x-circle-fill"></i> Close Accounts
+            </a>
+            @endcan
+            @can('edit clients')
+            <a href="{{ route('client-closure.index') }}" class="nav-link-item {{ request()->routeIs('client-closure.*') ? 'active' : '' }}">
+                <i class="bi bi-person-dash-fill"></i> Clients Eligible for Closing
+            </a>
+            @endcan
+            @can('manage users')
+            <a href="{{ route('users.index') }}" class="nav-link-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                <i class="bi bi-person-badge-fill"></i> Users & Roles
+            </a>
+            @endcan
+            @role('super_admin')
+            <a href="{{ route('roles.index') }}" class="nav-link-item {{ request()->routeIs('roles.*') ? 'active' : '' }}">
+                <i class="bi bi-shield-shaded"></i> Roles &amp; Permissions
+            </a>
+            @endrole
+            @can('manage settings')
+            <a href="{{ route('settings.index') }}" class="nav-link-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
+                <i class="bi bi-gear-fill"></i> System Settings
+            </a>
+            <a href="{{ route('loan-penalty-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('loan-penalty-tiers.*') ? 'active' : '' }}">
+                <i class="bi bi-exclamation-diamond-fill"></i> Loan Penalty Tiers
+            </a>
+            <a href="{{ route('savings-interest-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('savings-interest-tiers.*') ? 'active' : '' }}">
+                <i class="bi bi-graph-up-arrow"></i> Savings Interest Tiers
+            </a>
+            <a href="{{ route('audit.index') }}" class="nav-link-item {{ request()->routeIs('audit.*') ? 'active' : '' }}">
+                <i class="bi bi-shield-lock-fill"></i> Audit Log
+            </a>
+            @endcan
+            @can('manage backup')
+            <a href="{{ route('backup.index') }}" class="nav-link-item {{ request()->routeIs('backup.*') ? 'active' : '' }}">
+                <i class="bi bi-database-fill-down"></i> Database Backup
+            </a>
+            @endcan
+        </div>
         @endcanany
 
     </div>
