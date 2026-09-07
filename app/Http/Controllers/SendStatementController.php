@@ -195,21 +195,16 @@ class SendStatementController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $projectedInterest = $account->product->interest_method === 'tiered'
+        $pendingInterest = $account->product->interest_method === 'tiered'
             ? $this->savingsService->previewAccruedInterest($account, $toDate)
             : 0;
-        $yearInterest = (float) \App\Models\SavingsTransaction::where('savings_account_id', $account->id)
-            ->where('reference', 'like', 'INT-%')
-            ->where('transaction_date', '>=', now()->startOfYear()->toDateString())
-            ->sum('amount');
 
         return Pdf::loadView('pdf.savings-statement', [
             'account'           => $account,
             'transactions'      => $transactions,
             'fromDate'          => $fromDate,
             'toDate'            => $toDate,
-            'projectedInterest' => $projectedInterest,
-            'yearInterest'      => $yearInterest,
+            'pendingInterest'   => $pendingInterest,
         ])->setPaper('a4', 'portrait')->output();
     }
 }

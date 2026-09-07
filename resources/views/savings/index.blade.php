@@ -100,7 +100,7 @@
     <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(excl. this year's interest)</span></div>
+                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(excl. pending interest)</span></div>
                 <div class="fs-4 fw-bold">{{ number_format($totalExclInterest, $dp) }}</div>
             </div>
         </div>
@@ -141,7 +141,7 @@
         <table class="table table-hover align-middle mb-0">
             <thead><tr>
                 <th class="ps-3">Account #</th><th>Client</th><th>Product</th>
-                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(excl. this year's interest)</span></th>
+                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(excl. pending interest)</span></th>
                 <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(incl. interest)</span></th>
                 <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
@@ -157,8 +157,8 @@
                         @endif
                     </td>
                     <td class="small text-muted">{{ $acc->product->name }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($acc->balance - $acc->year_interest, $dp) }}</td>
-                    <td class="text-end fw-semibold {{ $acc->year_interest > 0 ? 'text-success' : '' }}">
+                    <td class="text-end fw-semibold">{{ number_format($acc->balance - $acc->pending_interest, $dp) }}</td>
+                    <td class="text-end fw-semibold {{ $acc->pending_interest > 0 ? 'text-success' : '' }}">
                         {{ number_format($acc->balance, $dp) }}
                     </td>
                     <td><span class="badge badge-status-{{ $acc->status }}">{{ ucfirst($acc->status) }}</span></td>

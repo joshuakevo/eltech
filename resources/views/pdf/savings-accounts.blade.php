@@ -40,7 +40,7 @@
 <table class="summary-row">
     <tr>
         <td><span class="lbl">Number of Savers</span><span class="val">{{ number_format($totalSavers) }}</span></td>
-        <td><span class="lbl">Total Savings (excl. this year's interest)</span><span class="val">{{ number_format($totalExclInterest, 0) }}</span></td>
+        <td><span class="lbl">Total Savings (excl. pending interest)</span><span class="val">{{ number_format($totalExclInterest, 0) }}</span></td>
         <td><span class="lbl">Total Savings (incl. interest)</span><span class="val">{{ number_format($totalBalance, 0) }}</span></td>
     </tr>
 </table>
@@ -64,7 +64,7 @@
         <td>{{ $acc->account_number }}</td>
         <td><strong>{{ $acc->client->name ?? '—' }}</strong> <span class="text-muted">{{ $acc->client->client_number ?? '' }}</span></td>
         <td class="text-muted">{{ $acc->product->name ?? '—' }}</td>
-        <td class="r">{{ number_format($acc->balance - $acc->year_interest, 0) }}</td>
+        <td class="r">{{ number_format($acc->balance - $acc->pending_interest, 0) }}</td>
         <td class="r">{{ number_format($acc->balance, 0) }}</td>
         <td class="{{ $acc->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($acc->status) }}</td>
     </tr>
