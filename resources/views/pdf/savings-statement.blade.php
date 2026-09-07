@@ -1,4 +1,4 @@
-﻿@php $projectedInterest = $projectedInterest ?? 0; @endphp
+﻿@php $projectedInterest = $projectedInterest ?? 0; $yearInterest = $yearInterest ?? 0; @endphp
 <!DOCTYPE html>
 <html>
 <head>
@@ -76,11 +76,11 @@
         <tr><td class="label">Product</td><td class="value">{{ $account->product->name }}</td></tr>
         <tr><td class="label">Date Opened</td><td class="value">{{ $account->opened_date->format('d M Y') }}</td></tr>
         <tr><td class="label">Status</td><td class="value">{{ strtoupper($account->status) }}</td></tr>
-        <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
-        @if($account->product->interest_method === 'tiered')
-        <tr><td class="label">Accrued Interest (pending)</td><td class="value" style="color:#2563eb">{{ number_format($projectedInterest, $dp) }}</td></tr>
+        <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance - $yearInterest, $dp) }}</td></tr>
+        @if($account->product->interest_method === 'tiered' && $projectedInterest > 0)
+        <tr><td class="label">Accrued Interest (pending, not yet posted)</td><td class="value" style="color:#2563eb">{{ number_format($projectedInterest, $dp) }}</td></tr>
         @endif
-        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance + $projectedInterest, $dp) }}</td></tr>
+        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
     </table>
 </td>
 </tr>

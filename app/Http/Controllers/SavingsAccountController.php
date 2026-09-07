@@ -27,20 +27,20 @@ class SavingsAccountController extends Controller
 
         if ($request->format === 'pdf') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
-            $this->attachProjectedInterest($all);
-            $totalWithInterest = $totalBalance + $all->sum('projected_interest');
+            $this->attachYearInterest($all);
+            $totalExclInterest = $totalBalance - $all->sum('year_interest');
             $pdf = Pdf::loadView('pdf.savings-accounts', [
-                'accounts'          => $all,
-                'totalBalance'      => $totalBalance,
-                'totalWithInterest' => $totalWithInterest,
-                'totalSavers'       => $totalSavers,
+                'accounts'           => $all,
+                'totalBalance'       => $totalBalance,
+                'totalExclInterest'  => $totalExclInterest,
+                'totalSavers'        => $totalSavers,
             ])->setPaper('a4', 'portrait');
             return $pdf->download('savings-accounts-' . now()->format('Y-m-d') . '.pdf');
         }
 
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
-            $this->attachProjectedInterest($all);
+            $this->attachYearInterest($all);
             $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance (excl. Interest)', 'Balance (incl. Interest)', 'Status']];
             foreach ($all as $acc) {
                 $rows[] = [
@@ -48,12 +48,12 @@ class SavingsAccountController extends Controller
                     $acc->client->name ?? '',
                     $acc->client->client_number ?? '',
                     $acc->product->name ?? '',
+                    $acc->balance - $acc->year_interest,
                     $acc->balance,
-                    $acc->balance + $acc->projected_interest,
                     ucfirst($acc->status),
                 ];
             }
-            $rows[] = ['', '', '', 'TOTAL', $totalBalance, $totalBalance + $all->sum('projected_interest'), $totalSavers . ' savers'];
+            $rows[] = ['', '', '', 'TOTAL', $totalBalance - $all->sum('year_interest'), $totalBalance, $totalSavers . ' savers'];
             return $this->csvDownload($rows, 'savings-accounts-' . now()->format('Y-m-d'));
         }
 
@@ -61,40 +61,58 @@ class SavingsAccountController extends Controller
             ->orderByDesc('balance')
             ->paginate(20);
 
-        $this->attachProjectedInterest($accounts->getCollection());
-        $totalWithInterest = $totalBalance + $this->sumProjectedInterest(clone $filtered);
+        $this->attachYearInterest($accounts->getCollection());
+        $totalExclInterest = $totalBalance - $this->sumYearInterest(clone $filtered);
 
-        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers', 'totalWithInterest'));
+        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers', 'totalExclInterest'));
     }
 
     /**
-     * True total of not-yet-posted tiered interest across every account
-     * matching the query (not just one page) -- only tiered-product accounts
-     * are iterated, since flat-rate products always project to 0.
+     * Interest actually posted (via SavingsService::postInterest(), tagged
+     * with a reference starting "INT-" regardless of interest_method) to
+     * each account so far in the current calendar year -- i.e. since the
+     * last time it would have been "transferred to the real balance" at a
+     * prior year-end. Balance always includes every interest credit ever
+     * posted; subtracting this year's gives the excl.-interest figure.
      */
-    private function sumProjectedInterest($query): float
+    private function attachYearInterest($accounts): void
     {
-        $tiered = (clone $query)->whereHas('product', fn($q) => $q->where('interest_method', 'tiered'))->get();
-        $sum = 0.0;
-        foreach ($tiered as $acc) {
-            $sum += $this->savingsService->previewAccruedInterest($acc);
-        }
-        return $sum;
-    }
-
-    /**
-     * Sets a transient `projected_interest` attribute on each account: for
-     * tiered-interest products this is the same silently-accrued, not-yet-
-     * posted interest already shown as "Accrued Interest" / used to compute
-     * "Balance (incl. Interest)" on the account show/statement pages
-     * (SavingsService::previewAccruedInterest). Flat-rate products post
-     * automatically, so this is always 0 for them.
-     */
-    private function attachProjectedInterest($accounts): void
-    {
+        $sums = $this->yearInterestSums($accounts->pluck('id'));
         foreach ($accounts as $acc) {
-            $acc->projected_interest = $this->savingsService->previewAccruedInterest($acc);
+            $acc->year_interest = (float) ($sums[$acc->id] ?? 0);
         }
+    }
+
+    /**
+     * True total of this-year posted interest across every account matching
+     * the query (not just one page).
+     */
+    private function sumYearInterest($query): float
+    {
+        $ids = (clone $query)->pluck('id');
+        return array_sum($this->yearInterestSums($ids)->all());
+    }
+
+    private function yearInterestSums($accountIds)
+    {
+        return \App\Models\SavingsTransaction::whereIn('savings_account_id', $accountIds)
+            ->where('reference', 'like', 'INT-%')
+            ->where('transaction_date', '>=', now()->startOfYear()->toDateString())
+            ->groupBy('savings_account_id')
+            ->selectRaw('savings_account_id, SUM(amount) as total')
+            ->pluck('total', 'savings_account_id');
+    }
+
+    /**
+     * Interest actually posted to this single account so far in the current
+     * calendar year -- see attachYearInterest() above for the full rationale.
+     */
+    private function yearInterestFor(SavingsAccount $account): float
+    {
+        return (float) \App\Models\SavingsTransaction::where('savings_account_id', $account->id)
+            ->where('reference', 'like', 'INT-%')
+            ->where('transaction_date', '>=', now()->startOfYear()->toDateString())
+            ->sum('amount');
     }
 
     public function create(Request $request)
@@ -125,7 +143,8 @@ class SavingsAccountController extends Controller
         $projectedInterest = $saving->product->interest_method === 'tiered'
             ? $this->savingsService->previewAccruedInterest($saving)
             : 0;
-        return view('savings.show', compact('saving', 'projectedInterest'));
+        $yearInterest = $this->yearInterestFor($saving);
+        return view('savings.show', compact('saving', 'projectedInterest', 'yearInterest'));
     }
 
     public function depositForm(SavingsAccount $saving)
@@ -238,8 +257,9 @@ class SavingsAccountController extends Controller
         $projectedInterest = $account->product->interest_method === 'tiered'
             ? $this->savingsService->previewAccruedInterest($account, $toDate)
             : 0;
+        $yearInterest = $this->yearInterestFor($account);
 
-        return view('savings.statement', compact('account', 'transactions', 'fromDate', 'toDate', 'projectedInterest'));
+        return view('savings.statement', compact('account', 'transactions', 'fromDate', 'toDate', 'projectedInterest', 'yearInterest'));
     }
 
     public function statementPdf(Request $request, SavingsAccount $saving)
@@ -259,11 +279,12 @@ class SavingsAccountController extends Controller
         $account      = $saving;
         $fromDate     = $request->from_date;
         $toDate       = $request->to_date;
+        $yearInterest = $this->yearInterestFor($account);
         $projectedInterest = $account->product->interest_method === 'tiered'
             ? $this->savingsService->previewAccruedInterest($account, $toDate)
             : 0;
 
-        $pdf = Pdf::loadView('pdf.savings-statement', compact('account', 'transactions', 'fromDate', 'toDate', 'projectedInterest'))
+        $pdf = Pdf::loadView('pdf.savings-statement', compact('account', 'transactions', 'fromDate', 'toDate', 'projectedInterest', 'yearInterest'))
             ->setPaper('a4', 'portrait');
         return $pdf->download("savings-statement-{$saving->account_number}.pdf");
     }

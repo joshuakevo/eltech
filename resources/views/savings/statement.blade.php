@@ -64,11 +64,11 @@
                     @else
                     <tr><td class="text-muted">Interest Rate</td><td>{{ $account->product->interest_rate ?? 0 }}% p.a.</td></tr>
                     @endif
-                    <tr><td class="text-muted">Balance (excl. Interest)</td><td class="fw-bold text-success fs-6">{{ number_format($account->balance, $dp) }}</td></tr>
-                    @if($account->product->interest_method === 'tiered')
-                    <tr><td class="text-muted">Accrued Interest <span class="d-block" style="font-size:.7rem">(pending, uncredited)</span></td><td class="fw-semibold text-primary">{{ number_format($projectedInterest, $dp) }}</td></tr>
+                    <tr><td class="text-muted">Balance (excl. Interest)</td><td class="fw-bold text-success fs-6">{{ number_format($account->balance - $yearInterest, $dp) }}</td></tr>
+                    @if($account->product->interest_method === 'tiered' && $projectedInterest > 0)
+                    <tr><td class="text-muted">Accrued Interest <span class="d-block" style="font-size:.7rem">(pending, not yet posted)</span></td><td class="fw-semibold text-primary">{{ number_format($projectedInterest, $dp) }}</td></tr>
                     @endif
-                    <tr><td class="text-muted">Balance (incl. Interest)</td><td class="fw-bold text-success fs-6">{{ number_format($account->balance + $projectedInterest, $dp) }}</td></tr>
+                    <tr><td class="text-muted">Balance (incl. Interest)</td><td class="fw-bold text-success fs-6">{{ number_format($account->balance, $dp) }}</td></tr>
                 </table>
             </div>
         </div>
@@ -109,15 +109,15 @@
         <div class="card text-center">
             <div class="card-body py-2">
                 <div class="small text-muted">Closing Balance (excl. Interest)</div>
-                <div class="fw-bold fs-6">{{ number_format($account->balance, $dp) }}</div>
+                <div class="fw-bold fs-6">{{ number_format($account->balance - $yearInterest, $dp) }}</div>
             </div>
         </div>
     </div>
-    @if($account->product->interest_method === 'tiered')
+    @if($account->product->interest_method === 'tiered' && $projectedInterest > 0)
     <div class="col">
         <div class="card text-center border-primary">
             <div class="card-body py-2">
-                <div class="small text-muted">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, uncredited)</span></div>
+                <div class="small text-muted">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, not yet posted)</span></div>
                 <div class="fw-bold fs-6 text-primary">{{ number_format($projectedInterest, $dp) }}</div>
             </div>
         </div>
@@ -127,7 +127,7 @@
         <div class="card text-center border-primary">
             <div class="card-body py-2">
                 <div class="small text-muted">Closing Balance (incl. Interest)</div>
-                <div class="fw-bold fs-6 text-primary">{{ number_format($account->balance + $projectedInterest, $dp) }}</div>
+                <div class="fw-bold fs-6 text-primary">{{ number_format($account->balance, $dp) }}</div>
             </div>
         </div>
     </div>

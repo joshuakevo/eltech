@@ -222,6 +222,10 @@ class ClientPortalController extends Controller
         $projectedInterest = $savingsAccount->product->interest_method === 'tiered'
             ? $this->savingsService->previewAccruedInterest($savingsAccount)
             : 0;
+        $yearInterest = (float) \App\Models\SavingsTransaction::where('savings_account_id', $savingsAccount->id)
+            ->where('reference', 'like', 'INT-%')
+            ->where('transaction_date', '>=', now()->startOfYear()->toDateString())
+            ->sum('amount');
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.savings-statement', [
             'account'            => $savingsAccount,
@@ -230,6 +234,7 @@ class ClientPortalController extends Controller
             'fromDate'           => null,
             'toDate'             => null,
             'projectedInterest'  => $projectedInterest,
+            'yearInterest'       => $yearInterest,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("savings-statement-{$savingsAccount->account_number}.pdf");

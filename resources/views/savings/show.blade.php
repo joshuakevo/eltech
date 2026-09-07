@@ -75,13 +75,13 @@
     <div class="col">
         <div class="stat-card text-center">
             <div class="text-muted small">Balance (excl. Interest)</div>
-            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance, $dp) }}</div>
+            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance - $yearInterest, $dp) }}</div>
         </div>
     </div>
-    @if($saving->product->interest_method === 'tiered')
+    @if($saving->product->interest_method === 'tiered' && $projectedInterest > 0)
     <div class="col">
         <div class="stat-card text-center">
-            <div class="text-muted small">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, uncredited)</span></div>
+            <div class="text-muted small">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, not yet posted)</span></div>
             <div class="fw-bold fs-5 text-success">{{ number_format($projectedInterest, $dp) }}</div>
         </div>
     </div>
@@ -89,7 +89,7 @@
     <div class="col">
         <div class="stat-card text-center">
             <div class="text-muted small">Balance (incl. Interest)</div>
-            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance + $projectedInterest, $dp) }}</div>
+            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance, $dp) }}</div>
         </div>
     </div>
     <div class="col">
