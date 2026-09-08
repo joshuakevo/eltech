@@ -81,11 +81,11 @@
             <span style="background:#7f1d1d;color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:4px">OVERDRAWN</span>
             @endif
         </td></tr>
-        <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
+        <tr><td class="label">Balance (Excluding Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
         @if($pendingInterest > 0)
         <tr><td class="label">Accrued Interest (pending, not yet posted)</td><td class="value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</td></tr>
         @endif
-        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
+        <tr><td class="label">Balance (Including Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
     </table>
 </td>
 </tr>
@@ -104,10 +104,10 @@
     <td><span class="stat-label">Total Deposits</span><span class="stat-value amount-credit">{{ number_format($totalDeposits, $dp) }}</span></td>
     <td><span class="stat-label">Total Withdrawals</span><span class="stat-value amount-debit">{{ number_format($totalWithdrawals, $dp) }}</span></td>
     <td><span class="stat-label">Transactions</span><span class="stat-value">{{ $transactions->count() }}</span></td>
-    <td><span class="stat-label">Closing Balance{{ $pendingInterest > 0 ? ' (excl. Interest)' : '' }}</span><span class="stat-value" style="color:#0f2444">{{ number_format($account->balance - $pendingInterest, $dp) }}</span></td>
+    <td><span class="stat-label">Closing Balance{{ $pendingInterest > 0 ? ' (Excluding Interest)' : '' }}</span><span class="stat-value" style="color:#0f2444">{{ number_format($account->balance - $pendingInterest, $dp) }}</span></td>
     @if($pendingInterest > 0)
     <td><span class="stat-label">Accrued Interest</span><span class="stat-value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</span></td>
-    <td><span class="stat-label">Closing Bal. incl. Interest</span><span class="stat-value" style="color:#2563eb">{{ number_format($account->balance, $dp) }}</span></td>
+    <td><span class="stat-label">Closing Balance (Including Interest)</span><span class="stat-value" style="color:#2563eb">{{ number_format($account->balance, $dp) }}</span></td>
     @endif
 </tr>
 </table>

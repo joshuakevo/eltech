@@ -80,7 +80,7 @@
                         Interest is the <strong>sum of daily accruals</strong> from the last posting date up to the selected date —
                         deposits and withdrawals during the period are correctly reflected.<br>
                         Flat-rate products are also credited automatically on the 1st of every month. <strong>Tiered products are never credited automatically</strong> —
-                        they only accrue silently (see each account's "Balance incl. Interest") until you run this.
+                        they only accrue silently (see each account's "Balance Including Interest") until you run this.
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Posting Date <span class="text-danger">*</span></label>
@@ -100,7 +100,7 @@
     <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(excl. pending interest)</span></div>
+                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(Excluding Interest)</span></div>
                 <div class="fs-4 fw-bold">{{ number_format($totalExclInterest, $dp) }}</div>
             </div>
         </div>
@@ -108,7 +108,7 @@
     <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(incl. interest)</span></div>
+                <div class="text-muted small text-uppercase">Total Savings <span class="d-block" style="font-size:.65rem">(Including Interest)</span></div>
                 <div class="fs-4 fw-bold text-success">{{ number_format($totalBalance, $dp) }}</div>
             </div>
         </div>
@@ -141,8 +141,8 @@
         <table class="table table-hover align-middle mb-0">
             <thead><tr>
                 <th class="ps-3">Account #</th><th>Client</th><th>Product</th>
-                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(excl. pending interest)</span></th>
-                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(incl. interest)</span></th>
+                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(Excluding Interest)</span></th>
+                <th class="text-end">Balance <span class="d-block text-muted fw-normal" style="font-size:.65rem">(Including Interest)</span></th>
                 <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>

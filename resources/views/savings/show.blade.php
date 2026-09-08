@@ -79,7 +79,7 @@
 <div class="row g-3 mb-4">
     <div class="col">
         <div class="stat-card text-center">
-            <div class="text-muted small">Balance (excl. Interest)</div>
+            <div class="text-muted small">Balance (Excluding Interest)</div>
             <div class="fw-bold fs-5 {{ $saving->is_overdrawn ? 'text-overdrawn' : 'text-primary' }}">{{ number_format($saving->balance - $pendingInterest, $dp) }}</div>
         </div>
     </div>
@@ -93,7 +93,7 @@
     @endif
     <div class="col">
         <div class="stat-card text-center {{ $saving->is_overdrawn ? 'border-danger' : '' }}">
-            <div class="text-muted small">Balance (incl. Interest)</div>
+            <div class="text-muted small">Balance (Including Interest)</div>
             <div class="fw-bold fs-5 {{ $saving->is_overdrawn ? 'text-overdrawn' : 'text-primary' }}">{{ number_format($saving->balance, $dp) }}</div>
         </div>
     </div>

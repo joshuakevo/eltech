@@ -41,7 +41,7 @@ class SavingsAccountController extends Controller
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
             $this->attachPendingInterest($all);
-            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance (excl. Interest)', 'Balance (incl. Interest)', 'Status', 'Overdrawn']];
+            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance (Excluding Interest)', 'Balance (Including Interest)', 'Status', 'Overdrawn']];
             foreach ($all as $acc) {
                 $rows[] = [
                     $acc->account_number,

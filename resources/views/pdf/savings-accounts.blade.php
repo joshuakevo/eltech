@@ -42,8 +42,8 @@
 <table class="summary-row">
     <tr>
         <td><span class="lbl">Number of Savers</span><span class="val">{{ number_format($totalSavers) }}</span></td>
-        <td><span class="lbl">Total Savings (excl. pending interest)</span><span class="val">{{ number_format($totalExclInterest, 0) }}</span></td>
-        <td><span class="lbl">Total Savings (incl. interest)</span><span class="val">{{ number_format($totalBalance, 0) }}</span></td>
+        <td><span class="lbl">Total Savings (Excluding Interest)</span><span class="val">{{ number_format($totalExclInterest, 0) }}</span></td>
+        <td><span class="lbl">Total Savings (Including Interest)</span><span class="val">{{ number_format($totalBalance, 0) }}</span></td>
     </tr>
 </table>
 
@@ -54,8 +54,8 @@
             <th>Account #</th>
             <th>Client</th>
             <th>Product</th>
-            <th class="r">Balance (excl. Interest)</th>
-            <th class="r">Balance (incl. Interest)</th>
+            <th class="r">Balance (Excluding Interest)</th>
+            <th class="r">Balance (Including Interest)</th>
             <th>Status</th>
         </tr>
     </thead>
