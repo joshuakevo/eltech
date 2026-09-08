@@ -7,7 +7,12 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="fw-bold mb-0">{{ $saving->account_number }}</h4>
+        <h4 class="fw-bold mb-0">
+            {{ $saving->account_number }}
+            @if($saving->is_overdrawn)
+            <span class="badge badge-overdrawn ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdrawn</span>
+            @endif
+        </h4>
         <span class="text-muted">{{ $saving->client->name }} &bull; {{ $saving->product->name }}</span>
     </div>
     <div class="d-flex gap-2">
@@ -75,7 +80,7 @@
     <div class="col">
         <div class="stat-card text-center">
             <div class="text-muted small">Balance (excl. Interest)</div>
-            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance - $pendingInterest, $dp) }}</div>
+            <div class="fw-bold fs-5 {{ $saving->is_overdrawn ? 'text-overdrawn' : 'text-primary' }}">{{ number_format($saving->balance - $pendingInterest, $dp) }}</div>
         </div>
     </div>
     @if($pendingInterest > 0)
@@ -87,9 +92,9 @@
     </div>
     @endif
     <div class="col">
-        <div class="stat-card text-center">
+        <div class="stat-card text-center {{ $saving->is_overdrawn ? 'border-danger' : '' }}">
             <div class="text-muted small">Balance (incl. Interest)</div>
-            <div class="fw-bold fs-5 text-primary">{{ number_format($saving->balance, $dp) }}</div>
+            <div class="fw-bold fs-5 {{ $saving->is_overdrawn ? 'text-overdrawn' : 'text-primary' }}">{{ number_format($saving->balance, $dp) }}</div>
         </div>
     </div>
     <div class="col">
@@ -138,7 +143,7 @@
                     <td class="text-end fw-semibold {{ in_array($txn->transaction_type, ['deposit','interest']) ? 'text-success' : 'text-danger' }}">
                         {{ in_array($txn->transaction_type, ['deposit','interest']) ? '+' : '-' }}{{ number_format($txn->amount, $dp) }}
                     </td>
-                    <td class="text-end pe-3">{{ number_format($txn->balance_after, $dp) }}</td>
+                    <td class="text-end pe-3 {{ $txn->balance_after < 0 ? 'text-overdrawn fw-semibold' : '' }}">{{ number_format($txn->balance_after, $dp) }}</td>
                 </tr>
             @empty
                 <tr><td colspan="7" class="text-center text-muted py-4">No transactions.</td></tr>

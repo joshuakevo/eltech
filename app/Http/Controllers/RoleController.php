@@ -82,7 +82,7 @@ class RoleController extends Controller
             'Savings' => [
                 'icon'  => 'bi-piggy-bank-fill',
                 'perms' => ['view savings-products', 'create savings-products', 'edit savings-products',
-                            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings'],
+                            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings', 'overdraw savings'],
             ],
             'Fixed Deposits' => [
                 'icon'  => 'bi-safe-fill',

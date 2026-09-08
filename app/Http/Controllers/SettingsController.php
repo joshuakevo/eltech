@@ -580,6 +580,27 @@ class SettingsController extends Controller
         return back()->with('success', "Granular loan/report permissions added.\n\n{$output}");
     }
 
+    public function previewAddOverdrawPermission()
+    {
+        Artisan::call('eltech:add-overdraw-savings-permission');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Adds the 'overdraw savings' permission that gates the confirm-overdraft
+     * option on the Withdraw screens (Savings Accounts + Quick Teller),
+     * granted additively wherever 'withdraw savings' already applies.
+     */
+    public function addOverdrawPermission()
+    {
+        Artisan::call('eltech:add-overdraw-savings-permission', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "\"overdraw savings\" permission added.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client

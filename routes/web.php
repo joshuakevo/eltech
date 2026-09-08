@@ -458,6 +458,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/flag-existing-rms', [SettingsController::class, 'flagExistingRms'])->name('settings.flag-existing-rms');
         Route::post('settings/preview-add-granular-permissions', [SettingsController::class, 'previewAddGranularPermissions'])->name('settings.preview-add-granular-permissions');
         Route::post('settings/add-granular-permissions', [SettingsController::class, 'addGranularPermissions'])->name('settings.add-granular-permissions');
+        Route::post('settings/preview-add-overdraw-permission', [SettingsController::class, 'previewAddOverdrawPermission'])->name('settings.preview-add-overdraw-permission');
+        Route::post('settings/add-overdraw-permission', [SettingsController::class, 'addOverdrawPermission'])->name('settings.add-overdraw-permission');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');

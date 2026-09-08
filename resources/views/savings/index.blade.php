@@ -157,11 +157,16 @@
                         @endif
                     </td>
                     <td class="small text-muted">{{ $acc->product->name }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($acc->balance - $acc->pending_interest, $dp) }}</td>
-                    <td class="text-end fw-semibold {{ $acc->pending_interest > 0 ? 'text-success' : '' }}">
+                    <td class="text-end fw-semibold {{ $acc->is_overdrawn ? 'text-overdrawn' : '' }}">{{ number_format($acc->balance - $acc->pending_interest, $dp) }}</td>
+                    <td class="text-end fw-semibold {{ $acc->is_overdrawn ? 'text-overdrawn' : ($acc->pending_interest > 0 ? 'text-success' : '') }}">
                         {{ number_format($acc->balance, $dp) }}
                     </td>
-                    <td><span class="badge badge-status-{{ $acc->status }}">{{ ucfirst($acc->status) }}</span></td>
+                    <td>
+                        <span class="badge badge-status-{{ $acc->status }}">{{ ucfirst($acc->status) }}</span>
+                        @if($acc->is_overdrawn)
+                        <span class="badge badge-overdrawn ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdrawn</span>
+                        @endif
+                    </td>
                     <td class="pe-3">
                         <a href="{{ route('savings.show', $acc) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
                         @can('deposit savings')

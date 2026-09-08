@@ -37,7 +37,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view savings-products', 'create savings-products', 'edit savings-products',
 
             // Savings Accounts
-            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings',
+            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings', 'overdraw savings',
 
             // FD Products
             'view fd-products', 'create fd-products', 'edit fd-products',
@@ -93,7 +93,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view clients', 'create clients', 'edit clients', 'delete clients',
             'view accounts', 'view transactions', 'create transactions', 'reverse transactions',
             'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans',
-            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings',
+            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings', 'overdraw savings',
             'view fixed-deposits', 'create fixed-deposits', 'mature fixed-deposits',
             'use teller',
             'view reports', 'view loan reports', 'view savings reports', 'send statements', 'send sms',

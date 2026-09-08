@@ -87,7 +87,7 @@ class SavingsService
     /**
      * Withdraw funds from a savings account.
      */
-    public function withdraw(SavingsAccount $account, float $amount, string $date, string $description = 'Withdrawal', ?string $reference = null, ?float $fee = null, ?int $paymentSourceAccountId = null, ?float $institutionCharge = null): SavingsTransaction
+    public function withdraw(SavingsAccount $account, float $amount, string $date, string $description = 'Withdrawal', ?string $reference = null, ?float $fee = null, ?int $paymentSourceAccountId = null, ?float $institutionCharge = null, bool $allowOverdraft = false): SavingsTransaction
     {
         $product           = $account->product;
         $minBalance        = $product->minimum_balance ?? 0;
@@ -97,15 +97,19 @@ class SavingsService
 
         // Validate against the balance that existed on the transaction date, not today's balance.
         $balAsOfDate = $this->balanceAsOf($account, $date);
-        if (($balAsOfDate - $total) < $minBalance) {
+        if (($balAsOfDate - $total) < $minBalance && !$allowOverdraft) {
             throw new \InvalidArgumentException(
                 "Insufficient balance as of {$date}. Available: " . number_format(max(0, $balAsOfDate - $minBalance), 2)
             );
         }
 
-        return DB::transaction(function () use ($account, $amount, $fee, $institutionCharge, $total, $date, $description, $reference, $product, $balAsOfDate, $paymentSourceAccountId) {
+        return DB::transaction(function () use ($account, $amount, $fee, $institutionCharge, $total, $date, $description, $reference, $product, $balAsOfDate, $paymentSourceAccountId, $minBalance) {
             $balBefore = $balAsOfDate;
             $balAfter  = $balBefore - $total;
+
+            if ($balAfter < $minBalance) {
+                $description .= ' (Overdraft)';
+            }
 
             $paymentSourceId = $paymentSourceAccountId ?? $this->getCashAccount();
 

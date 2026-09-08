@@ -14,7 +14,8 @@ class TellerController extends Controller
     public function index()
     {
         $paymentSourceAccounts = \App\Models\Account::where('is_payment_source', true)->where('is_active', true)->orderBy('account_code')->get();
-        return view('teller.index', compact('paymentSourceAccounts'));
+        $canOverdraw = auth()->user()->can('overdraw savings');
+        return view('teller.index', compact('paymentSourceAccounts', 'canOverdraw'));
     }
 
     /**
@@ -35,13 +36,14 @@ class TellerController extends Controller
             ->limit(10)
             ->get()
             ->map(fn($a) => [
-                'id'             => $a->id,
-                'account_number' => $a->account_number,
-                'client_name'    => $a->client->name,
-                'product_name'   => $a->product->name,
-                'balance'        => $a->balance,
-                'balance_fmt'    => number_format($a->balance, 2),
-                'withdrawal_fee' => $a->product->withdrawal_fee ?? 0,
+                'id'              => $a->id,
+                'account_number'  => $a->account_number,
+                'client_name'     => $a->client->name,
+                'product_name'    => $a->product->name,
+                'balance'         => $a->balance,
+                'balance_fmt'     => number_format($a->balance, 2),
+                'withdrawal_fee'  => $a->product->withdrawal_fee ?? 0,
+                'minimum_balance' => $a->product->minimum_balance ?? 0,
             ]);
 
         return response()->json($accounts);
@@ -91,6 +93,7 @@ class TellerController extends Controller
         $account           = SavingsAccount::findOrFail($data['savings_account_id']);
         $fee               = isset($data['withdrawal_fee']) ? (float) $data['withdrawal_fee'] : null;
         $institutionCharge = isset($data['institution_charge']) ? (float) $data['institution_charge'] : null;
+        $allowOverdraft    = $request->boolean('allow_overdraft') && auth()->user()->can('overdraw savings');
 
         try {
             $this->savings->withdraw(
@@ -101,7 +104,8 @@ class TellerController extends Controller
                 $data['reference'] ?? null,
                 $fee,
                 isset($data['payment_source_account_id']) ? (int) $data['payment_source_account_id'] : null,
-                $institutionCharge
+                $institutionCharge,
+                $allowOverdraft
             );
             return back()->with('success', "Withdrawal of " . number_format($data['amount'], 2) . " posted successfully.");
         } catch (\Exception $e) {

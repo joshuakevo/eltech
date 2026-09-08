@@ -735,6 +735,40 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-success">
+    <div class="card-header bg-success bg-opacity-10 text-success-emphasis fw-bold">
+        <i class="bi bi-shield-plus me-2"></i>Add "Overdraw Savings" Permission
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Adds a dedicated <strong>overdraw savings</strong> permission that gates the confirm-overdraft
+            option on the Withdraw screens (Savings Accounts and Quick Teller) -- withdrawing an account
+            below its minimum balance, into a negative balance, now requires an explicit confirmation and
+            this permission, rather than always being blocked outright.
+        </p>
+        <p class="mb-2 small text-muted">
+            Purely additive -- granted wherever <strong>withdraw savings</strong> already applies (role or
+            per-user direct grant), so anyone who can already process a withdrawal today keeps that ability
+            unchanged; this only makes the overdraft confirmation independently assignable/revokable going
+            forward via the <strong>Direct Permissions</strong> section on Edit User. Safe to run more than once.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-add-overdraw-permission') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.add-overdraw-permission') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="bi bi-shield-plus me-2"></i>Apply
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">

@@ -75,12 +75,17 @@
         <tr><td class="label">Account Number</td><td class="value">{{ $account->account_number }}</td></tr>
         <tr><td class="label">Product</td><td class="value">{{ $account->product->name }}</td></tr>
         <tr><td class="label">Date Opened</td><td class="value">{{ $account->opened_date->format('d M Y') }}</td></tr>
-        <tr><td class="label">Status</td><td class="value">{{ strtoupper($account->status) }}</td></tr>
-        <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
+        <tr><td class="label">Status</td><td class="value">
+            {{ strtoupper($account->status) }}
+            @if($account->is_overdrawn)
+            <span style="background:#7f1d1d;color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:4px">OVERDRAWN</span>
+            @endif
+        </td></tr>
+        <tr><td class="label">Balance (excl. Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
         @if($pendingInterest > 0)
         <tr><td class="label">Accrued Interest (pending, not yet posted)</td><td class="value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</td></tr>
         @endif
-        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:#065f46;font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
+        <tr><td class="label">Balance (incl. Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
     </table>
 </td>
 </tr>
@@ -141,7 +146,7 @@
             <td class="text-right amount-credit">
                 @if($isCredit) {{ number_format($t->amount, $dp) }} @else — @endif
             </td>
-            <td class="text-right" style="font-weight:bold">{{ number_format($t->balance_after, $dp) }}</td>
+            <td class="text-right" style="font-weight:bold{{ $t->balance_after < 0 ? ';color:#b91c1c' : '' }}">{{ number_format($t->balance_after, $dp) }}</td>
         </tr>
     @endforeach
     </tbody>

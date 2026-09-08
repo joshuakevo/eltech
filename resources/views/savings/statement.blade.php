@@ -58,17 +58,22 @@
                     <tr><td class="text-muted w-40">Account No.</td><td class="fw-semibold font-monospace">{{ $account->account_number }}</td></tr>
                     <tr><td class="text-muted">Product</td><td>{{ $account->product->name }}</td></tr>
                     <tr><td class="text-muted">Date Opened</td><td>{{ $account->opened_date->format('d M Y') }}</td></tr>
-                    <tr><td class="text-muted">Status</td><td><span class="badge bg-{{ $account->status === 'active' ? 'success' : 'secondary' }}">{{ strtoupper($account->status) }}</span></td></tr>
+                    <tr><td class="text-muted">Status</td><td>
+                        <span class="badge bg-{{ $account->status === 'active' ? 'success' : 'secondary' }}">{{ strtoupper($account->status) }}</span>
+                        @if($account->is_overdrawn)
+                        <span class="badge badge-overdrawn ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Overdrawn</span>
+                        @endif
+                    </td></tr>
                     @if($account->product->interest_method === 'tiered')
                     <tr><td class="text-muted">Interest Method</td><td>Graduated Tiers</td></tr>
                     @else
                     <tr><td class="text-muted">Interest Rate</td><td>{{ $account->product->interest_rate ?? 0 }}% p.a.</td></tr>
                     @endif
-                    <tr><td class="text-muted">Balance (excl. Interest)</td><td class="fw-bold text-success fs-6">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
+                    <tr><td class="text-muted">Balance (excl. Interest)</td><td class="fw-bold fs-6 {{ $account->is_overdrawn ? 'text-overdrawn' : 'text-success' }}">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
                     @if($pendingInterest > 0)
                     <tr><td class="text-muted">Accrued Interest <span class="d-block" style="font-size:.7rem">(pending, not yet posted)</span></td><td class="fw-semibold text-primary">{{ number_format($pendingInterest, $dp) }}</td></tr>
                     @endif
-                    <tr><td class="text-muted">Balance (incl. Interest)</td><td class="fw-bold text-success fs-6">{{ number_format($account->balance, $dp) }}</td></tr>
+                    <tr><td class="text-muted">Balance (incl. Interest)</td><td class="fw-bold fs-6 {{ $account->is_overdrawn ? 'text-overdrawn' : 'text-success' }}">{{ number_format($account->balance, $dp) }}</td></tr>
                 </table>
             </div>
         </div>
@@ -109,7 +114,7 @@
         <div class="card text-center">
             <div class="card-body py-2">
                 <div class="small text-muted">Closing Balance (excl. Interest)</div>
-                <div class="fw-bold fs-6">{{ number_format($account->balance - $pendingInterest, $dp) }}</div>
+                <div class="fw-bold fs-6 {{ $account->is_overdrawn ? 'text-overdrawn' : '' }}">{{ number_format($account->balance - $pendingInterest, $dp) }}</div>
             </div>
         </div>
     </div>
@@ -124,10 +129,10 @@
     </div>
     @endif
     <div class="col">
-        <div class="card text-center border-primary">
+        <div class="card text-center {{ $account->is_overdrawn ? 'border-danger' : 'border-primary' }}">
             <div class="card-body py-2">
                 <div class="small text-muted">Closing Balance (incl. Interest)</div>
-                <div class="fw-bold fs-6 text-primary">{{ number_format($account->balance, $dp) }}</div>
+                <div class="fw-bold fs-6 {{ $account->is_overdrawn ? 'text-overdrawn' : 'text-primary' }}">{{ number_format($account->balance, $dp) }}</div>
             </div>
         </div>
     </div>
@@ -185,7 +190,7 @@
                     <td class="text-end text-success">
                         @if($isCredit) {{ number_format($t->amount, $dp) }} @else — @endif
                     </td>
-                    <td class="text-end fw-semibold">{{ number_format($t->balance_after, $dp) }}</td>
+                    <td class="text-end fw-semibold {{ $t->balance_after < 0 ? 'text-overdrawn' : '' }}">{{ number_format($t->balance_after, $dp) }}</td>
                 </tr>
             @endforeach
             </tbody>
@@ -194,7 +199,7 @@
                     <td colspan="5">Totals</td>
                     <td class="text-end text-danger">{{ number_format($debitTotal, $dp) }}</td>
                     <td class="text-end text-success">{{ number_format($creditTotal, $dp) }}</td>
-                    <td class="text-end text-primary">{{ number_format($account->balance, $dp) }}</td>
+                    <td class="text-end {{ $account->is_overdrawn ? 'text-overdrawn' : 'text-primary' }}">{{ number_format($account->balance, $dp) }}</td>
                 </tr>
             </tfoot>
         </table>

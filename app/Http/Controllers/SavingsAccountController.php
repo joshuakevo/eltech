@@ -41,7 +41,7 @@ class SavingsAccountController extends Controller
         if ($request->format === 'excel') {
             $all = (clone $filtered)->with('client', 'product')->orderByDesc('balance')->get();
             $this->attachPendingInterest($all);
-            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance (excl. Interest)', 'Balance (incl. Interest)', 'Status']];
+            $rows = [['Account #', 'Client', 'Client #', 'Product', 'Balance (excl. Interest)', 'Balance (incl. Interest)', 'Status', 'Overdrawn']];
             foreach ($all as $acc) {
                 $rows[] = [
                     $acc->account_number,
@@ -51,9 +51,10 @@ class SavingsAccountController extends Controller
                     $acc->balance - $acc->pending_interest,
                     $acc->balance,
                     ucfirst($acc->status),
+                    $acc->is_overdrawn ? 'Yes' : 'No',
                 ];
             }
-            $rows[] = ['', '', '', 'TOTAL', $totalBalance - $all->sum('pending_interest'), $totalBalance, $totalSavers . ' savers'];
+            $rows[] = ['', '', '', 'TOTAL', $totalBalance - $all->sum('pending_interest'), $totalBalance, $totalSavers . ' savers', $all->contains('is_overdrawn', true) ? 'Yes' : 'No'];
             return $this->csvDownload($rows, 'savings-accounts-' . now()->format('Y-m-d'));
         }
 
@@ -218,7 +219,8 @@ class SavingsAccountController extends Controller
     public function withdrawForm(SavingsAccount $saving)
     {
         $paymentSourceAccounts = \App\Models\Account::where('is_payment_source', true)->where('is_active', true)->orderBy('account_code')->get();
-        return view('savings.withdraw', compact('saving', 'paymentSourceAccounts'));
+        $canOverdraw = auth()->user()->can('overdraw savings');
+        return view('savings.withdraw', compact('saving', 'paymentSourceAccounts', 'canOverdraw'));
     }
 
     public function withdraw(Request $request, SavingsAccount $saving)
@@ -234,8 +236,9 @@ class SavingsAccountController extends Controller
         ]);
 
         try {
-            $fee               = $request->has('withdrawal_fee') ? (float) $request->withdrawal_fee : null;
+            $fee            = $request->has('withdrawal_fee') ? (float) $request->withdrawal_fee : null;
             $institutionCharge = $request->has('institution_charge') ? (float) $request->institution_charge : null;
+            $allowOverdraft = $request->boolean('allow_overdraft') && auth()->user()->can('overdraw savings');
             $this->savingsService->withdraw(
                 $saving,
                 $request->amount,
@@ -244,7 +247,8 @@ class SavingsAccountController extends Controller
                 $request->reference,
                 $fee,
                 $request->payment_source_account_id ? (int) $request->payment_source_account_id : null,
-                $institutionCharge
+                $institutionCharge,
+                $allowOverdraft
             );
             return redirect()->route('savings.show', $saving)->with('success', 'Withdrawal processed.');
         } catch (\InvalidArgumentException $e) {

@@ -137,15 +137,16 @@
 
                 {{-- Withdraw Form --}}
                 <div id="tabWithdraw" style="display:none">
-                    <form method="POST" action="{{ route('teller.withdraw') }}">
+                    <form method="POST" action="{{ route('teller.withdraw') }}" id="tellerWithdrawForm">
                         @csrf
                         <input type="hidden" name="savings_account_id" id="withdrawAccountId">
+                        <input type="hidden" name="allow_overdraft" id="tellerAllowOverdraftInput" value="0">
                         <div class="row g-3">
                             <div class="col-sm-6">
                                 <label class="form-label fw-semibold">Amount <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <span class="input-group-text text-muted">{{ \App\Models\SystemSetting::get('currency', 'KES') }}</span>
-                                    <input type="number" name="amount" class="form-control form-control-lg"
+                                    <input type="number" name="amount" id="tellerWithdrawAmount" class="form-control form-control-lg"
                                            step="0.01" min="0.01" placeholder="0.00" required>
                                 </div>
                             </div>
@@ -185,8 +186,29 @@
                                 <input type="text" name="narration" class="form-control" placeholder="Cash withdrawal">
                             </div>
                         </div>
+                        <div id="tellerOverdraftBox" class="alert alert-danger d-none mt-3 mb-0" style="border:2px solid #dc2626">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold mb-1">Insufficient Funds</div>
+                                    <div class="small mb-2" id="tellerOverdraftMessage"></div>
+                                    @if($canOverdraw)
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="tellerOverdraftConfirm">
+                                        <label class="form-check-label fw-semibold" for="tellerOverdraftConfirm">
+                                            Yes, overdraw this account into a negative balance
+                                        </label>
+                                    </div>
+                                    @else
+                                    <div class="small fw-semibold">
+                                        You don't have permission to overdraw this account. Contact an administrator to proceed.
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
                         <div class="mt-3">
-                            <button type="submit" class="btn btn-danger btn-lg px-4">
+                            <button type="submit" class="btn btn-danger btn-lg px-4" id="tellerWithdrawSubmitBtn">
                                 <i class="bi bi-arrow-up-circle me-2"></i>Post Withdrawal
                             </button>
                         </div>
@@ -209,6 +231,9 @@
 let searchTimer = null;
 let selectedAccountId = null;
 let currentProductFee = 0;
+let selectedBalance = 0;
+let selectedMinBalance = 0;
+const canOverdraw = {{ $canOverdraw ? 'true' : 'false' }};
 
 document.getElementById('searchInput').addEventListener('input', function () {
     clearTimeout(searchTimer);
@@ -231,7 +256,7 @@ function fetchAccounts(q) {
             }
             el.innerHTML = data.map(a => `
                 <button type="button" class="list-group-item list-group-item-action py-2 px-3"
-                        onclick="selectAccount(${a.id}, '${a.account_number}', '${escHtml(a.client_name)}', '${escHtml(a.product_name)}', '${a.balance_fmt}', ${a.withdrawal_fee})">
+                        onclick="selectAccount(${a.id}, '${a.account_number}', '${escHtml(a.client_name)}', '${escHtml(a.product_name)}', '${a.balance_fmt}', ${a.withdrawal_fee}, ${a.balance}, ${a.minimum_balance})">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <div class="fw-semibold">${escHtml(a.client_name)}</div>
@@ -248,11 +273,13 @@ function escHtml(str) {
     return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-function selectAccount(id, accNo, clientName, product, balance, withdrawFee) {
+function selectAccount(id, accNo, clientName, product, balance, withdrawFee, rawBalance, minBalance) {
     selectedAccountId = id;
     document.getElementById('depositAccountId').value = id;
     document.getElementById('withdrawAccountId').value = id;
     currentProductFee = withdrawFee !== undefined ? withdrawFee : 0;
+    selectedBalance = rawBalance !== undefined ? rawBalance : 0;
+    selectedMinBalance = minBalance !== undefined ? minBalance : 0;
     document.getElementById('tellerPaymentSource').selectedIndex = 0;
     applyTellerChannelCharge();
     document.getElementById('dispAccountNo').textContent = accNo;
@@ -263,6 +290,46 @@ function selectAccount(id, accNo, clientName, product, balance, withdrawFee) {
     document.getElementById('noAccountPlaceholder').style.display = 'none';
     document.getElementById('searchResults').innerHTML = '';
     document.getElementById('searchInput').value = clientName + ' – ' + accNo;
+    document.getElementById('tellerWithdrawAmount').value = '';
+    checkTellerOverdraft();
+}
+
+function checkTellerOverdraft() {
+    var amt = parseFloat(document.getElementById('tellerWithdrawAmount').value) || 0;
+    var fee = parseFloat(document.getElementById('tellerWithdrawFee').value) || 0;
+    var total = amt + fee;
+    var available = selectedBalance - selectedMinBalance;
+    var box = document.getElementById('tellerOverdraftBox');
+    var submitBtn = document.getElementById('tellerWithdrawSubmitBtn');
+    var checkbox = document.getElementById('tellerOverdraftConfirm');
+    var hiddenInput = document.getElementById('tellerAllowOverdraftInput');
+
+    if (amt > 0 && total > available) {
+        var shortfall = total - available;
+        var resultingBalance = selectedBalance - total;
+        document.getElementById('tellerOverdraftMessage').textContent =
+            'Available: ' + available.toFixed(2) + '. This withdrawal exceeds it by ' + shortfall.toFixed(2) +
+            ', taking the balance to ' + resultingBalance.toFixed(2) + (resultingBalance < 0 ? ' (negative — overdrawn)' : '') + '.';
+        box.classList.remove('d-none');
+        if (canOverdraw) {
+            submitBtn.disabled = !(checkbox && checkbox.checked);
+            hiddenInput.value = (checkbox && checkbox.checked) ? '1' : '0';
+        } else {
+            submitBtn.disabled = true;
+            hiddenInput.value = '0';
+        }
+    } else {
+        box.classList.add('d-none');
+        submitBtn.disabled = false;
+        hiddenInput.value = '0';
+        if (checkbox) checkbox.checked = false;
+    }
+}
+document.getElementById('tellerWithdrawAmount').addEventListener('input', checkTellerOverdraft);
+document.getElementById('tellerWithdrawFee').addEventListener('input', checkTellerOverdraft);
+var tellerOverdraftCheckbox = document.getElementById('tellerOverdraftConfirm');
+if (tellerOverdraftCheckbox) {
+    tellerOverdraftCheckbox.addEventListener('change', checkTellerOverdraft);
 }
 
 function clearAccount() {
@@ -289,6 +356,8 @@ function applyTellerChannelCharge() {
 
     var institutionCharge = opt ? opt.getAttribute('data-institution-charge') : '';
     document.getElementById('tellerInstitutionCharge').value = (institutionCharge !== null && institutionCharge !== '') ? institutionCharge : 0;
+
+    checkTellerOverdraft();
 }
 document.getElementById('tellerPaymentSource').addEventListener('change', applyTellerChannelCharge);
 

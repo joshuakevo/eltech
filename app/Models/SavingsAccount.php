@@ -46,4 +46,9 @@ class SavingsAccount extends Model
         $minBalance = $this->product->minimum_balance ?? 0;
         return ($this->balance - $amount) >= $minBalance;
     }
+
+    public function getIsOverdrawnAttribute(): bool
+    {
+        return $this->balance < 0;
+    }
 }

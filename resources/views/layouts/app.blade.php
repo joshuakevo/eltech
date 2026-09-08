@@ -105,6 +105,8 @@
         .badge-status-blacklisted{background:#1f2937;color:#fff;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-processed{background:#065f46;color:#fff;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-draft    {background:#fef3c7;color:#92400e;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
+        .badge-overdrawn       {background:#7f1d1d;color:#fff;border-radius:20px;padding:.22em .8em;font-size:.7rem;font-weight:700;letter-spacing:.02em;box-shadow:0 0 0 1px #fca5a5 inset;white-space:nowrap}
+        .text-overdrawn        {color:#b91c1c!important}
         .badge-membership-unpaid     {background:#fee2e2;color:#b91c1c;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-membership-partial    {background:#fef3c7;color:#92400e;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-membership-paid       {background:#d1fae5;color:#065f46;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}

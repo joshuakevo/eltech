@@ -25,6 +25,8 @@
     .text-muted { color: #6b7280; }
     .badge-active { color: #16a34a; }
     .badge-other { color: #6b7280; }
+    .badge-overdrawn { background: #7f1d1d; color: #fff; padding: 1px 6px; border-radius: 8px; font-size: 8px; margin-left: 4px; }
+    .text-overdrawn { color: #b91c1c; }
     .footer { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 8px; color: #9ca3af; }
 </style>
 </head>
@@ -64,9 +66,12 @@
         <td>{{ $acc->account_number }}</td>
         <td><strong>{{ $acc->client->name ?? '—' }}</strong> <span class="text-muted">{{ $acc->client->client_number ?? '' }}</span></td>
         <td class="text-muted">{{ $acc->product->name ?? '—' }}</td>
-        <td class="r">{{ number_format($acc->balance - $acc->pending_interest, 0) }}</td>
-        <td class="r">{{ number_format($acc->balance, 0) }}</td>
-        <td class="{{ $acc->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($acc->status) }}</td>
+        <td class="r {{ $acc->is_overdrawn ? 'text-overdrawn' : '' }}">{{ number_format($acc->balance - $acc->pending_interest, 0) }}</td>
+        <td class="r {{ $acc->is_overdrawn ? 'text-overdrawn' : '' }}">{{ number_format($acc->balance, 0) }}</td>
+        <td class="{{ $acc->status === 'active' ? 'badge-active' : 'badge-other' }}">
+            {{ ucfirst($acc->status) }}
+            @if($acc->is_overdrawn)<span class="badge-overdrawn">OVERDRAWN</span>@endif
+        </td>
     </tr>
     @endforeach
     </tbody>

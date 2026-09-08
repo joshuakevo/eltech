@@ -15,8 +15,9 @@
 <div class="card">
     <div class="card-header">Withdrawal — {{ $saving->account_number }}</div>
     <div class="card-body">
-        <form method="POST" action="{{ route('savings.withdraw', $saving) }}">
+        <form method="POST" action="{{ route('savings.withdraw', $saving) }}" id="withdrawForm">
             @csrf
+            <input type="hidden" name="allow_overdraft" id="allowOverdraftInput" value="0">
             <div class="row g-3 mb-3">
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Amount <span class="text-danger">*</span></label>
@@ -71,8 +72,29 @@
                     <input type="text" name="reference" class="form-control" value="{{ old('reference') }}" required>
                 </div>
             </div>
+            <div id="overdraftBox" class="alert alert-danger d-none mb-3" style="border:2px solid #dc2626">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold mb-1">Insufficient Funds</div>
+                        <div class="small mb-2" id="overdraftMessage"></div>
+                        @if($canOverdraw)
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="overdraftConfirm">
+                            <label class="form-check-label fw-semibold" for="overdraftConfirm">
+                                Yes, overdraw this account into a negative balance
+                            </label>
+                        </div>
+                        @else
+                        <div class="small fw-semibold">
+                            You don't have permission to overdraw this account. Contact an administrator to proceed.
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-warning">Process Withdrawal</button>
+                <button class="btn btn-warning" id="withdrawSubmitBtn">Process Withdrawal</button>
                 <a href="{{ route('savings.show', $saving) }}" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>
@@ -83,11 +105,48 @@
 <script>
 var dp = {{ $dp }};
 var defaultFee = {{ $defaultFee }};
+var acctBalance = {{ $saving->balance }};
+var minBalance = {{ $saving->product->minimum_balance ?? 0 }};
+var canOverdraw = {{ $canOverdraw ? 'true' : 'false' }};
 function fmt(v) { return parseFloat(v || 0).toFixed(dp); }
 function updateTotal() {
     var amt = parseFloat(document.getElementById('withdrawAmount').value) || 0;
     var fee = parseFloat(document.getElementById('withdrawFee').value) || 0;
     document.getElementById('totalDeduction').textContent = fmt(amt + fee);
+    checkOverdraft(amt, fee);
+}
+function checkOverdraft(amt, fee) {
+    var total = amt + fee;
+    var available = acctBalance - minBalance;
+    var box = document.getElementById('overdraftBox');
+    var submitBtn = document.getElementById('withdrawSubmitBtn');
+    var checkbox = document.getElementById('overdraftConfirm');
+    var hiddenInput = document.getElementById('allowOverdraftInput');
+
+    if (amt > 0 && total > available) {
+        var shortfall = total - available;
+        var resultingBalance = acctBalance - total;
+        document.getElementById('overdraftMessage').textContent =
+            'Available: ' + fmt(available) + '. This withdrawal exceeds it by ' + fmt(shortfall) +
+            ', taking the balance to ' + fmt(resultingBalance) + (resultingBalance < 0 ? ' (negative — overdrawn)' : '') + '.';
+        box.classList.remove('d-none');
+        if (canOverdraw) {
+            submitBtn.disabled = !(checkbox && checkbox.checked);
+            hiddenInput.value = (checkbox && checkbox.checked) ? '1' : '0';
+        } else {
+            submitBtn.disabled = true;
+            hiddenInput.value = '0';
+        }
+    } else {
+        box.classList.add('d-none');
+        submitBtn.disabled = false;
+        hiddenInput.value = '0';
+        if (checkbox) checkbox.checked = false;
+    }
+}
+var overdraftCheckbox = document.getElementById('overdraftConfirm');
+if (overdraftCheckbox) {
+    overdraftCheckbox.addEventListener('change', updateTotal);
 }
 function applyChannelCharge() {
     var select = document.getElementById('paymentSource');
