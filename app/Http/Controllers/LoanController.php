@@ -22,13 +22,15 @@ class LoanController extends Controller
     public function index(Request $request)
     {
         $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
-        $type = $request->type === 'locked-up' ? 'locked-up' : 'normal';
+        $type = in_array($request->type, ['locked-up', 'closed']) ? $request->type : 'normal';
 
         $filtered = Loan::query()
-            ->when($lockedUpProductId, fn($q) => $type === 'locked-up'
+            ->when($lockedUpProductId && $type !== 'closed', fn($q) => $type === 'locked-up'
                 ? $q->where('loan_product_id', $lockedUpProductId)
                 : $q->where(fn($q2) => $q2->where('loan_product_id', '!=', $lockedUpProductId)->orWhereNull('loan_product_id')))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($type === 'closed', fn($q) => $q->where('status', 'closed'))
+            ->when($type !== 'closed' && !$request->status, fn($q) => $q->where('status', '!=', 'closed'))
+            ->when($type !== 'closed' && $request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where('loan_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
 

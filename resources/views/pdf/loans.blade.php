@@ -33,7 +33,8 @@
     <div class="header-right">
         <div>Generated: {{ now()->format('d M Y H:i') }}</div>
     </div>
-    <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — {{ ($type ?? 'normal') === 'locked-up' ? 'Locked-Up Loans' : 'Loans' }}</h1>
+    @php $_typeLabel = ($type ?? 'normal') === 'locked-up' ? 'Locked-Up Loans' : (($type ?? 'normal') === 'closed' ? 'Closed Loans' : 'Loans'); @endphp
+    <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — {{ $_typeLabel }}</h1>
     <p>Most recently disbursed first</p>
 </div>
 

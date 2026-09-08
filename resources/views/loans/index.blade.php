@@ -32,13 +32,21 @@
             <i class="bi bi-lock-fill me-1"></i>Locked-Up Loans
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link border border-secondary {{ $type === 'closed' ? 'active bg-secondary text-white' : 'text-secondary' }}"
+           href="{{ route('loans.index', ['type' => 'closed']) }}">
+            <i class="bi bi-check-circle-fill me-1"></i>Closed Loans
+        </a>
+    </li>
 </ul>
 
 <div class="row g-3 mb-4">
     <div class="col-md-{{ $type === 'locked-up' ? '4' : '6' }}">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">{{ $type === 'locked-up' ? 'Total Principal (Locked-Up)' : 'Total Outstanding' }}</div>
+                <div class="text-muted small text-uppercase">
+                    {{ $type === 'locked-up' ? 'Total Principal (Locked-Up)' : ($type === 'closed' ? 'Total Principal (Closed)' : 'Total Outstanding') }}
+                </div>
                 <div class="fs-4 fw-bold">{{ number_format($totalOutstanding, $dp) }}</div>
             </div>
         </div>
@@ -56,7 +64,9 @@
     <div class="col-md-{{ $type === 'locked-up' ? '4' : '6' }}">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Number of Loans{{ $type === 'locked-up' ? ' (Locked-Up)' : '' }}</div>
+                <div class="text-muted small text-uppercase">
+                    Number of Loans{{ $type === 'locked-up' ? ' (Locked-Up)' : ($type === 'closed' ? ' (Closed)' : '') }}
+                </div>
                 <div class="fs-4 fw-bold">{{ number_format($totalCount) }}</div>
             </div>
         </div>
@@ -69,15 +79,16 @@
             <div class="col-md-4">
                 <input type="text" name="search" class="form-control" placeholder="Search loan # or client name..." value="{{ request('search') }}">
             </div>
+            @if($type !== 'closed')
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
                     <option value="pending" @selected(request('status')=='pending')>Pending</option>
                     <option value="active" @selected(request('status')=='active')>Active</option>
-                    <option value="closed" @selected(request('status')=='closed')>Closed</option>
                     <option value="defaulted" @selected(request('status')=='defaulted')>Defaulted</option>
                 </select>
             </div>
+            @endif
             <div class="col-auto"><button class="btn btn-outline-primary">Filter</button></div>
             <div class="col-auto"><a href="{{ route('loans.index', ['type' => $type]) }}" class="btn btn-outline-secondary">Clear</a></div>
         </form>
