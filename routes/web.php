@@ -396,7 +396,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // ── Clients Eligible for Closing (zero product/transaction footprint) ──
-    Route::middleware('permission:edit clients')->group(function () {
+    Route::middleware('permission:manage client closure')->group(function () {
         Route::get('clients-eligible-for-closing', [ClientClosureController::class, 'index'])->name('client-closure.index');
         Route::post('clients-eligible-for-closing/mark-inactive', [ClientClosureController::class, 'markInactive'])->name('client-closure.mark-inactive');
     });

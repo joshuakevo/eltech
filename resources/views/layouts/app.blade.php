@@ -479,7 +479,7 @@
                 'savings-interest-tiers.*', 'audit.*', 'backup.*'
             );
         @endphp
-        @canany(['manage branches', 'manage client segments', 'close accounts', 'edit clients', 'manage users', 'manage settings', 'manage backup', 'manage loan penalty tiers', 'manage savings interest tiers', 'view audit log'])
+        @canany(['manage branches', 'manage client segments', 'close accounts', 'manage client closure', 'manage users', 'manage settings', 'manage backup', 'manage loan penalty tiers', 'manage savings interest tiers', 'view audit log'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#adminMenu" aria-expanded="{{ $adminGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-gear-fill"></i> Administration
             <i class="bi bi-chevron-right chevron"></i>
@@ -500,7 +500,7 @@
                 <i class="bi bi-x-circle-fill"></i> Close Accounts
             </a>
             @endcan
-            @can('edit clients')
+            @can('manage client closure')
             <a href="{{ route('client-closure.index') }}" class="nav-link-item {{ request()->routeIs('client-closure.*') ? 'active' : '' }}">
                 <i class="bi bi-person-dash-fill"></i> Clients Eligible for Closing
             </a>

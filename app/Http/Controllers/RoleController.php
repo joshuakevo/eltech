@@ -131,7 +131,7 @@ class RoleController extends Controller
             ],
             'Administration' => [
                 'icon'  => 'bi-gear-fill',
-                'perms' => ['manage branches', 'manage client segments', 'close accounts', 'manage users', 'manage settings', 'manage backup',
+                'perms' => ['manage branches', 'manage client segments', 'close accounts', 'manage client closure', 'manage users', 'manage settings', 'manage backup',
                             'manage loan penalty tiers', 'manage savings interest tiers', 'view audit log'],
             ],
         ];
