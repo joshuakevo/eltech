@@ -237,6 +237,58 @@
     @endif
 </div>
 
+@if($segmentPerformance->isNotEmpty())
+<div class="row g-3 mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Segment Performance</span>
+                <span class="text-muted small">Income / Expense — {{ now()->format('F Y') }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr>
+                        <th class="ps-3">Segment</th>
+                        <th class="text-end">Clients</th>
+                        <th class="text-end">Savings</th>
+                        <th class="text-end">Loans (O/S)</th>
+                        <th class="text-end">Fixed Deposits</th>
+                        <th class="text-end">Shares</th>
+                        <th class="text-end">Total Value</th>
+                        <th class="text-end">Income</th>
+                        <th class="text-end">Expense</th>
+                        <th class="text-end pe-3">Net</th>
+                    </tr></thead>
+                    <tbody>
+                    @foreach($segmentPerformance as $row)
+                        <tr>
+                            <td class="ps-3 fw-semibold">{{ $row->segment->name }}</td>
+                            <td class="text-end">{{ number_format($row->clients) }}</td>
+                            <td class="text-end">{{ number_format($row->savings, 0) }}</td>
+                            <td class="text-end">{{ number_format($row->loans, 0) }}</td>
+                            <td class="text-end">{{ number_format($row->fd, 0) }}</td>
+                            <td class="text-end">{{ number_format($row->shares, 0) }}</td>
+                            <td class="text-end fw-semibold text-success">{{ number_format($row->total_value, 0) }}</td>
+                            <td class="text-end text-success">{{ number_format($row->income, 0) }}</td>
+                            <td class="text-end text-danger">{{ number_format($row->expense, 0) }}</td>
+                            <td class="text-end pe-3 fw-semibold {{ $row->net >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($row->net, 0) }}</td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer small text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                Income = loan interest collected this month + fees on loans disbursed this month. Expense = savings interest credited to members this month (a cost to the institution). Fixed deposit interest expense isn't included — there's no per-posting FD ledger to attribute to a month/segment, only running totals on the deposit itself.
+                @if($segmentPerformance->sum('income') == 0 && $segmentPerformance->sum('expense') == 0)
+                <br><span class="text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>Showing zero for every segment right now because no loan repayment or savings interest posting has a dated ledger entry yet in this system — historical repayments were migrated as direct balance adjustments. This will start populating as new repayments and interest postings are recorded going forward.</span>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
