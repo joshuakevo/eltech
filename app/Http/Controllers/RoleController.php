@@ -101,6 +101,10 @@ class RoleController extends Controller
                 'icon'  => 'bi-diagram-3-fill',
                 'perms' => ['view accounts', 'create accounts', 'edit accounts'],
             ],
+            'Financial Periods' => [
+                'icon'  => 'bi-calendar2-check',
+                'perms' => ['manage financial periods'],
+            ],
             'Groups' => [
                 'icon'  => 'bi-collection-fill',
                 'perms' => ['view groups', 'manage groups'],
@@ -127,7 +131,8 @@ class RoleController extends Controller
             ],
             'Administration' => [
                 'icon'  => 'bi-gear-fill',
-                'perms' => ['manage branches', 'manage client segments', 'close accounts', 'manage users', 'manage settings', 'manage backup'],
+                'perms' => ['manage branches', 'manage client segments', 'close accounts', 'manage users', 'manage settings', 'manage backup',
+                            'manage loan penalty tiers', 'manage savings interest tiers', 'view audit log'],
             ],
         ];
 

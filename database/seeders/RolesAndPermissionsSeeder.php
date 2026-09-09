@@ -65,6 +65,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Administration
             'manage branches', 'manage client segments', 'manage users', 'manage settings', 'manage backup', 'close accounts',
+            'manage financial periods', 'manage loan penalty tiers', 'manage savings interest tiers', 'view audit log',
 
             // Groups
             'view groups', 'manage groups',

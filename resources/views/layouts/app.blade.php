@@ -395,7 +395,7 @@
         </div>
         @endcanany
 
-        @canany(['view accounts', 'view transactions', 'manage settings'])
+        @canany(['view accounts', 'view transactions', 'manage financial periods'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#accountingMenu" aria-expanded="{{ $accountingGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-journal-text"></i> Accounting
             <i class="bi bi-chevron-right chevron"></i>
@@ -411,7 +411,7 @@
                 <i class="bi bi-arrow-left-right"></i> Journal Entries
             </a>
             @endcan
-            @can('manage settings')
+            @can('manage financial periods')
             <a href="{{ route('periods.index') }}" class="nav-link-item {{ request()->routeIs('periods.*') ? 'active' : '' }}">
                 <i class="bi bi-calendar2-check"></i> Financial Periods
             </a>
@@ -479,7 +479,7 @@
                 'savings-interest-tiers.*', 'audit.*', 'backup.*'
             );
         @endphp
-        @canany(['manage branches', 'manage client segments', 'close accounts', 'edit clients', 'manage users', 'manage settings', 'manage backup'])
+        @canany(['manage branches', 'manage client segments', 'close accounts', 'edit clients', 'manage users', 'manage settings', 'manage backup', 'manage loan penalty tiers', 'manage savings interest tiers', 'view audit log'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#adminMenu" aria-expanded="{{ $adminGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-gear-fill"></i> Administration
             <i class="bi bi-chevron-right chevron"></i>
@@ -519,12 +519,18 @@
             <a href="{{ route('settings.index') }}" class="nav-link-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
                 <i class="bi bi-gear-fill"></i> System Settings
             </a>
+            @endcan
+            @can('manage loan penalty tiers')
             <a href="{{ route('loan-penalty-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('loan-penalty-tiers.*') ? 'active' : '' }}">
                 <i class="bi bi-exclamation-diamond-fill"></i> Loan Penalty Tiers
             </a>
+            @endcan
+            @can('manage savings interest tiers')
             <a href="{{ route('savings-interest-tiers.edit') }}" class="nav-link-item {{ request()->routeIs('savings-interest-tiers.*') ? 'active' : '' }}">
                 <i class="bi bi-graph-up-arrow"></i> Savings Interest Tiers
             </a>
+            @endcan
+            @can('view audit log')
             <a href="{{ route('audit.index') }}" class="nav-link-item {{ request()->routeIs('audit.*') ? 'active' : '' }}">
                 <i class="bi bi-shield-lock-fill"></i> Audit Log
             </a>

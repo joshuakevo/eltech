@@ -471,19 +471,27 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/add-overdraw-permission', [SettingsController::class, 'addOverdrawPermission'])->name('settings.add-overdraw-permission');
         Route::post('settings/preview-add-crm-permissions', [SettingsController::class, 'previewAddCrmPermissions'])->name('settings.preview-add-crm-permissions');
         Route::post('settings/add-crm-permissions', [SettingsController::class, 'addCrmPermissions'])->name('settings.add-crm-permissions');
+    });
 
+    // ── Loan Penalty Tiers ──────────────────────────────────────────────
+    Route::middleware('permission:manage loan penalty tiers')->group(function () {
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');
+    });
 
+    // ── Savings Interest Tiers ──────────────────────────────────────────
+    Route::middleware('permission:manage savings interest tiers')->group(function () {
         Route::get('savings-interest-tiers', [SavingsInterestTierController::class, 'edit'])->name('savings-interest-tiers.edit');
         Route::put('savings-interest-tiers', [SavingsInterestTierController::class, 'update'])->name('savings-interest-tiers.update');
     });
 
     // ── Audit Log ─────────────────────────────────────────────────────
-    Route::middleware('permission:manage settings')->group(function () {
+    Route::middleware('permission:view audit log')->group(function () {
         Route::get('audit', [AuditLogController::class, 'index'])->name('audit.index');
+    });
 
-        // ── Financial Periods ─────────────────────────────────────────────
+    // ── Financial Periods ─────────────────────────────────────────────
+    Route::middleware('permission:manage financial periods')->group(function () {
         Route::get('periods', [FinancialPeriodController::class, 'index'])->name('periods.index');
         Route::post('periods/{period}/close', [FinancialPeriodController::class, 'closeMonth'])->name('periods.close');
         Route::post('periods/{period}/reopen', [FinancialPeriodController::class, 'reopenMonth'])->name('periods.reopen');
