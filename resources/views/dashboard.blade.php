@@ -12,6 +12,9 @@
 {{-- ── Stat Cards ─────────────────────────────────────────────────────────── --}}
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
+        @can('view loan reports')
+        <a href="{{ route('reports.loan-portfolio') }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-cash-stack"></i></div>
@@ -21,8 +24,14 @@
                 </div>
             </div>
         </div>
+        @can('view loan reports')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view loan reports')
+        <a href="{{ route('reports.loan-portfolio', ['status' => 'active']) }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-hourglass-split"></i></div>
@@ -32,8 +41,14 @@
                 </div>
             </div>
         </div>
+        @can('view loan reports')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view reports')
+        <a href="{{ route('reports.interest-income', ['from_date' => '2000-01-01']) }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-graph-up-arrow"></i></div>
@@ -43,8 +58,14 @@
                 </div>
             </div>
         </div>
+        @can('view reports')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view loan reports')
+        <a href="{{ route('reports.loan-aging') }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-circle"></i></div>
@@ -54,8 +75,14 @@
                 </div>
             </div>
         </div>
+        @can('view loan reports')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view savings reports')
+        <a href="{{ route('reports.savings-balances') }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-piggy-bank"></i></div>
@@ -65,8 +92,14 @@
                 </div>
             </div>
         </div>
+        @can('view savings reports')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view fixed-deposits')
+        <a href="{{ route('fixed-deposits.index', ['status' => 'active']) }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-safe"></i></div>
@@ -76,8 +109,14 @@
                 </div>
             </div>
         </div>
+        @can('view fixed-deposits')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view clients')
+        <a href="{{ route('clients.index', ['status' => 'active']) }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people"></i></div>
@@ -87,8 +126,14 @@
                 </div>
             </div>
         </div>
+        @can('view clients')
+        </a>
+        @endcan
     </div>
     <div class="col-6 col-md-3">
+        @can('view loans')
+        <a href="{{ route('loans.index', ['status' => 'pending']) }}" class="text-decoration-none text-reset d-block">
+        @endcan
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-clock-history"></i></div>
@@ -98,6 +143,9 @@
                 </div>
             </div>
         </div>
+        @can('view loans')
+        </a>
+        @endcan
     </div>
 </div>
 
