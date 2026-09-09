@@ -61,7 +61,7 @@
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
-        <a href="{{ route('crm.clients.index', ['health' => 'Healthy']) }}" class="text-decoration-none text-reset d-block">
+        <a href="{{ route('crm.clients.index', ['health' => 'Healthy', 'status' => 'active']) }}" class="text-decoration-none text-reset d-block">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-emoji-smile"></i></div>
@@ -74,7 +74,7 @@
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="{{ route('crm.clients.index', ['health' => 'Needs Attention']) }}" class="text-decoration-none text-reset d-block">
+        <a href="{{ route('crm.clients.index', ['health' => 'Needs Attention', 'status' => 'active']) }}" class="text-decoration-none text-reset d-block">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-emoji-neutral"></i></div>
@@ -87,7 +87,7 @@
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="{{ route('crm.clients.index', ['health' => 'At Risk']) }}" class="text-decoration-none text-reset d-block">
+        <a href="{{ route('crm.clients.index', ['health' => 'At Risk', 'status' => 'active']) }}" class="text-decoration-none text-reset d-block">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
                 <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-emoji-frown"></i></div>

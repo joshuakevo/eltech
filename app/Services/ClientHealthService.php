@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Customer health score: a weighted blend of five factors, each 0-100,
+ * Customer health score: a weighted blend of six factors, each 0-100,
  * combined into one 0-100 score and classified into Healthy / Needs
  * Attention / At Risk. Weights and thresholds live in config/crm.php so the
  * formula is inspectable and adjustable rather than buried in code.
@@ -20,6 +20,11 @@ use Illuminate\Support\Facades\DB;
  * client who has never had a loan) is excluded from that client's blend and
  * the remaining weights are redistributed proportionally -- a client isn't
  * penalized for not using a product they were never expected to.
+ *
+ * A negative total balance (an overdrawn savings account, or total assets
+ * net negative) is a hard override to At Risk regardless of the blended
+ * score -- no combination of good activity/recency should be able to mask
+ * a client who is, in plain terms, in the red.
  *
  * "Recent interactions" (calls, notes, CRM tasks) is deliberately NOT a
  * factor yet -- that data doesn't exist in the system until the Notes/Tasks
@@ -53,20 +58,21 @@ class ClientHealthService
         $productCounts  = $this->productCountsFor($clientIds);
         $summariesNow   = $this->financials->summariesFor($clientIds);
         $summariesPast  = $this->financials->summariesFor($clientIds, now()->subDays($config['trend_window_days'])->toDateString());
+        $overdrawnSet   = SavingsAccount::where('balance', '<', 0)->whereIn('client_id', $clientIds)->distinct()->pluck('client_id')->flip();
 
         return $clientIds->mapWithKeys(function ($id) use (
-            $config, $lastActivity, $txnCounts, $repayment, $productCounts, $summariesNow, $summariesPast
+            $config, $lastActivity, $txnCounts, $repayment, $productCounts, $summariesNow, $summariesPast, $overdrawnSet
         ) {
+            $totalAssetsNow = $summariesNow->get($id)['total_assets'] ?? 0.0;
+            $isOverdrawn = isset($overdrawnSet[$id]);
+
             $factors = [
-                'recency'   => $this->recencyFactor($lastActivity->get($id), $config),
-                'frequency' => $this->frequencyFactor($txnCounts->get($id, 0), $config),
-                'repayment' => $this->repaymentFactor($repayment->get($id)),
-                'products'  => $this->productsFactor($productCounts->get($id, 0)),
-                'trend'     => $this->trendFactor(
-                    $summariesNow->get($id)['total_assets'] ?? 0.0,
-                    $summariesPast->get($id)['total_assets'] ?? 0.0,
-                    $config
-                ),
+                'recency'           => $this->recencyFactor($lastActivity->get($id), $config),
+                'frequency'         => $this->frequencyFactor($txnCounts->get($id, 0), $config),
+                'repayment'         => $this->repaymentFactor($repayment->get($id)),
+                'products'          => $this->productsFactor($productCounts->get($id, 0)),
+                'trend'             => $this->trendFactor($totalAssetsNow, $summariesPast->get($id)['total_assets'] ?? 0.0, $config),
+                'financial_position' => $this->financialPositionFactor($totalAssetsNow, $isOverdrawn),
             ];
 
             $weights = $config['weights'];
@@ -81,7 +87,19 @@ class ClientHealthService
             }
             $score = $totalWeight > 0 ? (int) round($weightedSum / $totalWeight) : 50;
 
-            return [$id => array_merge(['score' => $score, 'factors' => $factors], $this->classify($score, $config))];
+            $result = array_merge(['score' => $score, 'factors' => $factors], $this->classify($score, $config));
+
+            // Hard override: a negative balance or an overdrawn account can
+            // never be classified Healthy or Needs Attention, no matter how
+            // good the other factors look.
+            if ($totalAssetsNow < 0 || $isOverdrawn) {
+                $result['label'] = 'At Risk';
+                $result['color'] = 'danger';
+                $result['emoji'] = '🔴';
+                $result['score'] = min($result['score'], $config['thresholds']['needs_attention'] - 1);
+            }
+
+            return [$id => $result];
         });
     }
 
@@ -142,6 +160,17 @@ class ClientHealthService
         $score = ($count / max(1, $total)) * 100;
 
         return ['score' => (int) round($score), 'applicable' => true, 'detail' => "{$count} of {$total} core products held"];
+    }
+
+    private function financialPositionFactor(float $totalAssets, bool $isOverdrawn): array
+    {
+        if ($isOverdrawn) {
+            return ['score' => 0, 'applicable' => true, 'detail' => 'Has an overdrawn savings account'];
+        }
+        if ($totalAssets < 0) {
+            return ['score' => 0, 'applicable' => true, 'detail' => 'Negative total balance'];
+        }
+        return ['score' => 100, 'applicable' => true, 'detail' => 'Balance is positive'];
     }
 
     private function trendFactor(float $now, float $past, array $config): array
