@@ -281,7 +281,7 @@
                 <i class="bi bi-info-circle me-1"></i>
                 Income = loan interest collected this month + fees on loans disbursed this month. Expense = savings interest credited to members this month (a cost to the institution). Fixed deposit interest expense isn't included — there's no per-posting FD ledger to attribute to a month/segment, only running totals on the deposit itself.
                 @if($segmentPerformance->sum('income') == 0 && $segmentPerformance->sum('expense') == 0)
-                <br><span class="text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>Showing zero for every segment right now because no loan repayment or savings interest posting has a dated ledger entry yet in this system — historical repayments were migrated as direct balance adjustments. This will start populating as new repayments and interest postings are recorded going forward.</span>
+                <br><span class="text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>Showing zero for every segment this month — the org's revenue/expense history so far is almost entirely a one-time opening-balance entry dated Jan–Jul 2026 (see the "(Jan–Jul 2026)" accounts on the Income Statement), which falls outside this month's window by definition. This column will start showing real figures as new repayments and interest postings accumulate month over month going forward.</span>
                 @endif
             </div>
         </div>
