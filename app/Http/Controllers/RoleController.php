@@ -119,11 +119,15 @@ class RoleController extends Controller
             ],
             'CRM' => [
                 'icon'  => 'bi-person-lines-fill',
-                'perms' => ['view crm', 'manage crm'],
+                'perms' => ['view crm', 'manage crm', 'send statements', 'send sms'],
+            ],
+            'Mobile Money' => [
+                'icon'  => 'bi-phone-fill',
+                'perms' => ['approve mobile money'],
             ],
             'Administration' => [
                 'icon'  => 'bi-gear-fill',
-                'perms' => ['manage branches', 'manage users', 'manage settings', 'manage backup'],
+                'perms' => ['manage branches', 'manage client segments', 'close accounts', 'manage users', 'manage settings', 'manage backup'],
             ],
         ];
 

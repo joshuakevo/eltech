@@ -83,51 +83,25 @@ class RolesAndPermissionsSeeder extends Seeder
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin']);
         $superAdmin->syncPermissions(Permission::all());
 
-        // Admin — everything except backup management
+        // Admin, Cashier, Staff — all start with every permission. Use the Roles &
+        // Permissions screen to uncheck what a given role should NOT have; there is
+        // no more curated default set baked in here.
         $admin = Role::firstOrCreate(['name' => 'admin']);
-        $admin->syncPermissions(
-            Permission::whereNotIn('name', ['manage backup'])->get()
-        );
+        $admin->syncPermissions(Permission::all());
 
-        // Cashier — full operational access; products/payroll management is admin/super_admin only
         $cashier = Role::firstOrCreate(['name' => 'cashier']);
-        $cashier->syncPermissions([
-            'view dashboard',
-            'view clients', 'create clients', 'edit clients', 'delete clients',
-            'view accounts', 'view transactions', 'create transactions', 'reverse transactions',
-            'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans',
-            'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings', 'overdraw savings',
-            'view fixed-deposits', 'create fixed-deposits', 'mature fixed-deposits',
-            'use teller',
-            'view reports', 'view loan reports', 'view savings reports', 'send statements', 'send sms',
-            'approve mobile money',
-            'view groups', 'manage groups',
-            'manage shares',
-            'view employees',
-            'view crm', 'manage crm',
-        ]);
+        $cashier->syncPermissions(Permission::all());
 
-        // Staff — view only, no create/edit/delete
         $staff = Role::firstOrCreate(['name' => 'staff']);
-        $staff->syncPermissions([
-            'view dashboard',
-            'view clients',
-            'view accounts',
-            'view loan-products',
-            'view loans', 'run loans',
-            'view savings-products',
-            'view savings',
-            'view fd-products',
-            'view fixed-deposits',
-            'view reports', 'view loan reports', 'view savings reports',
-            'view groups',
-            'view employees',
-        ]);
+        $staff->syncPermissions(Permission::all());
 
+        // Portal roles (client-facing) are gated by `role:` middleware on separate
+        // client-portal / group-portal routes, not by `permission:` middleware on the
+        // admin panel routes. They must NOT be granted admin permissions — doing so
+        // would let a client/group-portal login pass the permission checks on the
+        // main back-office routes (e.g. /accounts, /transactions, /users).
         Role::firstOrCreate(['name' => 'group_leader']);
         Role::firstOrCreate(['name' => 'group_member']);
-
-        // Client portal — no admin permissions, only their own data via portal routes
         Role::firstOrCreate(['name' => 'client']);
     }
 }
