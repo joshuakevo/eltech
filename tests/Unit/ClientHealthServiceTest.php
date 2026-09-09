@@ -166,8 +166,13 @@ class ClientHealthServiceTest extends TestCase
         $this->assertCount(2, $bulk);
     }
 
-    public function test_overdrawn_savings_account_forces_at_risk_even_with_perfect_activity(): void
+    public function test_overdrawn_savings_account_does_not_by_itself_force_at_risk(): void
     {
+        // The health score is a behavior score, not a solvency check -- an
+        // overdrawn balance is surfaced separately (the "Overdrawn" badge on
+        // Savings Accounts, and the balance figures on Client 360/Clients
+        // list), not folded into this score. A client who's otherwise
+        // actively engaging shouldn't be forced to At Risk just for that.
         $client  = $this->makeClient();
         $product = $this->savingsProduct();
         $account = SavingsAccount::create([
@@ -175,7 +180,6 @@ class ClientHealthServiceTest extends TestCase
             'account_number' => 'SAV-' . uniqid(), 'balance' => -50000, 'status' => 'active',
             'opened_date' => now()->subYear()->toDateString(),
         ]);
-        // Otherwise-perfect activity: recent, frequent transactions
         foreach ([10, 5, 2] as $daysAgo) {
             SavingsTransaction::create([
                 'savings_account_id' => $account->id, 'transaction_type' => 'deposit',
@@ -186,25 +190,10 @@ class ClientHealthServiceTest extends TestCase
 
         $result = $this->health->scoreFor($client);
 
-        $this->assertEquals('At Risk', $result['label']);
-        $this->assertEquals('🔴', $result['emoji']);
-        $this->assertEquals(0, $result['factors']['financial_position']['score']);
-        $this->assertStringContainsString('overdrawn', $result['factors']['financial_position']['detail']);
-    }
-
-    public function test_negative_total_assets_without_a_single_overdrawn_account_is_still_at_risk(): void
-    {
-        // total_assets net negative can also happen via the accrued-interest-payable
-        // liability path in ClientFinancialSummaryService, not just a raw overdrawn
-        // balance -- the override checks total_assets < 0 independently of that.
-        $client = $this->makeClient();
-
-        $result = $this->health->scoreFor($client);
-        // A client with zero of everything has total_assets == 0, not negative,
-        // so this specific client should NOT be forced At Risk by the override
-        // (it may still land there via low activity scores, which is fine).
-        $this->assertArrayHasKey('financial_position', $result['factors']);
-        $this->assertEquals(100, $result['factors']['financial_position']['score']);
+        $this->assertArrayNotHasKey('financial_position', $result['factors']);
+        // Good recency/frequency should still be able to earn a decent score
+        // even though the balance happens to be negative.
+        $this->assertGreaterThanOrEqual(60, $result['factors']['recency']['score']);
     }
 
     public function test_classification_bands_are_mutually_exclusive_and_cover_0_to_100(): void

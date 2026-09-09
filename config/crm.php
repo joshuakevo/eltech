@@ -24,20 +24,12 @@ return [
         // low-risk member -- holding few products is a cross-sell signal
         // (see the Opportunities feature), not a health/risk signal, so it
         // shouldn't drag a perfectly fine member's score down on its own.
-        //
-        // "financial_position" (is the client's total balance negative, or
-        // do they have an overdrawn savings account) is backed up by a hard
-        // override in ClientHealthService: a negative balance forces the
-        // classification to At Risk outright, regardless of the blended
-        // score -- the weight here only affects the numeric score shown,
-        // not whether the override itself fires.
         'weights' => [
-            'recency'            => 30, // days since last activity across any product
-            'frequency'          => 15, // transaction count in the trailing window
-            'repayment'          => 20, // % of due loan installments not overdue
-            'products'           => 10, // core products held / total core products
-            'trend'              => 10, // total value now vs the trailing window
-            'financial_position' => 15, // is the client's total balance negative / overdrawn
+            'recency'    => 35, // days since last activity across any product
+            'frequency'  => 20, // transaction count in the trailing window
+            'repayment'  => 25, // % of due loan installments not overdue
+            'products'   => 10, // core products held / total core products
+            'trend'      => 10, // total value now vs the trailing window
         ],
 
         // Score bands the blended 0-100 score is classified into. Calibrated
