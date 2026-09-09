@@ -13,6 +13,7 @@ use App\Http\Controllers\LoanPenaltyTierController;
 use App\Http\Controllers\SavingsInterestTierController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CrmClientController;
+use App\Http\Controllers\CrmDashboardController;
 use App\Http\Controllers\MemberShareController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FixedDepositController;
@@ -148,6 +149,7 @@ Route::middleware('auth')->group(function () {
 
     // ── CRM ───────────────────────────────────────────────────────────
     Route::prefix('crm')->name('crm.')->middleware('permission:view crm')->group(function () {
+        Route::get('dashboard', [CrmDashboardController::class, 'index'])->name('dashboard');
         Route::get('clients', [CrmClientController::class, 'index'])->name('clients.index');
         Route::get('clients/{client}', [CrmClientController::class, 'show'])->name('clients.show');
     });

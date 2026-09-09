@@ -277,9 +277,18 @@
         @endcanany
 
         @can('view crm')
-        <a href="{{ route('crm.clients.index') }}" class="nav-link-item {{ request()->routeIs('crm.*') ? 'active' : '' }}">
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#crmMenu" aria-expanded="{{ request()->routeIs('crm.*') ? 'true' : 'false' }}">
             <i class="bi bi-person-lines-fill"></i> CRM
-        </a>
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse nav-sub {{ request()->routeIs('crm.*') ? 'show' : '' }}" id="crmMenu">
+            <a href="{{ route('crm.dashboard') }}" class="nav-link-item {{ request()->routeIs('crm.dashboard') ? 'active' : '' }}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="{{ route('crm.clients.index') }}" class="nav-link-item {{ request()->routeIs('crm.clients.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill"></i> Clients
+            </a>
+        </div>
         @endcan
 
         @canany(['view savings-products', 'view savings'])
