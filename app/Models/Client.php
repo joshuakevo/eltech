@@ -91,6 +91,16 @@ class Client extends Model
         return $this->hasOne(Group::class);
     }
 
+    public function notes()
+    {
+        return $this->hasMany(ClientNote::class)->latest();
+    }
+
+    public function tasks()
+    {
+        return $this->hasMany(ClientTask::class)->orderBy('due_date');
+    }
+
     public function isGroup(): bool
     {
         return $this->client_type === 'group';

@@ -12,6 +12,7 @@ use App\Http\Controllers\CloseAccountsController;
 use App\Http\Controllers\LoanPenaltyTierController;
 use App\Http\Controllers\SavingsInterestTierController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\CrmClientController;
 use App\Http\Controllers\MemberShareController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FixedDepositController;
@@ -144,6 +145,12 @@ Route::middleware('auth')->group(function () {
         ->name('shares.revalue-all')->middleware('permission:manage shares');
     Route::post('clients/{client}/shares/{share}/liquidate', [MemberShareController::class, 'liquidate'])
         ->name('clients.shares.liquidate')->middleware('permission:manage shares');
+
+    // ── CRM ───────────────────────────────────────────────────────────
+    Route::prefix('crm')->name('crm.')->middleware('permission:view crm')->group(function () {
+        Route::get('clients', [CrmClientController::class, 'index'])->name('clients.index');
+        Route::get('clients/{client}', [CrmClientController::class, 'show'])->name('clients.show');
+    });
 
     // ── Groups (admin) ────────────────────────────────────────────────
     Route::get('groups', [GroupController::class, 'index'])->name('groups.index')->middleware('permission:view groups');
@@ -460,6 +467,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/add-granular-permissions', [SettingsController::class, 'addGranularPermissions'])->name('settings.add-granular-permissions');
         Route::post('settings/preview-add-overdraw-permission', [SettingsController::class, 'previewAddOverdrawPermission'])->name('settings.preview-add-overdraw-permission');
         Route::post('settings/add-overdraw-permission', [SettingsController::class, 'addOverdrawPermission'])->name('settings.add-overdraw-permission');
+        Route::post('settings/preview-add-crm-permissions', [SettingsController::class, 'previewAddCrmPermissions'])->name('settings.preview-add-crm-permissions');
+        Route::post('settings/add-crm-permissions', [SettingsController::class, 'addCrmPermissions'])->name('settings.add-crm-permissions');
 
         Route::get('loan-penalty-tiers', [LoanPenaltyTierController::class, 'edit'])->name('loan-penalty-tiers.edit');
         Route::put('loan-penalty-tiers', [LoanPenaltyTierController::class, 'update'])->name('loan-penalty-tiers.update');

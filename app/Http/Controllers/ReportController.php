@@ -18,7 +18,11 @@ use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function __construct(protected AccountingService $accounting, protected SavingsService $savingsService) {}
+    public function __construct(
+        protected AccountingService $accounting,
+        protected SavingsService $savingsService,
+        protected \App\Services\ClientFinancialSummaryService $clientFinancials,
+    ) {}
 
     public function index()
     {
@@ -442,188 +446,27 @@ class ReportController extends Controller
     public function memberSummary(Request $request)
     {
         $asOf       = $request->as_of ?? now()->toDateString();
-        $shareValue = 100000;
-
-        // --- Bulk precompute financial metrics as of $asOf to avoid N+1 queries ---
-
-        // Savings: balance_after of the last transaction on or before $asOf, per client
-        $savingsBalances = \DB::table('savings_accounts as sa')
-            ->leftJoinSub(
-                \DB::table('savings_transactions')
-                    ->where('transaction_date', '<=', $asOf)
-                    ->select('savings_account_id', \DB::raw('MAX(id) as last_id'))
-                    ->groupBy('savings_account_id'),
-                'latest',
-                'latest.savings_account_id', '=', 'sa.id'
-            )
-            ->leftJoin('savings_transactions as st', 'st.id', '=', 'latest.last_id')
-            ->groupBy('sa.client_id')
-            ->select('sa.client_id', \DB::raw('COALESCE(SUM(st.balance_after), 0) as balance'))
-            ->pluck('balance', 'client_id');
-
-        // Loans: outstanding principal = principal − repayments up to $asOf
-        $loanPrincipals = \DB::table('loans as l')
-            ->leftJoinSub(
-                \DB::table('loan_repayments')
-                    ->where('payment_date', '<=', $asOf)
-                    ->groupBy('loan_id')
-                    ->select('loan_id', \DB::raw('SUM(principal_paid) as paid')),
-                'rp', 'rp.loan_id', '=', 'l.id'
-            )
-            ->where('l.disbursement_date', '<=', $asOf)
-            ->whereNull('l.deleted_at')
-            ->groupBy('l.client_id')
-            ->select('l.client_id', \DB::raw('SUM(GREATEST(0, l.principal - COALESCE(rp.paid, 0))) as outstanding'))
-            ->pluck('outstanding', 'client_id');
-
-        // Loans: outstanding interest = scheduled interest due on or before $asOf − interest paid up to $asOf
-        $loanInterests = \DB::table('loans as l')
-            ->leftJoinSub(
-                \DB::table('loan_schedules')
-                    ->where('due_date', '<=', $asOf)
-                    ->groupBy('loan_id')
-                    ->select('loan_id', \DB::raw('SUM(GREATEST(0, interest_due - interest_paid)) as interest_os')),
-                'sched', 'sched.loan_id', '=', 'l.id'
-            )
-            ->where('l.disbursement_date', '<=', $asOf)
-            ->whereNull('l.deleted_at')
-            ->groupBy('l.client_id')
-            ->select('l.client_id', \DB::raw('COALESCE(SUM(sched.interest_os), 0) as interest'))
-            ->pluck('interest', 'client_id');
-
-        // Fixed Deposits: principal of FDs that started on or before $asOf and mature after $asOf
-        $fdAmounts = \DB::table('fixed_deposits')
-            ->where('start_date', '<=', $asOf)
-            ->where('maturity_date', '>=', $asOf)
-            ->whereNull('deleted_at')
-            ->groupBy('client_id')
-            ->select('client_id', \DB::raw('SUM(principal) as amount'))
-            ->pluck('amount', 'client_id');
-
-        // Shares: amount paid on shares created on or before $asOf
-        $shareAmounts = \DB::table('member_shares')
-            ->whereDate('created_at', '<=', $asOf)
-            ->groupBy('client_id')
-            ->select('client_id', \DB::raw('SUM(amount_paid) as paid'))
-            ->pluck('paid', 'client_id');
-
-        // Savings interest has two sources, both meaning "owed but not yet credited":
-        //
-        // 1. Tiered products: live day-by-day projection via a per-account loop (not
-        //    a bulk SQL aggregate, since the graduated-tier calculation mirrors
-        //    SavingsService::postInterest()). Flat products are excluded from this
-        //    part -- their interest is already folded into savings_balance since
-        //    it's credited automatically every month.
-        // 2. Account 2006 "Savings Interest Payable" -- accrued interest inherited
-        //    from opening-balance migrations (e.g. the 31/07/2026 statement's Save
-        //    Int column), booked as a client-tagged liability rather than a live
-        //    accrual since there's no balance history to project it from.
-        $savingsInterests = [];
-        $tieredAccounts = SavingsAccount::with('product')
-            ->where('status', 'active')
-            ->whereHas('product', fn($q) => $q->where('interest_method', 'tiered'))
-            ->get();
-        foreach ($tieredAccounts as $account) {
-            $projected = $this->savingsService->previewAccruedInterest($account, $asOf);
-            if ($projected > 0) {
-                $savingsInterests[$account->client_id] = ($savingsInterests[$account->client_id] ?? 0) + $projected;
-            }
-        }
-
-        $accruedInterestPayable = \DB::table('transaction_lines as tl')
-            ->join('transactions as t', 't.id', '=', 'tl.transaction_id')
-            ->join('accounts as a', 'a.id', '=', 'tl.account_id')
-            ->where('a.account_code', '2006')
-            ->where('t.date', '<=', $asOf)
-            ->whereNotNull('tl.client_id')
-            ->groupBy('tl.client_id')
-            ->select('tl.client_id', \DB::raw('SUM(tl.credit - tl.debit) as amount'))
-            ->pluck('amount', 'client_id');
-        foreach ($accruedInterestPayable as $clientId => $amount) {
-            if ((float) $amount != 0) {
-                $savingsInterests[$clientId] = ($savingsInterests[$clientId] ?? 0) + (float) $amount;
-            }
-        }
-
-        // Group balance: for group-type clients, sum of their group members' balances
-        $groupBalances = \DB::table('groups as g')
-            ->join('group_members as gm', 'gm.group_id', '=', 'g.id')
-            ->whereNotNull('g.client_id')
-            ->where('gm.status', 'active')
-            ->groupBy('g.client_id')
-            ->select('g.client_id', \DB::raw('SUM(gm.balance) as balance'))
-            ->pluck('balance', 'client_id');
+        $shareValue = \App\Services\ClientFinancialSummaryService::SHARE_VALUE;
 
         // Which clients appear in the report as of $asOf: neither created_at (when the
         // row was inserted into this system -- e.g. every client bulk-imported on the
         // same day) nor joining_date (a client attribute, not a recorded transaction)
-        // reflect actual financial activity. Instead, a client is included if they have
-        // a real dated transaction on or before $asOf: a savings transaction, a loan
-        // disbursement, a fixed deposit opening, or a client-tagged GL posting (covers
-        // membership fees, manual entries, etc.). member_shares has no per-payment
-        // transaction_date on legacy rows (share_transactions is empty for the bulk
-        // import), so its own created_at -- the date the share was put on the books --
-        // is the closest thing to a transaction date available for it.
-        $savingsClientIds = \DB::table('savings_transactions')
-            ->join('savings_accounts', 'savings_accounts.id', '=', 'savings_transactions.savings_account_id')
-            ->where('savings_transactions.transaction_date', '<=', $asOf)
-            ->distinct()
-            ->pluck('savings_accounts.client_id');
-
-        $fdClientIds = \DB::table('fixed_deposits')
-            ->where('start_date', '<=', $asOf)
-            ->whereNull('deleted_at')
-            ->distinct()
-            ->pluck('client_id');
-
-        $glClientIds = \DB::table('transaction_lines')
-            ->join('transactions', 'transactions.id', '=', 'transaction_lines.transaction_id')
-            ->whereNotNull('transaction_lines.client_id')
-            ->where('transactions.date', '<=', $asOf)
-            ->distinct()
-            ->pluck('transaction_lines.client_id');
-
-        $shareClientIds = \DB::table('member_shares')
-            ->whereDate('created_at', '<=', $asOf)
-            ->distinct()
-            ->pluck('client_id');
-
-        $activeClientIds = collect($loanPrincipals->keys())
-            ->merge($loanInterests->keys())
-            ->merge($savingsClientIds)
-            ->merge($fdClientIds)
-            ->merge($glClientIds)
-            ->merge($shareClientIds)
-            ->unique();
+        // reflect actual financial activity. A client is included if they have a real
+        // dated transaction on or before $asOf -- see
+        // ClientFinancialSummaryService::activeClientIdsAsOf() for the exact rule.
+        $activeClientIds = $this->clientFinancials->activeClientIdsAsOf($asOf);
 
         $members = Client::whereIn('id', $activeClientIds)
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderBy('name')
-            ->get()
-            ->map(function ($client) use ($savingsBalances, $savingsInterests, $loanPrincipals, $loanInterests, $fdAmounts, $shareAmounts, $groupBalances, $shareValue) {
-                $savingsBalance  = (float) ($savingsBalances[$client->id] ?? 0);
-                $savingsInterest = (float) ($savingsInterests[$client->id] ?? 0);
-                $loanPrincipal  = (float) ($loanPrincipals[$client->id]  ?? 0);
-                $loanInterest   = (float) ($loanInterests[$client->id]   ?? 0);
-                $fdAmount       = (float) ($fdAmounts[$client->id]        ?? 0);
-                $sharePaid      = (float) ($shareAmounts[$client->id]     ?? 0);
-                $groupBalance   = (float) ($groupBalances[$client->id]    ?? 0);
-                $shareUnits     = $shareValue > 0 ? floor($sharePaid / $shareValue) : 0;
+            ->get();
 
-                return (object) [
-                    'client'          => $client,
-                    'savings_balance' => $savingsBalance,
-                    'savings_interest'=> $savingsInterest,
-                    'loan_principal'  => $loanPrincipal,
-                    'loan_interest'   => $loanInterest,
-                    'fd_amount'       => $fdAmount,
-                    'group_balance'   => $groupBalance,
-                    'share_units'     => $shareUnits,
-                    'share_total'     => $sharePaid,
-                    'total_assets'    => $savingsBalance + $savingsInterest + $fdAmount + $sharePaid + $groupBalance,
-                    'total_liability' => $loanPrincipal + $loanInterest,
-                ];
-            });
+        $summaries = $this->clientFinancials->summariesFor($members->pluck('id'), $asOf);
+
+        $members = $members->map(fn($client) => (object) array_merge(
+            ['client' => $client],
+            $summaries->get($client->id)
+        ));
 
         $totals = [
             'savings'          => $members->sum('savings_balance'),

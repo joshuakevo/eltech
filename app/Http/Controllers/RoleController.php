@@ -117,6 +117,10 @@ class RoleController extends Controller
                 'icon'  => 'bi-bar-chart-fill',
                 'perms' => ['view reports', 'view loan reports', 'view savings reports'],
             ],
+            'CRM' => [
+                'icon'  => 'bi-person-lines-fill',
+                'perms' => ['view crm', 'manage crm'],
+            ],
             'Administration' => [
                 'icon'  => 'bi-gear-fill',
                 'perms' => ['manage branches', 'manage users', 'manage settings', 'manage backup'],

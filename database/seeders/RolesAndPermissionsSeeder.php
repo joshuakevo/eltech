@@ -68,6 +68,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Groups
             'view groups', 'manage groups',
+
+            // CRM
+            'view crm', 'manage crm',
         ];
 
         foreach ($permissions as $perm) {
@@ -101,6 +104,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view groups', 'manage groups',
             'manage shares',
             'view employees',
+            'view crm', 'manage crm',
         ]);
 
         // Staff — view only, no create/edit/delete

@@ -769,6 +769,39 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4 border-success">
+    <div class="card-header bg-success bg-opacity-10 text-success-emphasis fw-bold">
+        <i class="bi bi-shield-plus me-2"></i>Add CRM Permissions
+    </div>
+    <div class="card-body">
+        <p class="mb-2 small">
+            Adds <strong>view crm</strong> (see the new CRM section) and <strong>manage crm</strong>
+            (create/edit client notes, tasks, and act on opportunities), granted directly to
+            <strong>super_admin</strong>, <strong>admin</strong>, and <strong>cashier</strong> --
+            matching who already has full day-to-day client/product access. The view-only
+            <strong>staff</strong> role does not get it by default.
+        </p>
+        <p class="mb-2 small text-muted">
+            Independently assignable/revokable afterward via the <strong>Direct Permissions</strong>
+            section on Edit User, or via Roles &amp; Permissions. Safe to run more than once.
+        </p>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ route('settings.preview-add-crm-permissions') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="bi bi-eye me-2"></i>Preview (no changes)
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.add-crm-permissions') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="bi bi-shield-plus me-2"></i>Apply
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Locked-up loans from the old system's separate Lock Up Report -- not covered by the statement migration at all --}}
 <div class="card mt-4 border-warning">
     <div class="card-header bg-warning bg-opacity-10 text-warning-emphasis fw-bold">

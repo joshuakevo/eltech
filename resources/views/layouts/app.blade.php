@@ -276,6 +276,12 @@
         </div>
         @endcanany
 
+        @can('view crm')
+        <a href="{{ route('crm.clients.index') }}" class="nav-link-item {{ request()->routeIs('crm.*') ? 'active' : '' }}">
+            <i class="bi bi-person-lines-fill"></i> CRM
+        </a>
+        @endcan
+
         @canany(['view savings-products', 'view savings'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#savingsMenu" aria-expanded="{{ $savingsGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-piggy-bank-fill"></i> Savings

@@ -601,6 +601,26 @@ class SettingsController extends Controller
         return back()->with('success', "\"overdraw savings\" permission added.\n\n{$output}");
     }
 
+    public function previewAddCrmPermissions()
+    {
+        Artisan::call('eltech:add-crm-permissions');
+        $output = Artisan::output();
+
+        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
+    }
+
+    /**
+     * Adds 'view crm' and 'manage crm', granted to super_admin, admin, and
+     * cashier -- gates the new CRM sidebar section and Client 360 pages.
+     */
+    public function addCrmPermissions()
+    {
+        Artisan::call('eltech:add-crm-permissions', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', "CRM permissions added.\n\n{$output}");
+    }
+
     /**
      * One-time additive import: populates client_segments and each client's
      * segment_id / relationship_manager_id from the legacy system's client
