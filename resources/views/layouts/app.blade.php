@@ -276,20 +276,35 @@
         </div>
         @endcanany
 
-        @can('view crm')
-        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#crmMenu" aria-expanded="{{ request()->routeIs('crm.*') ? 'true' : 'false' }}">
+        @php
+            $crmGroupActive = request()->routeIs('crm.*', 'send-statements.*', 'send-sms.*');
+        @endphp
+        @canany(['view crm', 'send statements', 'send sms'])
+        <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#crmMenu" aria-expanded="{{ $crmGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-person-lines-fill"></i> CRM
             <i class="bi bi-chevron-right chevron"></i>
         </button>
-        <div class="collapse nav-sub {{ request()->routeIs('crm.*') ? 'show' : '' }}" id="crmMenu">
+        <div class="collapse nav-sub {{ $crmGroupActive ? 'show' : '' }}" id="crmMenu">
+            @can('view crm')
             <a href="{{ route('crm.dashboard') }}" class="nav-link-item {{ request()->routeIs('crm.dashboard') ? 'active' : '' }}">
                 <i class="bi bi-speedometer2"></i> Dashboard
             </a>
             <a href="{{ route('crm.clients.index') }}" class="nav-link-item {{ request()->routeIs('crm.clients.*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i> Clients
             </a>
+            @endcan
+            @can('send statements')
+            <a href="{{ route('send-statements.index') }}" class="nav-link-item {{ request()->routeIs('send-statements.*') ? 'active' : '' }}">
+                <i class="bi bi-envelope-fill"></i> Send Statements
+            </a>
+            @endcan
+            @can('send sms')
+            <a href="{{ route('send-sms.index') }}" class="nav-link-item {{ request()->routeIs('send-sms.*') ? 'active' : '' }}">
+                <i class="bi bi-chat-dots-fill"></i> Send SMS
+            </a>
+            @endcan
         </div>
-        @endcan
+        @endcanany
 
         @canany(['view savings-products', 'view savings'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#savingsMenu" aria-expanded="{{ $savingsGroupActive ? 'true' : 'false' }}">
@@ -449,18 +464,6 @@
             <a href="{{ route('reports.savings-balances') }}"  class="nav-link-item {{ request()->routeIs('reports.savings-balances') ? 'active' : '' }}"><i class="bi bi-piggy-bank"></i> Savings Balances</a>
             <a href="{{ route('reports.fd-maturity') }}"       class="nav-link-item {{ request()->routeIs('reports.fd-maturity') ? 'active' : '' }}"><i class="bi bi-safe"></i> FD Maturity</a>
         </div>
-        @endcan
-
-        @can('send statements')
-        <a href="{{ route('send-statements.index') }}" class="nav-link-item {{ request()->routeIs('send-statements.*') ? 'active' : '' }}">
-            <i class="bi bi-envelope-fill"></i> Send Statements
-        </a>
-        @endcan
-
-        @can('send sms')
-        <a href="{{ route('send-sms.index') }}" class="nav-link-item {{ request()->routeIs('send-sms.*') ? 'active' : '' }}">
-            <i class="bi bi-chat-dots-fill"></i> Send SMS
-        </a>
         @endcan
 
         @can('approve mobile money')
