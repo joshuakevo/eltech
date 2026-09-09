@@ -24,6 +24,15 @@ class ClientFinancialSummaryService
     public const SHARE_VALUE = 100000;
 
     /**
+     * The core product types every individual client can hold, used as the
+     * denominator for "product penetration" everywhere it's shown (CRM
+     * Clients list, Client 360, CRM Dashboard, health score). Group savings
+     * is a different relational shape (a client is a *member* of a group
+     * owned by another client record) and is excluded from this count.
+     */
+    public const CORE_PRODUCT_TYPES = 4;
+
+    /**
      * Bulk-compute summaries for a specific set of client IDs as of $asOf
      * (default today). Returns a Collection keyed by client_id, each value
      * an array: savings_balance, savings_interest, loan_principal,

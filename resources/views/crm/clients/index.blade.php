@@ -51,6 +51,14 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <select name="health" class="form-select">
+                    <option value="">Any Health</option>
+                    <option value="Healthy" @selected(request('health')=='Healthy')>🟢 Healthy</option>
+                    <option value="Needs Attention" @selected(request('health')=='Needs Attention')>🟡 Needs Attention</option>
+                    <option value="At Risk" @selected(request('health')=='At Risk')>🔴 At Risk</option>
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label small text-muted mb-1">Joined from</label>
                 <input type="date" name="joined_from" class="form-control" value="{{ request('joined_from') }}">
             </div>
@@ -67,6 +75,7 @@
             <thead><tr>
                 <th class="ps-3">Client</th><th>Type</th><th>Account Manager</th>
                 <th class="text-center">Products</th>
+                <th>Health</th>
                 <th class="text-end">Total Value</th>
                 <th class="text-end">Outstanding</th>
                 <th>Last Activity</th><th>Status</th><th class="pe-3">Actions</th>
@@ -81,7 +90,12 @@
                     <td class="small text-muted">{{ ucfirst($client->client_type) }}</td>
                     <td class="small">{{ $client->relationshipManager->name ?? '—' }}</td>
                     <td class="text-center">
-                        <span class="badge bg-primary-subtle text-primary">{{ $client->product_count }}/4</span>
+                        <span class="badge bg-primary-subtle text-primary">{{ $client->product_count }}/{{ $totalProductTypes }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ $client->health['color'] }}-subtle text-{{ $client->health['color'] }}-emphasis" title="Health score: {{ $client->health['score'] }}/100">
+                            {{ $client->health['emoji'] }} {{ $client->health['label'] }}
+                        </span>
                     </td>
                     <td class="text-end fw-semibold text-success">{{ number_format($client->financial_summary['total_assets'], $dp) }}</td>
                     <td class="text-end fw-semibold {{ $client->financial_summary['total_liability'] > 0 ? 'text-warning' : 'text-muted' }}">
@@ -96,7 +110,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="text-center text-muted py-4">No clients found.</td></tr>
+                <tr><td colspan="10" class="text-center text-muted py-4">No clients found.</td></tr>
             @endforelse
             </tbody>
         </table>

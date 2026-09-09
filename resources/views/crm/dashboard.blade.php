@@ -59,28 +59,45 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
+        <a href="{{ route('crm.clients.index', ['health' => 'Healthy']) }}" class="text-decoration-none text-reset d-block">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-moon"></i></div>
+                <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-emoji-smile"></i></div>
                 <div>
-                    <div class="text-muted small">Dormant Clients <span class="d-block" style="font-size:.65rem">(180+ days inactive)</span></div>
-                    <div class="fw-bold fs-5">{{ number_format($dormantCount) }}</div>
+                    <div class="text-muted small">🟢 Healthy</div>
+                    <div class="fw-bold fs-5">{{ number_format($healthyCount) }}</div>
                 </div>
             </div>
         </div>
+        </a>
     </div>
     <div class="col-6 col-md-3">
+        <a href="{{ route('crm.clients.index', ['health' => 'Needs Attention']) }}" class="text-decoration-none text-reset d-block">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-emoji-neutral"></i></div>
                 <div>
-                    <div class="text-muted small">At-Risk Clients <span class="d-block" style="font-size:.65rem">(overdue loan)</span></div>
+                    <div class="text-muted small">🟡 Needs Attention</div>
+                    <div class="fw-bold fs-5">{{ number_format($attentionCount) }}</div>
+                </div>
+            </div>
+        </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ route('crm.clients.index', ['health' => 'At Risk']) }}" class="text-decoration-none text-reset d-block">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-emoji-frown"></i></div>
+                <div>
+                    <div class="text-muted small">🔴 At Risk</div>
                     <div class="fw-bold fs-5 {{ $atRiskCount > 0 ? 'text-danger' : '' }}">{{ number_format($atRiskCount) }}</div>
                 </div>
             </div>
         </div>
+        </a>
     </div>
     <div class="col-6 col-md-3">
         <div class="stat-card">
@@ -93,6 +110,9 @@
             </div>
         </div>
     </div>
+</div>
+
+<div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3">
@@ -100,6 +120,39 @@
                 <div>
                     <div class="text-muted small">Total Customer Value <span class="d-block" style="font-size:.65rem">(assets)</span></div>
                     <div class="fw-bold fs-5 text-success">{{ number_format($totalCustomerValue, 0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-exclamation-circle"></i></div>
+                <div>
+                    <div class="text-muted small">Total Outstanding <span class="d-block" style="font-size:.65rem">(liabilities)</span></div>
+                    <div class="fw-bold fs-5">{{ number_format($totalOutstanding, 0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-shield-exclamation"></i></div>
+                <div>
+                    <div class="text-muted small">Portfolio at Risk <span class="d-block" style="font-size:.65rem">outstanding held by At-Risk clients</span></div>
+                    <div class="fw-bold fs-5 {{ $portfolioAtRiskPct > 15 ? 'text-danger' : '' }}">{{ $portfolioAtRiskPct }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+                <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-pie-chart"></i></div>
+                <div>
+                    <div class="text-muted small">Value Concentration <span class="d-block" style="font-size:.65rem">held by top 10 customers</span></div>
+                    <div class="fw-bold fs-5">{{ $concentrationPct }}%</div>
                 </div>
             </div>
         </div>
@@ -115,7 +168,7 @@
     </div>
     <div class="col-md-4">
         <div class="card h-100">
-            <div class="card-header">Client Base Health</div>
+            <div class="card-header">Client Health <span class="text-muted small">— see Customer Health Score</span></div>
             <div class="card-body"><canvas id="healthChart" height="180"></canvas></div>
         </div>
     </div>
@@ -167,6 +220,23 @@
     </div>
 </div>
 
+<div class="row g-3 mb-3">
+    <div class="col-md-{{ $showBranchChart ? '6' : '12' }}">
+        <div class="card h-100">
+            <div class="card-header">Clients by Segment</div>
+            <div class="card-body"><canvas id="segmentChart" height="{{ $showBranchChart ? 140 : 90 }}"></canvas></div>
+        </div>
+    </div>
+    @if($showBranchChart)
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">Clients by Branch</div>
+            <div class="card-body"><canvas id="branchChart" height="140"></canvas></div>
+        </div>
+    </div>
+    @endif
+</div>
+
 @endsection
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -197,14 +267,10 @@ new Chart(document.getElementById('growthChart'), {
 new Chart(document.getElementById('healthChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Active (healthy)', 'Dormant', 'At-Risk'],
+        labels: ['🟢 Healthy', '🟡 Needs Attention', '🔴 At Risk'],
         datasets: [{
-            data: [
-                {{ max(0, $activeCount - $dormantCount - $atRiskCount) }},
-                {{ $dormantCount }},
-                {{ $atRiskCount }}
-            ],
-            backgroundColor: ['rgba(34,197,94,.75)', 'rgba(107,114,128,.6)', 'rgba(239,68,68,.75)'],
+            data: [{{ $healthyCount }}, {{ $attentionCount }}, {{ $atRiskCount }}],
+            backgroundColor: ['rgba(34,197,94,.75)', 'rgba(234,179,8,.75)', 'rgba(239,68,68,.75)'],
         }]
     },
     options: {
@@ -271,5 +337,48 @@ new Chart(document.getElementById('activityChart'), {
         }
     }
 });
+
+new Chart(document.getElementById('segmentChart'), {
+    type: 'bar',
+    data: {
+        labels: @json($segmentLabels),
+        datasets: [{
+            label: 'Clients',
+            data: @json($segmentData),
+            backgroundColor: 'rgba(147,51,234,.7)', borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: true,
+        indexAxis: {{ $showBranchChart ? "'x'" : "'y'" }},
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font } },
+            y: { grid: { color: gridColor }, ticks: { font, precision: 0 }, beginAtZero: true }
+        }
+    }
+});
+
+@if($showBranchChart)
+new Chart(document.getElementById('branchChart'), {
+    type: 'bar',
+    data: {
+        labels: @json($branchLabels),
+        datasets: [{
+            label: 'Clients',
+            data: @json($branchData),
+            backgroundColor: 'rgba(16,185,129,.7)', borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font } },
+            y: { grid: { color: gridColor }, ticks: { font, precision: 0 }, beginAtZero: true }
+        }
+    }
+});
+@endif
 </script>
 @endpush

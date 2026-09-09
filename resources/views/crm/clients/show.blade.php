@@ -11,6 +11,9 @@
         <h4 class="fw-bold mb-0">
             {{ $client->name }}
             <span class="badge badge-status-{{ $client->status }} ms-1">{{ ucfirst($client->status) }}</span>
+            <span class="badge bg-{{ $health['color'] }}-subtle text-{{ $health['color'] }}-emphasis ms-1" title="Health score: {{ $health['score'] }}/100">
+                {{ $health['emoji'] }} {{ $health['label'] }}
+            </span>
         </h4>
         <span class="text-muted">{{ $client->client_number }} &bull; {{ ucfirst($client->client_type) }}</span>
     </div>
@@ -61,6 +64,45 @@
                 <div class="stat-card">
                     <div class="text-muted small">Last Activity</div>
                     <div class="fw-bold fs-5">{{ $lastActivityAt ? \Illuminate\Support\Carbon::parse($lastActivityAt)->format('d M Y') : 'Never' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header small fw-semibold py-2 d-flex justify-content-between align-items-center">
+                        <span>Customer Health <span class="badge bg-{{ $health['color'] }}-subtle text-{{ $health['color'] }}-emphasis ms-1">{{ $health['emoji'] }} {{ $health['label'] }} — {{ $health['score'] }}/100</span></span>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0 small align-middle">
+                                <thead><tr>
+                                    <th>Factor</th><th style="width:30%">Score</th><th>Detail</th>
+                                </tr></thead>
+                                <tbody>
+                                @foreach($health['factors'] as $key => $factor)
+                                <tr>
+                                    <td class="text-capitalize fw-semibold">{{ str_replace('_', ' ', $key) }}</td>
+                                    <td>
+                                        @if($factor['applicable'])
+                                        <div class="progress" style="height:8px">
+                                            <div class="progress-bar bg-{{ $factor['score'] >= 70 ? 'success' : ($factor['score'] >= 40 ? 'warning' : 'danger') }}" style="width:{{ $factor['score'] }}%"></div>
+                                        </div>
+                                        @else
+                                        <span class="text-muted">— n/a —</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-muted">{{ $factor['detail'] }}</td>
+                                </tr>
+                                @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-info-circle me-1"></i>Weighted blend of the applicable factors above (weights configurable in <span class="font-monospace">config/crm.php</span>). Factors marked n/a are excluded from this client's score, not counted against them.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

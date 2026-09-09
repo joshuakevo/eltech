@@ -2,26 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Client;
+use App\Models\ClientSegment;
 use App\Models\FixedDeposit;
 use App\Models\Loan;
-use App\Models\LoanSchedule;
+use App\Models\LoanRepayment;
 use App\Models\MemberShare;
 use App\Models\SavingsAccount;
 use App\Models\SavingsTransaction;
-use App\Models\LoanRepayment;
 use App\Services\ClientActivityService;
 use App\Services\ClientFinancialSummaryService;
-use Illuminate\Support\Facades\DB;
+use App\Services\ClientHealthService;
 
 class CrmDashboardController extends Controller
 {
-    private const CORE_PRODUCT_TYPES = 4; // Savings, Loan, Fixed Deposit, Shares
-    private const DORMANT_DAYS = 180;      // no activity in 6 months, matches the operational dashboard's dormancy heuristic
-
     public function __construct(
         protected ClientFinancialSummaryService $financials,
         protected ClientActivityService $activity,
+        protected ClientHealthService $health,
     ) {
     }
 
@@ -33,7 +32,6 @@ class CrmDashboardController extends Controller
         $activeIds     = $activeClients->pluck('id');
 
         // --- New clients / growth -------------------------------------------------
-        $joinExpr = DB::raw('COALESCE(joining_date, created_at)');
         $newThisMonth = Client::whereRaw('COALESCE(joining_date, created_at) >= ?', [now()->startOfMonth()->toDateString()])->count();
         $newLastMonth = Client::whereRaw('COALESCE(joining_date, created_at) >= ? AND COALESCE(joining_date, created_at) < ?', [
             now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
@@ -61,30 +59,14 @@ class CrmDashboardController extends Controller
         }
         $avgProducts = $activeCount > 0 ? round($totalProductInstances / $activeCount, 2) : 0;
 
-        // --- Dormant: active, joined more than 180 days ago, no activity in the last 180 days ---
-        $lastActivity = $this->activity->lastActivityDatesFor($activeIds);
-        $cutoff = now()->subDays(self::DORMANT_DAYS);
-        $dormantCount = 0;
-        foreach ($activeClients as $client) {
-            $joinedAt = $client->joining_date ?? $client->created_at;
-            if ($joinedAt && $joinedAt->gt($cutoff)) {
-                continue; // too new to call dormant
-            }
-            $last = $lastActivity->get($client->id);
-            if (!$last || \Illuminate\Support\Carbon::parse($last)->lt($cutoff)) {
-                $dormantCount++;
-            }
-        }
-
-        // --- At risk: active client with an active loan carrying an overdue installment ---
-        $overdueLoanIds = LoanSchedule::where('due_date', '<', now()->toDateString())
-            ->whereIn('status', ['pending', 'partial', 'overdue'])
-            ->distinct()
-            ->pluck('loan_id');
-        $atRiskCount = Loan::where('status', 'active')
-            ->whereIn('id', $overdueLoanIds)
-            ->distinct()
-            ->count('client_id');
+        // --- Customer health -- single source of truth shared with the CRM Clients
+        // list and Client 360 (ClientHealthService), so "at risk" here means the
+        // same thing everywhere in the CRM, not a second, different definition. ---
+        $healthScores = $this->health->scoresFor($activeIds);
+        $healthyCount   = $healthScores->where('label', 'Healthy')->count();
+        $attentionCount = $healthScores->where('label', 'Needs Attention')->count();
+        $atRiskCount    = $healthScores->where('label', 'At Risk')->count();
+        $atRiskClientIds = $healthScores->where('label', 'At Risk')->keys();
 
         // --- Total customer value (assets) -- same "financially active" universe as Member Summary ---
         $financialClientIds = $this->financials->activeClientIdsAsOf();
@@ -92,13 +74,19 @@ class CrmDashboardController extends Controller
         $totalCustomerValue = $summaries->sum('total_assets');
         $totalOutstanding   = $summaries->sum('total_liability');
 
-        // --- Top 10 customers by total value ---
+        // --- Portfolio at risk: how much of total outstanding sits with At-Risk clients ---
+        $atRiskOutstanding = $summaries->only($atRiskClientIds->all())->sum('total_liability');
+        $portfolioAtRiskPct = $totalOutstanding > 0 ? round(($atRiskOutstanding / $totalOutstanding) * 100, 1) : 0;
+
+        // --- Top 10 customers by total value, and how concentrated value is among them ---
         $topClientIds = $summaries->sortByDesc('total_assets')->take(10)->keys();
         $topClients = Client::whereIn('id', $topClientIds)->get()->keyBy('id');
         $topCustomers = $topClientIds->map(fn ($id) => (object) [
             'client' => $topClients->get($id),
             'value'  => $summaries->get($id)['total_assets'],
         ])->filter(fn ($row) => $row->client !== null)->values();
+        $top10Value = $topCustomers->sum('value');
+        $concentrationPct = $totalCustomerValue > 0 ? round(($top10Value / $totalCustomerValue) * 100, 1) : 0;
 
         // --- Customer growth over time (last 12 months, by joining_date/created_at) ---
         $months = collect();
@@ -126,14 +114,40 @@ class CrmDashboardController extends Controller
         $repaymentCounts = $activityMonths->map(fn ($m) => LoanRepayment::whereYear('payment_date', $m->year)
             ->whereMonth('payment_date', $m->month)->count());
 
+        // --- Clients by segment (only segments actually in use) ---
+        $segmentCounts = Client::whereNotNull('segment_id')
+            ->selectRaw('segment_id, count(*) as cnt')
+            ->groupBy('segment_id')
+            ->pluck('cnt', 'segment_id');
+        $segments = ClientSegment::whereIn('id', $segmentCounts->keys())->pluck('name', 'id');
+        $segmentLabels = $segments->values();
+        $segmentData   = $segments->keys()->map(fn ($id) => $segmentCounts->get($id, 0));
+        $unsegmentedCount = Client::whereNull('segment_id')->count();
+        if ($unsegmentedCount > 0) {
+            $segmentLabels->push('Unassigned');
+            $segmentData->push($unsegmentedCount);
+        }
+
+        // --- Clients by branch (only shown when the org actually has more than one) ---
+        $branchCounts = Client::whereNotNull('branch_id')
+            ->selectRaw('branch_id, count(*) as cnt')
+            ->groupBy('branch_id')
+            ->pluck('cnt', 'branch_id');
+        $showBranchChart = $branchCounts->count() > 1;
+        $branches = $showBranchChart ? Branch::whereIn('id', $branchCounts->keys())->pluck('name', 'id') : collect();
+        $branchLabels = $branches->values();
+        $branchData   = $branches->keys()->map(fn ($id) => $branchCounts->get($id, 0));
+
         return view('crm.dashboard', compact(
             'totalClients', 'activeCount', 'newThisMonth', 'growthPct',
-            'dormantCount', 'atRiskCount', 'avgProducts',
-            'totalCustomerValue', 'totalOutstanding',
+            'healthyCount', 'attentionCount', 'atRiskCount', 'avgProducts',
+            'totalCustomerValue', 'totalOutstanding', 'portfolioAtRiskPct', 'concentrationPct',
             'distribution', 'topCustomers',
             'monthLabels', 'growthSeries',
             'activityLabels', 'savingsTxnCounts', 'repaymentCounts',
-            'savingsSet', 'loanSet', 'fdSet', 'shareSet'
+            'savingsSet', 'loanSet', 'fdSet', 'shareSet',
+            'segmentLabels', 'segmentData',
+            'showBranchChart', 'branchLabels', 'branchData'
         ));
     }
 }

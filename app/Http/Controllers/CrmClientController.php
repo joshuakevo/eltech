@@ -8,22 +8,18 @@ use App\Models\SavingsTransaction;
 use App\Models\User;
 use App\Services\ClientActivityService;
 use App\Services\ClientFinancialSummaryService;
+use App\Services\ClientHealthService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class CrmClientController extends Controller
 {
-    /**
-     * The core product types every individual client can hold, used as the
-     * denominator for "product penetration". Group savings is a different
-     * relational shape (a client is a *member* of a group owned by another
-     * client record) and is shown separately rather than folded into this
-     * count.
-     */
-    private const PRODUCT_TYPES = ['savings', 'loan', 'fixed_deposit', 'shares'];
+    private const PER_PAGE = 20;
 
     public function __construct(
         protected ClientFinancialSummaryService $financials,
         protected ClientActivityService $activity,
+        protected ClientHealthService $health,
     ) {
     }
 
@@ -50,19 +46,50 @@ class CrmClientController extends Controller
             ->when($request->joined_from, fn ($q) => $q->whereDate('joining_date', '>=', $request->joined_from))
             ->when($request->joined_to, fn ($q) => $q->whereDate('joining_date', '<=', $request->joined_to));
 
-        $totalCount = (clone $filtered)->count();
+        // Health is computed (not a DB column), so filtering by it means scoring
+        // every client that matches the other filters first, then paginating
+        // the filtered ID list in memory. Only paid for when the filter is used.
+        if ($request->health) {
+            $matchingIds = (clone $filtered)->pluck('id');
+            $allScores = $this->health->scoresFor($matchingIds);
+            $keptIds = $allScores->filter(fn ($s) => $s['label'] === $request->health)->keys();
 
-        $clients = $filtered
-            ->with(['branch', 'segment', 'relationshipManager', 'group'])
-            ->withCount([
-                'savingsAccounts as owns_savings_count' => fn ($q) => $q->whereIn('status', ['active', 'dormant']),
-                'loans as owns_loan_count'              => fn ($q) => $q->where('status', 'active'),
-                'fixedDeposits as owns_fd_count'        => fn ($q) => $q->where('status', 'active'),
-                'shares as owns_shares_count'           => fn ($q) => $q->whereIn('status', ['partial', 'paid']),
-            ])
-            ->orderBy('name')
-            ->paginate(20)
-            ->withQueryString();
+            $totalCount = $keptIds->count();
+            $page = max(1, (int) $request->input('page', 1));
+            $pageIds = $keptIds->slice(($page - 1) * self::PER_PAGE, self::PER_PAGE)->values();
+
+            $pageClients = Client::whereIn('id', $pageIds)
+                ->with(['branch', 'segment', 'relationshipManager', 'group'])
+                ->withCount([
+                    'savingsAccounts as owns_savings_count' => fn ($q) => $q->whereIn('status', ['active', 'dormant']),
+                    'loans as owns_loan_count'              => fn ($q) => $q->where('status', 'active'),
+                    'fixedDeposits as owns_fd_count'        => fn ($q) => $q->where('status', 'active'),
+                    'shares as owns_shares_count'           => fn ($q) => $q->whereIn('status', ['partial', 'paid']),
+                ])
+                ->orderBy('name')
+                ->get();
+
+            $clients = new LengthAwarePaginator($pageClients, $totalCount, self::PER_PAGE, $page, [
+                'path' => $request->url(), 'query' => $request->query(),
+            ]);
+            $healthScores = $allScores;
+        } else {
+            $totalCount = (clone $filtered)->count();
+
+            $clients = $filtered
+                ->with(['branch', 'segment', 'relationshipManager', 'group'])
+                ->withCount([
+                    'savingsAccounts as owns_savings_count' => fn ($q) => $q->whereIn('status', ['active', 'dormant']),
+                    'loans as owns_loan_count'              => fn ($q) => $q->where('status', 'active'),
+                    'fixedDeposits as owns_fd_count'        => fn ($q) => $q->where('status', 'active'),
+                    'shares as owns_shares_count'           => fn ($q) => $q->whereIn('status', ['partial', 'paid']),
+                ])
+                ->orderBy('name')
+                ->paginate(self::PER_PAGE)
+                ->withQueryString();
+
+            $healthScores = $this->health->scoresFor($clients->getCollection()->pluck('id'));
+        }
 
         $ids = $clients->getCollection()->pluck('id');
         $summaries    = $this->financials->summariesFor($ids);
@@ -77,11 +104,13 @@ class CrmClientController extends Controller
                 + ($client->owns_loan_count > 0 ? 1 : 0)
                 + ($client->owns_fd_count > 0 ? 1 : 0)
                 + ($client->owns_shares_count > 0 ? 1 : 0);
+            $client->health = $healthScores->get($client->id);
         }
 
         $relationshipManagers = User::where('is_relationship_manager', true)->orderBy('name')->get();
+        $totalProductTypes = ClientFinancialSummaryService::CORE_PRODUCT_TYPES;
 
-        return view('crm.clients.index', compact('clients', 'totalCount', 'relationshipManagers'));
+        return view('crm.clients.index', compact('clients', 'totalCount', 'relationshipManagers', 'totalProductTypes'));
     }
 
     public function show(Client $client)
@@ -94,6 +123,7 @@ class CrmClientController extends Controller
 
         $summary = $this->financials->summaryFor($client);
         $lastActivityAt = $this->activity->lastActivityFor($client);
+        $health = $this->health->scoreFor($client);
 
         $ownsSavings = $client->savingsAccounts->whereIn('status', ['active', 'dormant'])->isNotEmpty();
         $ownsLoan    = $client->loans->where('status', 'active')->isNotEmpty();
@@ -101,12 +131,12 @@ class CrmClientController extends Controller
         $ownsShares  = $client->shares->whereIn('status', ['partial', 'paid'])->isNotEmpty();
 
         $productsOwnedCount = ($ownsSavings ? 1 : 0) + ($ownsLoan ? 1 : 0) + ($ownsFd ? 1 : 0) + ($ownsShares ? 1 : 0);
-        $totalProductTypes  = count(self::PRODUCT_TYPES);
+        $totalProductTypes  = ClientFinancialSummaryService::CORE_PRODUCT_TYPES;
 
         $productRows = $this->buildProductRows($client);
 
         return view('crm.clients.show', compact(
-            'client', 'summary', 'lastActivityAt',
+            'client', 'summary', 'lastActivityAt', 'health',
             'ownsSavings', 'ownsLoan', 'ownsFd', 'ownsShares',
             'productsOwnedCount', 'totalProductTypes', 'productRows'
         ));
