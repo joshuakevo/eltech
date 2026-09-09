@@ -32,11 +32,23 @@
 
 <div class="card">
     <div class="card-body pb-0">
-        <form class="row g-2 mb-3" method="GET">
+        <form class="row g-2 mb-3 align-items-center" method="GET">
             <div class="col-auto">
                 <label class="col-form-label small text-muted">Anniversary date</label>
             </div>
+            <div class="col-auto">
+                <a href="{{ route('loans.run', ['date' => $date->copy()->subDay()->toDateString(), 'search' => request('search')]) }}"
+                   class="btn btn-outline-secondary" title="Previous day">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </div>
             <div class="col-auto"><input type="date" name="date" class="form-control" value="{{ $date->toDateString() }}"></div>
+            <div class="col-auto">
+                <a href="{{ route('loans.run', ['date' => $date->copy()->addDay()->toDateString(), 'search' => request('search')]) }}"
+                   class="btn btn-outline-secondary" title="Next day">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
             <div class="col-md-3"><input type="text" name="search" class="form-control" placeholder="Loan # or client name..." value="{{ request('search') }}"></div>
             <div class="col-auto"><button class="btn btn-outline-primary">View</button></div>
             <div class="col-auto"><a href="{{ route('loans.run') }}" class="btn btn-outline-secondary">Today</a></div>
