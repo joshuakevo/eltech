@@ -171,8 +171,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Receipt / Reference <span class="text-danger">*</span></label>
-                        <input type="text" name="reference" class="form-control" value="{{ old('reference') }}" placeholder="Cheque no., bank ref, etc." required>
+                        <label class="form-label fw-semibold">Receipt / Reference</label>
+                        <input type="text" name="reference" class="form-control" value="{{ old('reference') }}" placeholder="Cheque no., bank ref, etc. — leave blank to auto-generate">
+                        <div class="form-text">Optional — if left blank, a reference like <span class="font-monospace">LR-{{ $loan->loan_number }}-...</span> is generated automatically.</div>
                     </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold">Notes</label>

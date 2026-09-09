@@ -319,7 +319,7 @@ class LoanController extends Controller
             'amount'                    => 'required|numeric|min:0.01',
             'payment_source_account_id' => 'required',
             'savings_account_id'        => 'required_if:payment_source_account_id,savings|nullable|exists:savings_accounts,id',
-            'reference'                 => 'required|string|max:100|unique:transactions,reference',
+            'reference'                 => 'nullable|string|max:100|unique:transactions,reference',
             'notes'                     => 'nullable|string',
         ]);
 
@@ -327,6 +327,7 @@ class LoanController extends Controller
         $request->merge([
             'payment_method'            => $isSavings ? 'savings' : 'direct',
             'payment_source_account_id' => $isSavings ? null : (int) $request->payment_source_account_id,
+            'reference'                 => $request->reference ?: 'LR-' . $loan->loan_number . '-' . now()->format('YmdHis'),
         ]);
 
         if ($loan->status !== 'active') {
