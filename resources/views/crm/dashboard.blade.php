@@ -350,7 +350,7 @@ new Chart(document.getElementById('segmentChart'), {
     },
     options: {
         responsive: true, maintainAspectRatio: true,
-        indexAxis: {{ $showBranchChart ? "'x'" : "'y'" }},
+        indexAxis: '{{ $showBranchChart ? "x" : "y" }}',
         plugins: { legend: { display: false } },
         scales: {
             x: { grid: { display: false }, ticks: { font } },
