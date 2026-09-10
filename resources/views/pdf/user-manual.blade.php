@@ -299,7 +299,7 @@
         <div class="step"><div class="step-num">2</div><div class="step-text">Enter Amount, Payment Date, Payment Method, and Receipt / Reference</div></div>
         <div class="step"><div class="step-num">3</div><div class="step-text">Click <strong>Save</strong></div></div>
     </div>
-    <div class="note"><strong>Allocation order:</strong> Repayments are applied in this order — Penalty first, then Interest, then Principal.</div>
+    <div class="note"><strong>Allocation order:</strong> Repayments are applied in this order — Interest first, then Principal, then Penalty last.</div>
 
     <h2>6.5 Loan Statuses</h2>
     <table>

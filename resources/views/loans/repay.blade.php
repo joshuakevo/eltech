@@ -182,7 +182,7 @@
 
                     <div class="alert alert-secondary small mb-3">
                         <i class="bi bi-info-circle me-1"></i>
-                        Allocation: <strong>Penalty → then per installment (Interest → Principal), earliest first</strong>
+                        Allocation: <strong>Per installment (Interest → Principal), earliest first → then Penalty</strong>
                     </div>
 
                     <div class="d-flex gap-2">
@@ -254,11 +254,6 @@ function updateBreakdown() {
     var totalInterest = 0, totalPrincipal = 0, totalPenalty = 0;
     var installmentsCovered = [];
 
-    // Penalty first
-    var pPenalty = Math.min(remaining, penaltyDue);
-    remaining -= pPenalty;
-    totalPenalty = pPenalty;
-
     // Per-installment: interest then principal
     var schCopy = schedules.map(function(s) { return {installment_no: s.installment_no, iRem: s.interest_rem, pRem: s.principal_rem}; });
     for (var i = 0; i < schCopy.length && remaining > 0; i++) {
@@ -268,10 +263,15 @@ function updateBreakdown() {
         if (iApply > 0 || pApply > 0) installmentsCovered.push(s.installment_no);
     }
 
+    // Penalty last, from whatever remains
+    var pPenalty = Math.min(remaining, penaltyDue);
+    remaining -= pPenalty;
+    totalPenalty = pPenalty;
+
     var parts = [];
-    if (totalPenalty  > 0) parts.push('Penalty: ' + fmt(totalPenalty));
     if (totalInterest > 0) parts.push('Interest: ' + fmt(totalInterest));
     if (totalPrincipal> 0) parts.push('Principal: ' + fmt(totalPrincipal));
+    if (totalPenalty  > 0) parts.push('Penalty: ' + fmt(totalPenalty));
     if (installmentsCovered.length > 0) parts.push('Installments: #' + installmentsCovered.join(', #'));
 
     document.getElementById('amountBreakdown').textContent = parts.length ? 'Allocation → ' + parts.join(' | ') : '';
