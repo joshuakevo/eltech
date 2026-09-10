@@ -111,8 +111,23 @@ class ReconcileData extends Command
         $this->info('Checking loan outstanding balances...');
 
         Loan::whereIn('status', ['active', 'defaulted'])->each(function (Loan $loan) {
-            // Principal = original principal minus all principal paid via repayments
-            $correctPrincipal = max(0, $loan->principal - $loan->repayments()->sum('principal_paid'));
+            // Principal: prefer the loan's own schedule (source of truth for legacy/
+            // rebuilt loans, whose repayment progress lives in
+            // loan_schedules.principal_paid, not in the loan_repayments table -- many
+            // loans have zero loan_repayments rows despite real payment history on
+            // their schedule). Fall back to principal minus loan_repayments only when
+            // the loan has no schedule rows to read from.
+            $scheduleRemaining = DB::table('loan_schedules')
+                ->where('loan_id', $loan->id)
+                ->whereIn('status', ['pending', 'partial', 'overdue'])
+                ->selectRaw('COALESCE(SUM(principal_due - principal_paid), 0) as rem, COUNT(*) as cnt')
+                ->first();
+
+            if ($scheduleRemaining && $scheduleRemaining->cnt > 0) {
+                $correctPrincipal = max(0, (float) $scheduleRemaining->rem);
+            } else {
+                $correctPrincipal = max(0, $loan->principal - $loan->repayments()->sum('principal_paid'));
+            }
 
             // Interest = sum of (interest_due - interest_paid) across unpaid/partial schedules
             $correctInterest = max(0, (float) DB::table('loan_schedules')
