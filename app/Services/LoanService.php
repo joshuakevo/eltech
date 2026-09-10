@@ -313,7 +313,7 @@ class LoanService
 
     /**
      * Process a loan repayment — schedule-based allocation:
-     * penalty first, then per-installment (interest → principal) in due order.
+     * per-installment (interest → principal) in due order, then penalty last.
      */
     public function processRepayment(Loan $loan, array $data): LoanRepayment
     {
@@ -325,17 +325,7 @@ class LoanService
             $interestPaid  = 0;
             $principalPaid = 0;
 
-            // 1. Penalty first — judged against the date the money was actually
-            // recovered, not today. A repayment backdated to on/before an
-            // installment's due date must not be penalized just because it's
-            // being entered into the system late.
-            $penaltyDue = $this->calculatePenalty($loan, $data['payment_date']);
-            if ($remaining > 0 && $penaltyDue > 0) {
-                $penaltyPaid = min($remaining, $penaltyDue);
-                $remaining  -= $penaltyPaid;
-            }
-
-            // 2. Per-installment allocation (interest → principal), earliest first
+            // 1. Per-installment allocation (interest → principal), earliest first
             $schedules = $loan->schedules()
                 ->whereIn('status', ['pending', 'partial', 'overdue'])
                 ->orderBy('installment_no')
@@ -370,6 +360,17 @@ class LoanService
                 }
 
                 $schedule->save();
+            }
+
+            // 2. Penalty last, from whatever remains after principal/interest —
+            // judged against the date the money was actually recovered, not
+            // today. A repayment backdated to on/before an installment's due
+            // date must not be penalized just because it's being entered into
+            // the system late.
+            $penaltyDue = $this->calculatePenalty($loan, $data['payment_date']);
+            if ($remaining > 0 && $penaltyDue > 0) {
+                $penaltyPaid = min($remaining, $penaltyDue);
+                $remaining  -= $penaltyPaid;
             }
 
             // Post journal

@@ -46,7 +46,7 @@ php artisan migrate:fresh --seed  # Full reset
 
 1. **Every financial action must post a double-entry journal entry** via `AccountingService`
 2. **Transactions must balance**: `sum(debits) == sum(credits)` — enforced in `AccountingService::validateLines()`
-3. **Repayment allocation order**: penalty → interest → principal
+3. **Repayment allocation order**: interest → principal → penalty (penalty last)
 4. **Savings are liabilities**: Deposit = DR Cash (1001) / CR Savings Liability
 5. **FD interest formula**: `P × R × T` (simple interest, not compound)
 6. **Loan schedules** are generated on **disbursement**, not on loan creation
