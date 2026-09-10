@@ -173,7 +173,7 @@ class ReportController extends Controller
 
         if ($request->format === 'pdf') {
             $pdf = Pdf::loadView('pdf.reports.general-ledger', compact('account', 'rows', 'fromDate', 'toDate'))
-                ->setPaper('a4', 'landscape');
+                ->setPaper('a4', 'portrait');
             return $pdf->download('general-ledger-' . $account->account_code . '-' . now()->format('Y-m-d') . '.pdf');
         }
 
