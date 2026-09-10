@@ -183,7 +183,10 @@ class SavingsAccountController extends Controller
 
     public function show(SavingsAccount $saving)
     {
-        $saving->load('client', 'product', 'transactions.createdBy');
+        $saving->load([
+            'client', 'product',
+            'transactions' => fn($q) => $q->reorder('transaction_date', 'asc')->orderBy('id', 'asc')->with('createdBy'),
+        ]);
         $pendingInterest = $this->pendingInterestFor($saving);
         return view('savings.show', compact('saving', 'pendingInterest'));
     }
