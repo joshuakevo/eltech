@@ -131,29 +131,18 @@ $groupIcons = [
         <span>Data Integrity &amp; Reconciliation</span>
     </div>
     <div class="card-body">
-        <p class="text-muted small mb-2">
+        <p class="text-muted small mb-3">
             Recalculates all denormalized/cached fields from their source of truth — savings balances,
             loan outstanding amounts, schedule statuses, share statuses, and membership fee statuses.
             Run this if you suspect any figures are out of sync.
         </p>
-        <p class="mb-2 small text-muted">
-            Always run <strong>Preview</strong> first and check the report before <strong>Apply</strong>.
-        </p>
-        <div class="d-flex gap-2">
-            <form method="POST" action="{{ route('settings.reconcile-preview') }}">
-                @csrf
-                <button type="submit" class="btn btn-outline-info">
-                    <i class="bi bi-eye me-2"></i>Preview (no changes)
-                </button>
-            </form>
-            <form method="POST" action="{{ route('settings.reconcile') }}"
-                  onsubmit="return confirm('Run reconciliation now? This will fix any inconsistencies across the database. Have you reviewed the Preview output?')">
-                @csrf
-                <button type="submit" class="btn btn-warning">
-                    <i class="bi bi-arrow-repeat me-2"></i>Apply
-                </button>
-            </form>
-        </div>
+        <form method="POST" action="{{ route('settings.reconcile') }}"
+              onsubmit="return confirm('Run reconciliation now? This will fix any inconsistencies across the database.')">
+            @csrf
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-arrow-repeat me-2"></i>Run Reconciliation
+            </button>
+        </form>
     </div>
 </div>
 

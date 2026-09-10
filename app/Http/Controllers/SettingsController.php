@@ -72,14 +72,6 @@ class SettingsController extends Controller
         return back()->with('success', 'Logo removed.');
     }
 
-    public function reconcilePreview()
-    {
-        Artisan::call('eltech:reconcile', ['--dry-run' => true]);
-        $output = Artisan::output();
-
-        return back()->with('success', "Preview only -- nothing was changed.\n\n{$output}");
-    }
-
     public function reconcile()
     {
         Artisan::call('eltech:reconcile');

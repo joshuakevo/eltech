@@ -426,7 +426,6 @@ Route::middleware('auth')->group(function () {
         Route::post('settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo');
         Route::delete('settings/logo', [SettingsController::class, 'removeLogo'])->name('settings.logo.remove');
-        Route::post('settings/reconcile-preview', [SettingsController::class, 'reconcilePreview'])->name('settings.reconcile-preview');
         Route::post('settings/reconcile', [SettingsController::class, 'reconcile'])->name('settings.reconcile');
         Route::post('settings/migrate', [SettingsController::class, 'migrate'])->name('settings.migrate');
         Route::post('settings/seed', [SettingsController::class, 'seed'])->name('settings.seed');
