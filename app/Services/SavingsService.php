@@ -66,9 +66,7 @@ class SavingsService
                 $reference ?: null
             );
 
-            $account->update(['balance' => $balAfter]);
-
-            return SavingsTransaction::create([
+            $savingsTransaction = SavingsTransaction::create([
                 'savings_account_id'      => $account->id,
                 'transaction_type'        => 'deposit',
                 'amount'                  => $amount,
@@ -81,6 +79,10 @@ class SavingsService
                 'transaction_id'          => $transaction->id,
                 'created_by'              => auth()->id(),
             ]);
+
+            $this->recalculateLedger($account);
+
+            return $savingsTransaction;
         });
     }
 
@@ -169,9 +171,7 @@ class SavingsService
                 $reference ?: null
             );
 
-            $account->update(['balance' => $balAfter]);
-
-            return SavingsTransaction::create([
+            $savingsTransaction = SavingsTransaction::create([
                 'savings_account_id'      => $account->id,
                 'transaction_type'        => 'withdrawal',
                 'amount'                  => $total,
@@ -186,6 +186,10 @@ class SavingsService
                 'transaction_id'          => $transaction->id,
                 'created_by'              => auth()->id(),
             ]);
+
+            $this->recalculateLedger($account);
+
+            return $savingsTransaction;
         });
     }
 
@@ -372,6 +376,42 @@ class SavingsService
             ->first();
 
         return $last ? (float) $last->balance_after : 0.0;
+    }
+
+    /**
+     * Rebuild balance_before/balance_after for every transaction on this account in
+     * true chronological order (transaction_date, then id as a tiebreak), and set
+     * the account's current balance to the resulting total.
+     *
+     * deposit()/withdraw() compute a transaction's own balance relative to
+     * balanceAsOf() -- correct for that single row -- but a backdated entry (routine
+     * here: loan repayments and late deposits are frequently entered days after
+     * their real date) leaves every later-dated transaction's stored balance stale,
+     * since nothing previously re-walked the ledger afterward. That stale chain is
+     * what silently regressed the Mugabe Robert / SA-GK00053 savings balances in
+     * Sept 2026 and made withdrawals appear to increase the balance on the
+     * statement. Called after every deposit/withdraw so the ledger is always
+     * self-consistent immediately, not just after a manual reconciliation run.
+     */
+    public function recalculateLedger(SavingsAccount $account): void
+    {
+        $rows = SavingsTransaction::where('savings_account_id', $account->id)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->get();
+
+        $running = 0.0;
+        foreach ($rows as $row) {
+            $before  = $running;
+            $amount  = abs((float) $row->amount);
+            $running = $row->transaction_type === 'withdrawal' ? $running - $amount : $running + $amount;
+
+            if (abs((float) $row->balance_before - $before) > 0.005 || abs((float) $row->balance_after - $running) > 0.005) {
+                $row->update(['balance_before' => $before, 'balance_after' => $running]);
+            }
+        }
+
+        $account->update(['balance' => $running]);
     }
 
     protected function getCashAccount(): int

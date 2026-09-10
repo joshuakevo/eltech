@@ -18,13 +18,14 @@ use App\Models\SavingsTransaction;
 use App\Models\ShareTransaction;
 use App\Models\Transaction;
 use App\Services\AccountingService;
+use App\Services\SavingsService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class TransactionController extends Controller
 {
-    public function __construct(protected AccountingService $accountingService) {}
+    public function __construct(protected AccountingService $accountingService, protected SavingsService $savingsService) {}
 
     public function index(Request $request)
     {
@@ -315,12 +316,14 @@ class TransactionController extends Controller
             }
 
             if ($savingsAccount) {
-                $type      = $credit > 0 ? 'deposit' : 'withdrawal';
-                $amount    = $credit > 0 ? $credit : $debit;
+                $type   = $credit > 0 ? 'deposit' : 'withdrawal';
+                $amount = $credit > 0 ? $credit : $debit;
+
+                // balance_before/after get corrected by recalculateLedger() below if this
+                // journal's date isn't chronologically last for the account -- these are
+                // just its as-entered values.
                 $balBefore = $savingsAccount->balance;
                 $balAfter  = $type === 'deposit' ? $balBefore + $amount : max(0, $balBefore - $amount);
-
-                $savingsAccount->update(['balance' => $balAfter]);
 
                 SavingsTransaction::create([
                     'savings_account_id' => $savingsAccount->id,
@@ -334,6 +337,8 @@ class TransactionController extends Controller
                     'transaction_id'     => $transaction->id,
                     'created_by'         => auth()->id(),
                 ]);
+
+                $this->savingsService->recalculateLedger($savingsAccount);
                 continue;
             }
 
@@ -860,11 +865,12 @@ class TransactionController extends Controller
         $newStatus = $newPaid <= 0 ? 'unpaid' : ($newPaid >= $client->membership_fee ? 'paid' : 'partial');
         $client->update(['membership_fee_paid' => $newPaid, 'membership_fee_status' => $newStatus]);
 
-        SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) use ($amount) {
-            if ($st->savingsAccount) {
-                $st->savingsAccount->decrement('balance', $amount);
-            }
+        SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) {
+            $account = $st->savingsAccount;
             $st->delete();
+            if ($account) {
+                $this->savingsService->recalculateLedger($account);
+            }
         });
     }
 
@@ -923,14 +929,6 @@ class TransactionController extends Controller
             $account = SavingsAccount::find($st->savings_account_id);
             if (!$account) { $st->delete(); continue; }
 
-            // Reverse the balance movement
-            if ($st->transaction_type === 'deposit') {
-                $account->decrement('balance', $st->amount);
-            } else {
-                // withdrawal, transfer — add back
-                $account->increment('balance', $st->amount);
-            }
-
             // If this was an interest posting, roll back last_interest_date so
             // the same period can be re-posted after deletion/reversal.
             if (str_contains(strtolower($st->description ?? ''), 'interest credit')) {
@@ -944,6 +942,11 @@ class TransactionController extends Controller
             }
 
             $st->delete();
+
+            // Recompute from what's left in the ledger rather than increment/decrement
+            // the current balance by this row's amount -- correct even when the
+            // reversed transaction wasn't the chronologically last one on the account.
+            $this->savingsService->recalculateLedger($account);
         }
     }
 
@@ -964,10 +967,10 @@ class TransactionController extends Controller
         if (str_contains($desc, 'fixed deposit placement') || str_contains($desc, 'fixed deposit creation')) {
             SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) {
                 $account = SavingsAccount::find($st->savings_account_id);
-                if ($account) {
-                    $account->increment('balance', $st->amount);
-                }
                 $st->delete();
+                if ($account) {
+                    $this->savingsService->recalculateLedger($account);
+                }
             });
             $deposit->delete();
 
@@ -998,10 +1001,10 @@ class TransactionController extends Controller
         if (str_contains($desc, 'fixed deposit maturity')) {
             SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) {
                 $account = SavingsAccount::find($st->savings_account_id);
-                if ($account) {
-                    $account->decrement('balance', $st->amount);
-                }
                 $st->delete();
+                if ($account) {
+                    $this->savingsService->recalculateLedger($account);
+                }
             });
             if ($deposit->trashed()) {
                 $deposit->restore();
@@ -1015,10 +1018,10 @@ class TransactionController extends Controller
         if (str_contains($desc, 'early break') && (str_contains($desc, 'principal return') || str_contains($desc, 'principal cash'))) {
             SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) {
                 $account = SavingsAccount::find($st->savings_account_id);
-                if ($account) {
-                    $account->decrement('balance', $st->amount);
-                }
                 $st->delete();
+                if ($account) {
+                    $this->savingsService->recalculateLedger($account);
+                }
             });
             if ($deposit->trashed()) {
                 $deposit->restore();
@@ -1052,10 +1055,10 @@ class TransactionController extends Controller
         // Also reverse any linked savings transaction (transfer_out creates one)
         SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) {
             $account = SavingsAccount::find($st->savings_account_id);
-            if ($account) {
-                $account->decrement('balance', $st->amount);
-            }
             $st->delete();
+            if ($account) {
+                $this->savingsService->recalculateLedger($account);
+            }
         });
     }
 
@@ -1066,14 +1069,10 @@ class TransactionController extends Controller
         // Reverse any savings transactions created by auto-detection
         SavingsTransaction::where('transaction_id', $transaction->id)->each(function ($st) {
             $account = SavingsAccount::find($st->savings_account_id);
-            if ($account) {
-                if ($st->transaction_type === 'deposit') {
-                    $account->decrement('balance', $st->amount);
-                } else {
-                    $account->increment('balance', $st->amount);
-                }
-            }
             $st->delete();
+            if ($account) {
+                $this->savingsService->recalculateLedger($account);
+            }
         });
 
         // Reverse any share transactions created by auto-detection

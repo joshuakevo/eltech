@@ -43,25 +43,46 @@ class ReconcileData extends Command
     }
 
     // -----------------------------------------------------------------------
-    // 1. Savings account balances — source of truth: savings_transactions.balance_after
+    // 1. Savings account balances — source of truth: the full savings_transactions
+    //    ledger, walked in true chronological order (not just the latest row's
+    //    cached balance_after, which is itself only correct if every transaction
+    //    was ever entered in date order -- backdated entries, routine here for
+    //    loan repayments and late deposits, leave every later-dated transaction's
+    //    stored balance stale. SavingsService now keeps this self-consistent on
+    //    every new deposit/withdraw; this rebuilds it for existing data.)
     // -----------------------------------------------------------------------
     private function reconcileSavingsBalances(): void
     {
         $this->info('Checking savings account balances...');
 
         SavingsAccount::all()->each(function (SavingsAccount $account) {
-            $last = SavingsTransaction::where('savings_account_id', $account->id)
-                ->orderBy('transaction_date', 'desc')
-                ->orderBy('id', 'desc')
-                ->first();
+            $rows = SavingsTransaction::where('savings_account_id', $account->id)
+                ->orderBy('transaction_date')
+                ->orderBy('id')
+                ->get();
 
-            $correct = $last ? (float) $last->balance_after : 0.0;
-            $stored  = (float) $account->balance;
+            $running    = 0.0;
+            $rowChanged = false;
 
-            if (abs($correct - $stored) > 0.005) {
-                $this->warn("  [SAVINGS] {$account->account_number}: stored={$stored}  correct={$correct}");
+            foreach ($rows as $row) {
+                $before  = $running;
+                $amount  = abs((float) $row->amount);
+                $running = $row->transaction_type === 'withdrawal' ? $running - $amount : $running + $amount;
+
+                if (abs((float) $row->balance_before - $before) > 0.005 || abs((float) $row->balance_after - $running) > 0.005) {
+                    $rowChanged = true;
+                    if (!$this->dryRun) {
+                        $row->update(['balance_before' => $before, 'balance_after' => $running]);
+                    }
+                }
+            }
+
+            $stored = (float) $account->balance;
+
+            if ($rowChanged || abs($running - $stored) > 0.005) {
+                $this->warn("  [SAVINGS] {$account->account_number}: stored={$stored}  correct={$running}");
                 if (!$this->dryRun) {
-                    $account->update(['balance' => $correct]);
+                    $account->update(['balance' => $running]);
                 }
                 $this->fixed++;
             } else {
