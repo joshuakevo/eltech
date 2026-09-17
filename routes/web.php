@@ -201,7 +201,7 @@ Route::middleware('auth')->group(function () {
     Route::post('transactions/{transaction}/reverse', [TransactionController::class, 'reverse'])
         ->name('transactions.reverse')->middleware('permission:reverse transactions');
     Route::delete('transactions/{transaction}', [TransactionController::class, 'destroy'])
-        ->name('transactions.destroy')->middleware('role:super_admin');
+        ->name('transactions.destroy')->middleware('permission:delete transactions');
 
     // ── Loan Products ─────────────────────────────────────────────────
     Route::get('loan-products/schedule-preview', [LoanProductController::class, 'schedulePreview'])
@@ -430,6 +430,7 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/locked-up-loans/verify', [SettingsController::class, 'verifyLockedUpLoans'])->name('settings.locked-up-loans.verify');
         Route::post('settings/locked-up-loans/fix', [SettingsController::class, 'fixLockedUpLoans'])->name('settings.locked-up-loans.fix');
         Route::post('settings/locked-up-loans/import', [SettingsController::class, 'importLockedUpLoans'])->name('settings.locked-up-loans.import');
+        Route::post('settings/add-delete-transactions-permission', [SettingsController::class, 'addDeleteTransactionsPermission'])->name('settings.add-delete-transactions-permission');
         Route::post('settings/migrate', [SettingsController::class, 'migrate'])->name('settings.migrate');
         Route::post('settings/seed', [SettingsController::class, 'seed'])->name('settings.seed');
         Route::post('settings/clear-cache', [SettingsController::class, 'clearCache'])->name('settings.clear-cache');

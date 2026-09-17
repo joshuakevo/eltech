@@ -203,6 +203,13 @@ $groupIcons = [
                 </button>
             </form>
 
+            <form method="POST" action="{{ route('settings.add-delete-transactions-permission') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-secondary" title="One-off: adds the &quot;delete transactions&quot; permission and grants it to Main Cashier + Super Admin only">
+                    <i class="bi bi-key-fill me-2"></i>Add "Delete Transactions" Permission
+                </button>
+            </form>
+
             <form method="POST" action="{{ route('settings.seed') }}" class="d-flex gap-2"
                   onsubmit="return confirm(this.seeder.value === 'RolesAndPermissionsSeeder' ? 'This will reset the super_admin/admin/cashier/staff roles\' permissions back to the code defaults, discarding any manual customization made via Users & Roles. Continue?' : 'Run this seeder now?')">
                 @csrf

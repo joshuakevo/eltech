@@ -145,6 +145,19 @@ class SettingsController extends Controller
         return back()->with('success', $output);
     }
 
+    /**
+     * One-off: creates the "delete transactions" permission (the journal
+     * entry Delete action used to be hardcoded to role:super_admin) and
+     * grants it to main_cashier + super_admin. Additive only.
+     */
+    public function addDeleteTransactionsPermission()
+    {
+        Artisan::call('eltech:add-delete-transactions-permission', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', $output);
+    }
+
     public function migrate()
     {
         Artisan::call('migrate', ['--force' => true]);

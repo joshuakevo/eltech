@@ -25,7 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view accounts', 'create accounts', 'edit accounts',
 
             // Transactions (journal entries)
-            'view transactions', 'create transactions', 'reverse transactions',
+            'view transactions', 'create transactions', 'reverse transactions', 'delete transactions',
 
             // Loan Products
             'view loan-products', 'create loan-products', 'edit loan-products',

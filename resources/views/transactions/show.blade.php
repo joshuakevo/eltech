@@ -52,11 +52,11 @@
                     </button>
                     @endcan
                     @endif
-                    @role('super_admin')
+                    @can('delete transactions')
                     <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal">
                         <i class="bi bi-trash me-1"></i>Delete
                     </button>
-                    @endrole
+                    @endcan
                 </div>
             </div>
             <div class="card-body">
@@ -151,8 +151,8 @@
 @endcan
 @endif
 
-{{-- Delete Modal (super_admin only) --}}
-@role('super_admin')
+{{-- Delete Modal --}}
+@can('delete transactions')
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -180,5 +180,5 @@
         </div>
     </div>
 </div>
-@endrole
+@endcan
 @endsection
