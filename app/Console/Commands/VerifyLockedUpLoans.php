@@ -11,17 +11,25 @@ use Illuminate\Console\Command;
  * ImportJuly2026LockedUpLoans used, kept here as the single source of truth
  * for what these 76 loans' principal/interest are supposed to be.
  *
+ * Several of these loans carry a NEGATIVE principal or interest by design --
+ * a credit, where the member overpaid rather than owes. Those are never
+ * floored to zero here; only actual repayments (via LoanService) reduce a
+ * balance toward zero.
+ *
  * Run this after deploying to a new/other environment (e.g. production) to
  * confirm its data matches, without needing direct DB access from outside.
  * Safe by default: reports only. --fix corrects outstanding_principal /
  * outstanding_interest on loans that already exist but drifted (e.g. hit by
- * the old ReconcileData bug that zeroed interest on schedule-less loans);
- * it never creates loans or clients, since a genuinely missing loan needs a
- * human decision, not an automatic client-creation on production.
+ * the old ReconcileData bug that zeroed interest on schedule-less loans),
+ * and reopens any that the same bug incorrectly auto-closed (it treated a
+ * bug-zeroed interest as "nothing outstanding" and closed loans that still
+ * genuinely owed/were owed money). It never creates loans or clients, since
+ * a genuinely missing loan needs a human decision, not an automatic
+ * client-creation on production.
  */
 class VerifyLockedUpLoans extends Command
 {
-    protected $signature   = 'eltech:verify-locked-up-loans {--fix : Correct outstanding_principal/outstanding_interest drift on existing loans}';
+    protected $signature   = 'eltech:verify-locked-up-loans {--fix : Correct outstanding_principal/outstanding_interest drift and wrongly-closed status on existing loans}';
     protected $description = 'Compare this environment\'s Locked-Up Loans against the old system\'s Lock Up Report (31/07/2026 bundle) and report/fix drift';
 
     public function handle(): int
@@ -64,7 +72,19 @@ class VerifyLockedUpLoans extends Command
             $principalOk = abs($openingPrincipal - $expectedPrincipal) < 0.5;
             $interestOk  = abs($openingInterest  - $expectedInterest)  < 0.5;
 
-            if ($principalOk && $interestOk) {
+            // A loan should only be closed once nothing more is owed/credited in
+            // either direction. If it still has a genuine (possibly negative,
+            // i.e. credit) balance after accounting for repayments, it was
+            // wrongly closed -- almost certainly by the old reconcile bug, which
+            // treated its bug-zeroed interest as "nothing outstanding".
+            $remainingPrincipal = $expectedPrincipal - $paidPrincipal;
+            $remainingInterest  = $expectedInterest  - $paidInterest;
+            $shouldBeClosed     = abs($remainingPrincipal) < 0.5 && abs($remainingInterest) < 0.5;
+            $statusOk           = $shouldBeClosed
+                ? true // closed or still open is fine once genuinely settled
+                : $loan->status !== 'closed';
+
+            if ($principalOk && $interestOk && $statusOk) {
                 $ok++;
                 continue;
             }
@@ -76,10 +96,11 @@ class VerifyLockedUpLoans extends Command
                 'openingInterest'    => $openingInterest,
                 'expectedPrincipal'  => $expectedPrincipal,
                 'expectedInterest'   => $expectedInterest,
-                'paidPrincipal'      => $paidPrincipal,
-                'paidInterest'       => $paidInterest,
+                'remainingPrincipal' => $remainingPrincipal,
+                'remainingInterest'  => $remainingInterest,
                 'principalOk'        => $principalOk,
                 'interestOk'         => $interestOk,
+                'statusOk'           => $statusOk,
             ];
         }
 
@@ -91,11 +112,11 @@ class VerifyLockedUpLoans extends Command
         $this->line('');
 
         if ($drifted) {
-            $this->warn('DRIFTED (exist here, but figures don\'t reconcile to the old report):');
+            $this->warn('DRIFTED (exist here, but figures and/or status don\'t reconcile to the old report):');
             foreach ($drifted as $d) {
                 $loan = $d['loan'];
                 $this->line(sprintf(
-                    '  %s (%s): principal opening=%s expected=%s%s | interest opening=%s expected=%s%s',
+                    '  %s (%s): principal opening=%s expected=%s%s | interest opening=%s expected=%s%s%s',
                     $loan->loan_number,
                     $d['row']['name'],
                     number_format($d['openingPrincipal']),
@@ -103,14 +124,21 @@ class VerifyLockedUpLoans extends Command
                     $d['principalOk'] ? '' : '  <-- MISMATCH',
                     number_format($d['openingInterest']),
                     number_format($d['expectedInterest']),
-                    $d['interestOk'] ? '' : '  <-- MISMATCH'
+                    $d['interestOk'] ? '' : '  <-- MISMATCH',
+                    $d['statusOk'] ? '' : "  | status={$loan->status} <-- WRONGLY CLOSED"
                 ));
 
                 if ($fix) {
-                    $loan->update([
-                        'outstanding_principal' => max(0, $d['expectedPrincipal'] - $d['paidPrincipal']),
-                        'outstanding_interest'  => max(0, $d['expectedInterest']  - $d['paidInterest']),
-                    ]);
+                    $updates = [
+                        // Not floored at 0 -- several of these are legitimate
+                        // credits (negative balances), not debts.
+                        'outstanding_principal' => $d['remainingPrincipal'],
+                        'outstanding_interest'  => $d['remainingInterest'],
+                    ];
+                    if (!$d['statusOk']) {
+                        $updates['status'] = 'defaulted';
+                    }
+                    $loan->update($updates);
                     $this->line('    -> fixed');
                 }
             }
@@ -137,7 +165,7 @@ class VerifyLockedUpLoans extends Command
             $this->info('Everything matches the old system exactly.');
         } elseif ($drifted && !$fix) {
             $this->line('');
-            $this->line('Re-run with --fix to correct the drifted figures above.');
+            $this->line('Re-run with --fix to correct the drifted figures/status above.');
         }
 
         return self::SUCCESS;
