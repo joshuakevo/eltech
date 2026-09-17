@@ -158,6 +158,20 @@ class SettingsController extends Controller
         return back()->with('success', $output);
     }
 
+    /**
+     * The Roles & Permissions screen claims super_admin always has every
+     * permission, but nothing in code actually enforces that -- it can
+     * silently drift out of sync whenever a new permission is added. This
+     * restores it. Safe to run any time; only ever adds, never removes.
+     */
+    public function syncSuperAdminPermissions()
+    {
+        Artisan::call('eltech:sync-super-admin-permissions', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', $output);
+    }
+
     public function migrate()
     {
         Artisan::call('migrate', ['--force' => true]);

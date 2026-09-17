@@ -210,6 +210,13 @@ $groupIcons = [
                 </button>
             </form>
 
+            <form method="POST" action="{{ route('settings.sync-super-admin-permissions') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-secondary" title="Grants Super Admin any permission it's missing -- restores the &quot;always has all permissions&quot; guarantee this screen claims but doesn't actually enforce">
+                    <i class="bi bi-shield-fill-check me-2"></i>Fix Super Admin Permissions
+                </button>
+            </form>
+
             <form method="POST" action="{{ route('settings.seed') }}" class="d-flex gap-2"
                   onsubmit="return confirm(this.seeder.value === 'RolesAndPermissionsSeeder' ? 'This will reset the super_admin/admin/cashier/staff roles\' permissions back to the code defaults, discarding any manual customization made via Users & Roles. Continue?' : 'Run this seeder now?')">
                 @csrf

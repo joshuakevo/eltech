@@ -431,6 +431,7 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/locked-up-loans/fix', [SettingsController::class, 'fixLockedUpLoans'])->name('settings.locked-up-loans.fix');
         Route::post('settings/locked-up-loans/import', [SettingsController::class, 'importLockedUpLoans'])->name('settings.locked-up-loans.import');
         Route::post('settings/add-delete-transactions-permission', [SettingsController::class, 'addDeleteTransactionsPermission'])->name('settings.add-delete-transactions-permission');
+        Route::post('settings/sync-super-admin-permissions', [SettingsController::class, 'syncSuperAdminPermissions'])->name('settings.sync-super-admin-permissions');
         Route::post('settings/migrate', [SettingsController::class, 'migrate'])->name('settings.migrate');
         Route::post('settings/seed', [SettingsController::class, 'seed'])->name('settings.seed');
         Route::post('settings/clear-cache', [SettingsController::class, 'clearCache'])->name('settings.clear-cache');
