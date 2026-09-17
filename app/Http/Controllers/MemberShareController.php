@@ -145,7 +145,7 @@ class MemberShareController extends Controller
 
     public function payShare(Request $request, Client $client, MemberShare $share)
     {
-        if ($share->client_id !== $client->id) {
+        if ((int) $share->client_id !== (int) $client->id) {
             return back()->with('error', "Share {$share->share_number} does not belong to this client (belongs to client #{$share->client_id}, viewing #{$client->id}).");
         }
         if ($share->isLiquidated()) {
@@ -214,7 +214,7 @@ class MemberShareController extends Controller
 
     public function revalue(Request $request, Client $client, MemberShare $share)
     {
-        if ($share->client_id !== $client->id) {
+        if ((int) $share->client_id !== (int) $client->id) {
             return back()->with('error', "Share {$share->share_number} does not belong to this client (belongs to client #{$share->client_id}, viewing #{$client->id}).");
         }
         if ($share->isLiquidated()) {
@@ -350,7 +350,7 @@ class MemberShareController extends Controller
 
     public function liquidate(Request $request, Client $client, MemberShare $share)
     {
-        if ($share->client_id !== $client->id) {
+        if ((int) $share->client_id !== (int) $client->id) {
             return back()->with('error', "Share {$share->share_number} does not belong to this client (belongs to client #{$share->client_id}, viewing #{$client->id}).");
         }
         if ($share->isLiquidated()) {

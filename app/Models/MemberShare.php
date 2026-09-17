@@ -15,6 +15,7 @@ class MemberShare extends Model
     ];
 
     protected $casts = [
+        'client_id'     => 'integer',
         'liquidated_at' => 'date',
     ];
 

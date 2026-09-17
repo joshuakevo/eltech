@@ -386,7 +386,7 @@ class LoanController extends Controller
 
     public function destroyGuarantor(Loan $loan, LoanGuarantor $guarantor)
     {
-        abort_if($guarantor->loan_id !== $loan->id, 403);
+        abort_if((int) $guarantor->loan_id !== (int) $loan->id, 403);
         $guarantor->delete();
         return back()->with('success', 'Guarantor removed.');
     }

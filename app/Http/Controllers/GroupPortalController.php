@@ -132,7 +132,7 @@ class GroupPortalController extends Controller
     public function memberStatement(GroupMember $member)
     {
         [$leader, $group] = $this->resolveLeader();
-        abort_if($member->group_id !== $group->id, 403);
+        abort_if((int) $member->group_id !== (int) $group->id, 403);
 
         $transactions = GroupTransaction::where('group_id', $group->id)
             ->where('member_id', $member->id)

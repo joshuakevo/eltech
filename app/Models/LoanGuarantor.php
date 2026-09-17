@@ -14,7 +14,7 @@ class LoanGuarantor extends Model
         'relationship', 'address', 'employer', 'monthly_income',
     ];
 
-    protected $casts = ['monthly_income' => 'float'];
+    protected $casts = ['loan_id' => 'integer', 'monthly_income' => 'float'];
 
     public function loan()   { return $this->belongsTo(Loan::class); }
     public function client() { return $this->belongsTo(Client::class); }
