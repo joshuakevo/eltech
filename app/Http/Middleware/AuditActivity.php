@@ -40,8 +40,11 @@ class AuditActivity
             return $response;
         }
 
-        // Skip failed validation redirects (no real action taken)
+        // Skip failed validation redirects and flashed-error redirects (no real action taken)
         if ($response->isRedirect() && session()->has('errors') && session('errors')->any()) {
+            return $response;
+        }
+        if ($response->isRedirect() && session()->has('error')) {
             return $response;
         }
 

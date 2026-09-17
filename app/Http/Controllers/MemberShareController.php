@@ -145,8 +145,12 @@ class MemberShareController extends Controller
 
     public function payShare(Request $request, Client $client, MemberShare $share)
     {
-        abort_if($share->client_id !== $client->id, 403);
-        abort_if($share->isLiquidated(), 403, 'Cannot pay a liquidated share.');
+        if ($share->client_id !== $client->id) {
+            return back()->with('error', "Share {$share->share_number} does not belong to this client (belongs to client #{$share->client_id}, viewing #{$client->id}).");
+        }
+        if ($share->isLiquidated()) {
+            return back()->with('error', 'Cannot pay a liquidated share.');
+        }
 
         $isSavings = $request->payment_source_account_id === 'savings';
 
@@ -210,8 +214,12 @@ class MemberShareController extends Controller
 
     public function revalue(Request $request, Client $client, MemberShare $share)
     {
-        abort_if($share->client_id !== $client->id, 403);
-        abort_if($share->isLiquidated(), 403, 'Cannot revalue a liquidated share.');
+        if ($share->client_id !== $client->id) {
+            return back()->with('error', "Share {$share->share_number} does not belong to this client (belongs to client #{$share->client_id}, viewing #{$client->id}).");
+        }
+        if ($share->isLiquidated()) {
+            return back()->with('error', 'Cannot revalue a liquidated share.');
+        }
 
         $request->validate([
             'new_share_value' => 'required|numeric|min:1',
@@ -342,8 +350,12 @@ class MemberShareController extends Controller
 
     public function liquidate(Request $request, Client $client, MemberShare $share)
     {
-        abort_if($share->client_id !== $client->id, 403);
-        abort_if($share->isLiquidated(), 403, 'Already liquidated.');
+        if ($share->client_id !== $client->id) {
+            return back()->with('error', "Share {$share->share_number} does not belong to this client (belongs to client #{$share->client_id}, viewing #{$client->id}).");
+        }
+        if ($share->isLiquidated()) {
+            return back()->with('error', 'Already liquidated.');
+        }
 
         $request->validate([
             'liquidation_date'   => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
