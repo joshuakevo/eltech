@@ -191,13 +191,18 @@ class LoanController extends Controller
         $currentPenalty   = $this->loanService->calculatePenaltyPublic($loan);
         $penaltyBreakdown = $this->loanService->penaltyBreakdown($loan);
 
-        return view('loans.show', compact('loan', 'schedulePreview', 'clientSavingsAccounts', 'currentPenalty', 'penaltyBreakdown'));
+        $paymentSourceAccounts = $loan->status === 'pending'
+            ? \App\Models\Account::where('is_payment_source', true)->where('is_active', true)->orderBy('account_code')->get()
+            : collect();
+
+        return view('loans.show', compact('loan', 'schedulePreview', 'clientSavingsAccounts', 'currentPenalty', 'penaltyBreakdown', 'paymentSourceAccounts'));
     }
 
     public function disburse(Request $request, Loan $loan)
     {
         $request->validate([
             'disbursement_date'        => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
+            'disbursement_account_id'  => 'required|exists:accounts,id',
             'application_fee_amount'   => 'required|numeric|min:0',
             'application_fee_method'   => 'required|in:loan,savings',
             'management_fee_rate'      => 'required|numeric|min:0|max:100',
@@ -223,6 +228,7 @@ class LoanController extends Controller
 
         try {
             $this->loanService->disburseLoan($loan, $request->disbursement_date, [
+                'disbursement_account_id' => $request->disbursement_account_id,
                 'savings_account_id'      => $request->fee_savings_account_id,
                 'application_fee_amount'  => $request->application_fee_amount,
                 'application_fee_method'  => $request->application_fee_method,

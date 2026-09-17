@@ -418,9 +418,20 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Disbursement Date <span class="text-danger">*</span></label>
-                        <input type="date" name="disbursement_date" class="form-control" value="{{ today()->toDateString() }}" required>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Disbursement Date <span class="text-danger">*</span></label>
+                            <input type="date" name="disbursement_date" class="form-control" value="{{ today()->toDateString() }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Disbursement Channel <span class="text-danger">*</span></label>
+                            <select name="disbursement_account_id" class="form-select" required>
+                                <option value="">— Select channel —</option>
+                                @foreach($paymentSourceAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->account_code }} — {{ $acc->account_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     <div id="savingsAccountRow" style="display:none" class="mb-3">

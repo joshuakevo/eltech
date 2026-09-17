@@ -95,7 +95,10 @@ class LoanService
                 $loan, $disbursementDate,
                 $applicationFee, $applicationFeeMethod,
                 $managementFee,  $managementFeeMethod,
-                $insuranceFee,   $insuranceFeeMethod
+                $insuranceFee,   $insuranceFeeMethod,
+                isset($feeData['disbursement_account_id']) && is_numeric($feeData['disbursement_account_id'])
+                    ? (int) $feeData['disbursement_account_id']
+                    : null
             );
 
             // Deduct savings-method fees from the savings account
@@ -586,7 +589,8 @@ class LoanService
         Loan $loan, string $date,
         float $applicationFee = 0, string $applicationFeeMethod = 'loan',
         float $managementFee  = 0, string $managementFeeMethod  = 'loan',
-        float $insuranceFee   = 0, string $insuranceFeeMethod   = 'loan'
+        float $insuranceFee   = 0, string $insuranceFeeMethod   = 'loan',
+        ?int $disbursementAccountId = null
     ): \App\Models\Transaction {
         $product   = $loan->product;
         $principal = $loan->principal;
@@ -604,7 +608,7 @@ class LoanService
                 'description' => "Loan receivable - {$loan->loan_number}",
             ],
             [
-                'account_id'  => $this->resolveGlAccountId($product->disbursement_account_id, '1001'),
+                'account_id'  => $disbursementAccountId ?? $this->resolveGlAccountId($product->disbursement_account_id, '1001'),
                 'debit'       => 0,
                 'credit'      => $principal - $loanFees,
                 'description' => $loanFees > 0

@@ -431,18 +431,20 @@ class GroupController extends Controller
             'custom_amounts.*'         => 'nullable|numeric|min:0',
         ]);
 
+        $paymentSourceAccountId = (int) $data['payment_source_account_id'];
+
         try {
             if ($data['mode'] === 'individual') {
                 $member = GroupMember::where('group_id', $group->id)->where('id', $data['member_id'])->firstOrFail();
-                $this->groupService->depositIndividual($group, $member, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group deposit');
+                $this->groupService->depositIndividual($group, $member, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group deposit', $paymentSourceAccountId);
             } elseif ($data['mode'] === 'equal_split') {
-                $this->groupService->depositGroupWideEqual($group, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group-wide deposit');
+                $this->groupService->depositGroupWideEqual($group, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group-wide deposit', $paymentSourceAccountId);
             } else {
                 $amounts = [];
                 foreach ($data['custom_amounts'] ?? [] as $mid => $amt) {
                     if ($amt > 0) $amounts[(int) $mid] = round((float) $amt, 2);
                 }
-                $this->groupService->depositGroupWideCustom($group, $amounts, $data['transaction_date'], $data['notes'] ?? 'Group deposit');
+                $this->groupService->depositGroupWideCustom($group, $amounts, $data['transaction_date'], $data['notes'] ?? 'Group deposit', $paymentSourceAccountId);
             }
         } catch (\Throwable $e) {
             return back()->withErrors(['amount' => $e->getMessage()])->withInput();
@@ -472,18 +474,20 @@ class GroupController extends Controller
             'custom_amounts.*'         => 'nullable|numeric|min:0',
         ]);
 
+        $paymentSourceAccountId = (int) $data['payment_source_account_id'];
+
         try {
             if ($data['mode'] === 'individual') {
                 $member = GroupMember::where('group_id', $group->id)->where('id', $data['member_id'])->firstOrFail();
-                $this->groupService->withdrawIndividual($group, $member, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group withdrawal');
+                $this->groupService->withdrawIndividual($group, $member, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group withdrawal', $paymentSourceAccountId);
             } elseif ($data['mode'] === 'equal_split') {
-                $this->groupService->withdrawGroupWideEqual($group, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group-wide withdrawal');
+                $this->groupService->withdrawGroupWideEqual($group, (float) $data['amount'], $data['transaction_date'], $data['notes'] ?? 'Group-wide withdrawal', $paymentSourceAccountId);
             } else {
                 $amounts = [];
                 foreach ($data['custom_amounts'] ?? [] as $mid => $amt) {
                     if ($amt > 0) $amounts[(int) $mid] = round((float) $amt, 2);
                 }
-                $this->groupService->withdrawGroupWideCustom($group, $amounts, $data['transaction_date'], $data['notes'] ?? 'Group-wide withdrawal');
+                $this->groupService->withdrawGroupWideCustom($group, $amounts, $data['transaction_date'], $data['notes'] ?? 'Group-wide withdrawal', $paymentSourceAccountId);
             }
         } catch (\Throwable $e) {
             return back()->withErrors(['amount' => $e->getMessage()])->withInput();

@@ -102,7 +102,7 @@ class GroupService
 
     // ── Deposit ───────────────────────────────────────────────────────────
 
-    public function depositIndividual(Group $group, GroupMember $member, float $amount, string $date, string $notes = 'Group deposit'): GroupTransaction
+    public function depositIndividual(Group $group, GroupMember $member, float $amount, string $date, string $notes = 'Group deposit', ?int $paymentSourceAccountId = null): GroupTransaction
     {
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Deposit amount must be positive.');
@@ -111,7 +111,7 @@ class GroupService
             throw new \InvalidArgumentException('Member does not belong to this group.');
         }
 
-        return DB::transaction(function () use ($group, $member, $amount, $date, $notes) {
+        return DB::transaction(function () use ($group, $member, $amount, $date, $notes, $paymentSourceAccountId) {
             $balBefore = (float) $member->balance;
             $balAfter  = round($balBefore + $amount, 2);
 
@@ -119,7 +119,7 @@ class GroupService
                 $date,
                 "Group deposit — {$group->name} — {$member->name}",
                 [
-                    ['account_id' => $this->getCashAccountId(),             'debit' => $amount, 'credit' => 0,      'description' => $notes],
+                    ['account_id' => $paymentSourceAccountId ?? $this->getCashAccountId(), 'debit' => $amount, 'credit' => 0,      'description' => $notes],
                     ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => 0,   'credit' => $amount, 'description' => "Group member savings — {$member->name}"],
                 ],
                 'groups',
@@ -144,7 +144,7 @@ class GroupService
         });
     }
 
-    public function depositGroupWideEqual(Group $group, float $totalAmount, string $date, string $notes = 'Group-wide deposit'): array
+    public function depositGroupWideEqual(Group $group, float $totalAmount, string $date, string $notes = 'Group-wide deposit', ?int $paymentSourceAccountId = null): array
     {
         if ($totalAmount <= 0) {
             throw new \InvalidArgumentException('Total deposit must be positive.');
@@ -165,12 +165,12 @@ class GroupService
             $allocated       += $amounts[$m->id];
         }
 
-        return DB::transaction(function () use ($group, $members, $amounts, $totalAmount, $date, $notes) {
+        return DB::transaction(function () use ($group, $members, $amounts, $totalAmount, $date, $notes, $paymentSourceAccountId) {
             $journal = $this->accounting->post(
                 $date,
                 "Group-wide deposit — {$group->name}",
                 [
-                    ['account_id' => $this->getCashAccountId(),                 'debit' => $totalAmount, 'credit' => 0,           'description' => $notes],
+                    ['account_id' => $paymentSourceAccountId ?? $this->getCashAccountId(), 'debit' => $totalAmount, 'credit' => 0,           'description' => $notes],
                     ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => 0,           'credit' => $totalAmount, 'description' => 'Group member savings — pooled'],
                 ],
                 'groups',
@@ -202,19 +202,19 @@ class GroupService
         });
     }
 
-    public function depositGroupWideCustom(Group $group, array $amounts, string $date, string $notes = 'Group deposit'): array
+    public function depositGroupWideCustom(Group $group, array $amounts, string $date, string $notes = 'Group deposit', ?int $paymentSourceAccountId = null): array
     {
         $totalAmount = round(array_sum($amounts), 2);
         if ($totalAmount <= 0) {
             throw new \InvalidArgumentException('Total deposit amount must be positive.');
         }
 
-        return DB::transaction(function () use ($group, $amounts, $totalAmount, $date, $notes) {
+        return DB::transaction(function () use ($group, $amounts, $totalAmount, $date, $notes, $paymentSourceAccountId) {
             $journal = $this->accounting->post(
                 $date,
                 "Group deposit (custom) — {$group->name}",
                 [
-                    ['account_id' => $this->getCashAccountId(),                 'debit' => $totalAmount, 'credit' => 0,           'description' => $notes],
+                    ['account_id' => $paymentSourceAccountId ?? $this->getCashAccountId(), 'debit' => $totalAmount, 'credit' => 0,           'description' => $notes],
                     ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => 0,           'credit' => $totalAmount, 'description' => 'Group member savings'],
                 ],
                 'groups',
@@ -249,7 +249,7 @@ class GroupService
 
     // ── Withdrawal ────────────────────────────────────────────────────────
 
-    public function withdrawIndividual(Group $group, GroupMember $member, float $amount, string $date, string $notes = 'Group withdrawal'): GroupTransaction
+    public function withdrawIndividual(Group $group, GroupMember $member, float $amount, string $date, string $notes = 'Group withdrawal', ?int $paymentSourceAccountId = null): GroupTransaction
     {
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Withdrawal amount must be positive.');
@@ -261,7 +261,7 @@ class GroupService
             throw new \InvalidArgumentException('Insufficient member balance.');
         }
 
-        return DB::transaction(function () use ($group, $member, $amount, $date, $notes) {
+        return DB::transaction(function () use ($group, $member, $amount, $date, $notes, $paymentSourceAccountId) {
             $balBefore = (float) $member->balance;
             $balAfter  = round($balBefore - $amount, 2);
 
@@ -270,7 +270,7 @@ class GroupService
                 "Group withdrawal — {$group->name} — {$member->name}",
                 [
                     ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => $amount, 'credit' => 0,      'description' => "Reduce savings — {$member->name}"],
-                    ['account_id' => $this->getCashAccountId(),                 'debit' => 0,       'credit' => $amount, 'description' => $notes],
+                    ['account_id' => $paymentSourceAccountId ?? $this->getCashAccountId(), 'debit' => 0,       'credit' => $amount, 'description' => $notes],
                 ],
                 'groups',
                 $group->id
@@ -294,7 +294,7 @@ class GroupService
         });
     }
 
-    public function withdrawGroupWideEqual(Group $group, float $totalAmount, string $date, string $notes = 'Group-wide withdrawal'): array
+    public function withdrawGroupWideEqual(Group $group, float $totalAmount, string $date, string $notes = 'Group-wide withdrawal', ?int $paymentSourceAccountId = null): array
     {
         if ($totalAmount <= 0) {
             throw new \InvalidArgumentException('Total withdrawal must be positive.');
@@ -321,13 +321,13 @@ class GroupService
             }
         }
 
-        return DB::transaction(function () use ($group, $members, $amounts, $totalAmount, $date, $notes) {
+        return DB::transaction(function () use ($group, $members, $amounts, $totalAmount, $date, $notes, $paymentSourceAccountId) {
             $journal = $this->accounting->post(
                 $date,
                 "Group-wide withdrawal — {$group->name} (equal)",
                 [
                     ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => $totalAmount, 'credit' => 0,           'description' => 'Group savings payout'],
-                    ['account_id' => $this->getCashAccountId(),                 'debit' => 0,            'credit' => $totalAmount, 'description' => $notes],
+                    ['account_id' => $paymentSourceAccountId ?? $this->getCashAccountId(), 'debit' => 0,            'credit' => $totalAmount, 'description' => $notes],
                 ],
                 'groups',
                 $group->id
@@ -358,7 +358,7 @@ class GroupService
         });
     }
 
-    public function withdrawGroupWideCustom(Group $group, array $memberIdToAmount, string $date, string $notes = 'Group-wide withdrawal'): array
+    public function withdrawGroupWideCustom(Group $group, array $memberIdToAmount, string $date, string $notes = 'Group-wide withdrawal', ?int $paymentSourceAccountId = null): array
     {
         if (empty($memberIdToAmount)) {
             throw new \InvalidArgumentException('No withdrawal amounts provided.');
@@ -380,13 +380,13 @@ class GroupService
             }
         }
 
-        return DB::transaction(function () use ($group, $memberIdToAmount, $members, $totalAmount, $date, $notes) {
+        return DB::transaction(function () use ($group, $memberIdToAmount, $members, $totalAmount, $date, $notes, $paymentSourceAccountId) {
             $journal = $this->accounting->post(
                 $date,
                 "Group-wide withdrawal — {$group->name} (custom)",
                 [
                     ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => $totalAmount, 'credit' => 0,           'description' => 'Group savings payout'],
-                    ['account_id' => $this->getCashAccountId(),                 'debit' => 0,            'credit' => $totalAmount, 'description' => $notes],
+                    ['account_id' => $paymentSourceAccountId ?? $this->getCashAccountId(), 'debit' => 0,            'credit' => $totalAmount, 'description' => $notes],
                 ],
                 'groups',
                 $group->id
