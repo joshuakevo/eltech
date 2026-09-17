@@ -325,41 +325,58 @@ class LoanService
             $interestPaid  = 0;
             $principalPaid = 0;
 
-            // 1. Per-installment allocation (interest → principal), earliest first
-            $schedules = $loan->schedules()
-                ->whereIn('status', ['pending', 'partial', 'overdue'])
-                ->orderBy('installment_no')
-                ->get();
-
-            foreach ($schedules as $schedule) {
-                if ($remaining <= 0) break;
-
-                $iDue = $schedule->interest_due - $schedule->interest_paid;
+            if ($loan->isLockedUp()) {
+                // Locked-Up Loans are tracked manually: no schedule, no due dates,
+                // no further accrual. Apply straight to the two running balances,
+                // interest first then principal, until the loan closes.
+                $iDue = $loan->outstanding_interest;
                 if ($remaining > 0 && $iDue > 0) {
-                    $iApply = min($remaining, $iDue);
-                    $schedule->interest_paid += $iApply;
-                    $interestPaid            += $iApply;
-                    $remaining               -= $iApply;
+                    $interestPaid = min($remaining, $iDue);
+                    $remaining   -= $interestPaid;
                 }
 
-                $pDue = $schedule->principal_due - $schedule->principal_paid;
+                $pDue = $loan->outstanding_principal;
                 if ($remaining > 0 && $pDue > 0) {
-                    $pApply = min($remaining, $pDue);
-                    $schedule->principal_paid += $pApply;
-                    $principalPaid            += $pApply;
-                    $remaining                -= $pApply;
+                    $principalPaid = min($remaining, $pDue);
+                    $remaining    -= $principalPaid;
                 }
+            } else {
+                // 1. Per-installment allocation (interest → principal), earliest first
+                $schedules = $loan->schedules()
+                    ->whereIn('status', ['pending', 'partial', 'overdue'])
+                    ->orderBy('installment_no')
+                    ->get();
 
-                if (
-                    abs($schedule->principal_paid - $schedule->principal_due) < 0.01 &&
-                    abs($schedule->interest_paid  - $schedule->interest_due)  < 0.01
-                ) {
-                    $schedule->status = 'paid';
-                } elseif ($schedule->principal_paid > 0 || $schedule->interest_paid > 0) {
-                    $schedule->status = 'partial';
+                foreach ($schedules as $schedule) {
+                    if ($remaining <= 0) break;
+
+                    $iDue = $schedule->interest_due - $schedule->interest_paid;
+                    if ($remaining > 0 && $iDue > 0) {
+                        $iApply = min($remaining, $iDue);
+                        $schedule->interest_paid += $iApply;
+                        $interestPaid            += $iApply;
+                        $remaining               -= $iApply;
+                    }
+
+                    $pDue = $schedule->principal_due - $schedule->principal_paid;
+                    if ($remaining > 0 && $pDue > 0) {
+                        $pApply = min($remaining, $pDue);
+                        $schedule->principal_paid += $pApply;
+                        $principalPaid            += $pApply;
+                        $remaining                -= $pApply;
+                    }
+
+                    if (
+                        abs($schedule->principal_paid - $schedule->principal_due) < 0.01 &&
+                        abs($schedule->interest_paid  - $schedule->interest_due)  < 0.01
+                    ) {
+                        $schedule->status = 'paid';
+                    } elseif ($schedule->principal_paid > 0 || $schedule->interest_paid > 0) {
+                        $schedule->status = 'partial';
+                    }
+
+                    $schedule->save();
                 }
-
-                $schedule->save();
             }
 
             // 2. Penalty last, from whatever remains after principal/interest —
@@ -422,6 +439,17 @@ class LoanService
     public function calculateEarlySettlement(Loan $loan, string $date): array
     {
         $principal = $loan->outstanding_principal;
+
+        if ($loan->isLockedUp()) {
+            // No schedule to walk — the manually-tracked balance is already
+            // the full amount owed, with nothing further accruing.
+            return [
+                'principal' => round($principal, 2),
+                'interest'  => round($loan->outstanding_interest, 2),
+                'penalty'   => 0.0,
+                'total'     => round($principal + $loan->outstanding_interest, 2),
+            ];
+        }
 
         $schedules = $loan->schedules()
             ->whereIn('status', ['pending', 'partial', 'overdue'])

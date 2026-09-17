@@ -199,6 +199,9 @@
 <script>
 var penaltyDue = {{ $penaltyDue }};
 var schedules  = @json($schedulesJson);
+var isLockedUp = @json($loan->isLockedUp());
+var loanInterestOS  = {{ $loan->outstanding_interest }};
+var loanPrincipalOS = {{ $loan->outstanding_principal }};
 var dp         = {{ $dp }};
 var penaltyPreviewUrl = '{{ route('loans.penalty-preview', $loan) }}';
 
@@ -254,13 +257,19 @@ function updateBreakdown() {
     var totalInterest = 0, totalPrincipal = 0, totalPenalty = 0;
     var installmentsCovered = [];
 
-    // Per-installment: interest then principal
-    var schCopy = schedules.map(function(s) { return {installment_no: s.installment_no, iRem: s.interest_rem, pRem: s.principal_rem}; });
-    for (var i = 0; i < schCopy.length && remaining > 0; i++) {
-        var s = schCopy[i];
-        var iApply = Math.min(remaining, s.iRem); remaining -= iApply; totalInterest += iApply; s.iRem -= iApply;
-        var pApply = Math.min(remaining, s.pRem); remaining -= pApply; totalPrincipal += pApply; s.pRem -= pApply;
-        if (iApply > 0 || pApply > 0) installmentsCovered.push(s.installment_no);
+    if (isLockedUp) {
+        // No schedule: straight interest-then-principal against the running balances.
+        totalInterest  = Math.min(remaining, loanInterestOS); remaining -= totalInterest;
+        totalPrincipal = Math.min(remaining, loanPrincipalOS); remaining -= totalPrincipal;
+    } else {
+        // Per-installment: interest then principal
+        var schCopy = schedules.map(function(s) { return {installment_no: s.installment_no, iRem: s.interest_rem, pRem: s.principal_rem}; });
+        for (var i = 0; i < schCopy.length && remaining > 0; i++) {
+            var s = schCopy[i];
+            var iApply = Math.min(remaining, s.iRem); remaining -= iApply; totalInterest += iApply; s.iRem -= iApply;
+            var pApply = Math.min(remaining, s.pRem); remaining -= pApply; totalPrincipal += pApply; s.pRem -= pApply;
+            if (iApply > 0 || pApply > 0) installmentsCovered.push(s.installment_no);
+        }
     }
 
     // Penalty last, from whatever remains

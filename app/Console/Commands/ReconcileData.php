@@ -146,16 +146,21 @@ class ReconcileData extends Command
 
             if ($scheduleRemaining && $scheduleRemaining->cnt > 0) {
                 $correctPrincipal = max(0, (float) $scheduleRemaining->rem);
-            } else {
-                $correctPrincipal = max(0, $loan->principal - $loan->repayments()->sum('principal_paid'));
-            }
 
-            // Interest = sum of (interest_due - interest_paid) across unpaid/partial schedules
-            $correctInterest = max(0, (float) DB::table('loan_schedules')
-                ->where('loan_id', $loan->id)
-                ->whereIn('status', ['pending', 'partial', 'overdue'])
-                ->selectRaw('COALESCE(SUM(interest_due - interest_paid), 0) as rem')
-                ->value('rem'));
+                // Interest = sum of (interest_due - interest_paid) across unpaid/partial schedules
+                $correctInterest = max(0, (float) DB::table('loan_schedules')
+                    ->where('loan_id', $loan->id)
+                    ->whereIn('status', ['pending', 'partial', 'overdue'])
+                    ->selectRaw('COALESCE(SUM(interest_due - interest_paid), 0) as rem')
+                    ->value('rem'));
+            } else {
+                // No schedule rows to reconcile against (e.g. opening-balance/locked-up
+                // loans imported directly with a manually-set outstanding_interest and
+                // never disbursed through the normal flow) -- leave both figures as-is
+                // rather than zeroing interest out.
+                $correctPrincipal = max(0, $loan->principal - $loan->repayments()->sum('principal_paid'));
+                $correctInterest  = (float) $loan->outstanding_interest;
+            }
 
             $updates = [];
 

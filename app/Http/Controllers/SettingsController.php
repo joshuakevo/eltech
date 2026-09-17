@@ -107,6 +107,44 @@ class SettingsController extends Controller
         'ChartOfAccountsSeeder'      => 'Chart of Accounts (adds any new accounts; safe to re-run, existing accounts untouched)',
     ];
 
+    /**
+     * Read-only check: compares Locked-Up Loans against the old system's Lock
+     * Up Report bundle and reports drift/missing rows without changing anything.
+     */
+    public function verifyLockedUpLoans()
+    {
+        Artisan::call('eltech:verify-locked-up-loans');
+        $output = Artisan::output();
+
+        return back()->with('success', $output);
+    }
+
+    /**
+     * Corrects outstanding_principal/outstanding_interest on Locked-Up Loans
+     * that already exist but drifted from the old system's figures. Never
+     * creates loans/clients -- see importLockedUpLoans() for that.
+     */
+    public function fixLockedUpLoans()
+    {
+        Artisan::call('eltech:verify-locked-up-loans', ['--fix' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', $output);
+    }
+
+    /**
+     * Creates any Locked-Up Loans from the old system's Lock Up Report that
+     * don't exist here at all yet. Safe to run repeatedly -- skips any
+     * LU-<fcode> loan that already exists.
+     */
+    public function importLockedUpLoans()
+    {
+        Artisan::call('eltech:import-locked-up-loans-2026-07-31', ['--confirm' => true]);
+        $output = Artisan::output();
+
+        return back()->with('success', $output);
+    }
+
     public function migrate()
     {
         Artisan::call('migrate', ['--force' => true]);

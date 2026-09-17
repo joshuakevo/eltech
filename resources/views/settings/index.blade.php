@@ -146,6 +146,44 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- Locked-Up Loans Data Check --}}
+<div class="card mt-4 border-warning">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-lock-fill text-warning"></i>
+        <span>Locked-Up Loans Data Check</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Compares the Locked-Up Loans book against the old system's Lock Up Report (31 Jul 2026 opening balances).
+            Run <strong>Check</strong> first — it only reports, it changes nothing. If it finds loans with the wrong
+            principal/interest, run <strong>Fix Figures</strong>. If it finds loans missing entirely, run
+            <strong>Import Missing Loans</strong> (safe to run more than once — it only adds loans that aren't there yet).
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+            <form method="POST" action="{{ route('settings.locked-up-loans.verify') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-warning">
+                    <i class="bi bi-search me-2"></i>Check
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.locked-up-loans.fix') }}"
+                  onsubmit="return confirm('Correct outstanding principal/interest on Locked-Up Loans that already exist but drifted from the old system\'s figures?')">
+                @csrf
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-wrench-adjustable me-2"></i>Fix Figures
+                </button>
+            </form>
+            <form method="POST" action="{{ route('settings.locked-up-loans.import') }}"
+                  onsubmit="return confirm('Import any Locked-Up Loans from the old system\'s report that don\'t exist here yet?')">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-cloud-arrow-down me-2"></i>Import Missing Loans
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Deployment Maintenance --}}
 <div class="card mt-4 border-danger">
     <div class="card-header d-flex align-items-center gap-2">

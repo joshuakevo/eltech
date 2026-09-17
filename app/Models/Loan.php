@@ -106,4 +106,15 @@ class Loan extends Model
             ->where('status', '!=', 'paid')
             ->exists();
     }
+
+    /**
+     * Locked-Up Loans (the old system's frozen NPL book) are tracked manually:
+     * no schedule, no due dates, no further interest/penalty accrual. Repayments
+     * just reduce outstanding_principal/outstanding_interest directly until the
+     * loan closes.
+     */
+    public function isLockedUp(): bool
+    {
+        return optional($this->product)->name === 'Locked-Up Loans';
+    }
 }

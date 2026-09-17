@@ -73,8 +73,15 @@ class ImportJuly2026LockedUpLoans extends Command
         $newClients = 0;
         $newLoans   = 0;
 
-        DB::transaction(function () use ($bundle, $accounting, $receivableAccount, $openingEquity, $product, &$newClients, &$newLoans) {
+        $skipped = 0;
+
+        DB::transaction(function () use ($bundle, $accounting, $receivableAccount, $openingEquity, $product, &$newClients, &$newLoans, &$skipped) {
             foreach ($bundle as $row) {
+                if (Loan::where('loan_number', 'LU-' . $row['fcode'])->exists()) {
+                    $skipped++;
+                    continue;
+                }
+
                 $client = Client::where('client_number', $row['client_number'])->first();
 
                 if (!$client) {
@@ -92,7 +99,7 @@ class ImportJuly2026LockedUpLoans extends Command
             }
         });
 
-        $this->info("Done. Created {$newClients} new clients, {$newLoans} locked-up loans.");
+        $this->info("Done. Created {$newClients} new clients, {$newLoans} locked-up loans. Skipped {$skipped} already present.");
         return self::SUCCESS;
     }
 

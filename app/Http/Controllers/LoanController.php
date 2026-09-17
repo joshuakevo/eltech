@@ -240,7 +240,7 @@ class LoanController extends Controller
 
     public function repayForm(Loan $loan)
     {
-        if ($loan->status !== 'active') {
+        if ($loan->status !== 'active' && !($loan->isLockedUp() && $loan->status === 'defaulted')) {
             return back()->with('error', 'Only active loans can accept repayments.');
         }
 
@@ -330,7 +330,7 @@ class LoanController extends Controller
             'reference'                 => $request->reference ?: 'LR-' . $loan->loan_number . '-' . now()->format('YmdHis'),
         ]);
 
-        if ($loan->status !== 'active') {
+        if ($loan->status !== 'active' && !($loan->isLockedUp() && $loan->status === 'defaulted')) {
             return back()->with('error', 'Only active loans can accept repayments.');
         }
 

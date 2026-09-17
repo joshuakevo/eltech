@@ -890,7 +890,7 @@ class TransactionController extends Controller
             'outstanding_principal' => $loan->outstanding_principal + $repayment->principal_paid,
             'outstanding_interest'  => $loan->outstanding_interest  + $repayment->interest_paid,
             'outstanding_penalty'   => $loan->outstanding_penalty   + $repayment->penalty_paid,
-            'status'                => $loan->status === 'closed' ? 'active' : $loan->status,
+            'status'                => $loan->status === 'closed' ? ($loan->isLockedUp() ? 'defaulted' : 'active') : $loan->status,
         ]);
 
         $remainingPrincipal = $repayment->principal_paid;
