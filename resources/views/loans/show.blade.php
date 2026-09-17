@@ -26,8 +26,8 @@
         @endif
         @endcan
         @can('repay loans')
-        @if($loan->status === 'active')
-            <a href="{{ route('loans.repay-form', $loan) }}" class="btn btn-success btn-sm"><i class="bi bi-cash"></i> Record Repayment</a>
+        @if($loan->status === 'active' || ($loan->isLockedUp() && $loan->status === 'defaulted'))
+            <a href="{{ route('loans.repay-form', $loan) }}" class="btn btn-success btn-sm"><i class="bi bi-cash"></i> {{ $loan->isLockedUp() ? 'Record Recovery' : 'Record Repayment' }}</a>
         @endif
         @endcan
         @if($loan->status === 'active')

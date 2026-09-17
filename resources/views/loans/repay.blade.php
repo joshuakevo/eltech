@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'Record Repayment')
+@section('title', $loan->isLockedUp() ? 'Record Recovery' : 'Record Repayment')
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('loans.index') }}">Loans</a></li>
     <li class="breadcrumb-item"><a href="{{ route('loans.show', $loan) }}">{{ $loan->loan_number }}</a></li>
-    <li class="breadcrumb-item active">Repayment</li>
+    <li class="breadcrumb-item active">{{ $loan->isLockedUp() ? 'Recovery' : 'Repayment' }}</li>
 @endsection
 @section('content')
 <div class="row g-3">
@@ -82,7 +82,7 @@
     {{-- Right: Payment form --}}
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header fw-semibold">Record Repayment</div>
+            <div class="card-header fw-semibold">{{ $loan->isLockedUp() ? 'Record Recovery' : 'Record Repayment' }}</div>
             <div class="card-body">
                 <form method="POST" action="{{ route('loans.repay', $loan) }}" id="repayForm">
                     @csrf
@@ -182,11 +182,15 @@
 
                     <div class="alert alert-secondary small mb-3">
                         <i class="bi bi-info-circle me-1"></i>
-                        Allocation: <strong>Per installment (Interest → Principal), earliest first → then Penalty</strong>
+                        @if($loan->isLockedUp())
+                            Allocation: <strong>Interest → Principal</strong> (no schedule, no penalty — manually tracked until closed)
+                        @else
+                            Allocation: <strong>Per installment (Interest → Principal), earliest first → then Penalty</strong>
+                        @endif
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button class="btn btn-success"><i class="bi bi-check-circle me-1"></i>Process Repayment</button>
+                        <button class="btn btn-success"><i class="bi bi-check-circle me-1"></i>{{ $loan->isLockedUp() ? 'Process Recovery' : 'Process Repayment' }}</button>
                         <a href="{{ route('loans.show', $loan) }}" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>

@@ -138,8 +138,8 @@
                     <td class="pe-3">
                         <a href="{{ route('loans.show', $loan) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
                         @can('repay loans')
-                        @if($loan->status === 'active')
-                            <a href="{{ route('loans.repay-form', $loan) }}" class="btn btn-sm btn-success"><i class="bi bi-cash"></i></a>
+                        @if($loan->status === 'active' || ($loan->isLockedUp() && $loan->status === 'defaulted'))
+                            <a href="{{ route('loans.repay-form', $loan) }}" class="btn btn-sm btn-success" title="{{ $loan->isLockedUp() ? 'Recover' : 'Repay' }}"><i class="bi bi-cash"></i></a>
                         @endif
                         @endcan
                     </td>
