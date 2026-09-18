@@ -6,7 +6,12 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Journal Entries</h4>
-    <a href="{{ route('transactions.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Entry</a>
+    <div class="d-flex gap-2">
+        <a href="{{ request()->fullUrlWithQuery(['format' => 'pdf']) }}" target="_blank" class="btn btn-outline-danger">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
+        </a>
+        <a href="{{ route('transactions.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Entry</a>
+    </div>
 </div>
 <div class="card">
     <div class="card-body pb-0">

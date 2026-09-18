@@ -20,6 +20,7 @@ use App\Models\Transaction;
 use App\Models\TransactionLine;
 use App\Services\AccountingService;
 use App\Services\SavingsService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -36,55 +37,77 @@ class TransactionController extends Controller
         $fromDate = $request->from_date ?: now()->startOfMonth()->toDateString();
         $toDate   = $request->to_date   ?: now()->toDateString();
 
-        $account        = null;
-        $ledgerRows     = collect();
-        $openingBalance = 0;
-        $transactions   = null;
-
         if ($request->filled('account_id')) {
             $account = Account::findOrFail($request->account_id);
+            [$openingBalance, $ledgerRows] = $this->buildLedgerRows($account, $fromDate, $toDate, $request->reference);
 
-            $openingTotals = TransactionLine::join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
-                ->where('transaction_lines.account_id', $account->id)
-                ->where('transactions.date', '<', $fromDate)
-                ->selectRaw('COALESCE(SUM(transaction_lines.debit), 0) as debit, COALESCE(SUM(transaction_lines.credit), 0) as credit')
-                ->first();
+            if ($request->format === 'pdf') {
+                $pdf = Pdf::loadView('pdf.transactions-ledger', compact('account', 'fromDate', 'toDate', 'openingBalance', 'ledgerRows'))
+                    ->setPaper('a4', 'portrait');
+                return $pdf->download('journal-ledger-' . $account->account_code . '-' . now()->format('Y-m-d') . '.pdf');
+            }
 
-            $openingBalance = $account->isDebitNormal()
-                ? ($openingTotals->debit - $openingTotals->credit)
-                : ($openingTotals->credit - $openingTotals->debit);
-
-            $lines = TransactionLine::with('transaction.createdBy')
-                ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
-                ->where('transaction_lines.account_id', $account->id)
-                ->where('transactions.date', '>=', $fromDate)
-                ->where('transactions.date', '<=', $toDate)
-                ->when($request->reference, fn($q) => $q->where('transactions.reference', 'like', "%{$request->reference}%"))
-                ->orderBy('transactions.date')
-                ->orderBy('transaction_lines.id')
-                ->select('transaction_lines.*')
-                ->get();
-
-            $running    = $openingBalance;
-            $ledgerRows = $lines->map(function ($line) use (&$running, $account) {
-                $running += $account->isDebitNormal()
-                    ? ($line->debit - $line->credit)
-                    : ($line->credit - $line->debit);
-                return ['line' => $line, 'balance' => $running];
-            });
-        } else {
-            $transactions = Transaction::with('createdBy')
-                ->withSum('lines', 'debit')
-                ->where('date', '>=', $fromDate)
-                ->where('date', '<=', $toDate)
-                ->when($request->reference, fn($q) => $q->where('reference', 'like', "%{$request->reference}%"))
-                ->latest('date')
-                ->paginate(30);
+            return view('transactions.index', compact(
+                'accounts', 'account', 'fromDate', 'toDate', 'openingBalance', 'ledgerRows'
+            ) + ['transactions' => null]);
         }
 
-        return view('transactions.index', compact(
-            'accounts', 'account', 'fromDate', 'toDate', 'openingBalance', 'ledgerRows', 'transactions'
-        ));
+        $query = Transaction::with('createdBy')
+            ->withSum('lines', 'debit')
+            ->where('date', '>=', $fromDate)
+            ->where('date', '<=', $toDate)
+            ->when($request->reference, fn($q) => $q->where('reference', 'like', "%{$request->reference}%"))
+            ->latest('date');
+
+        if ($request->format === 'pdf') {
+            $all = (clone $query)->get();
+            $pdf = Pdf::loadView('pdf.transactions-list', compact('all', 'fromDate', 'toDate'))
+                ->setPaper('a4', 'landscape');
+            return $pdf->download('journal-entries-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        $transactions = $query->paginate(30);
+
+        return view('transactions.index', compact('accounts', 'transactions', 'fromDate', 'toDate') + [
+            'account' => null, 'ledgerRows' => collect(), 'openingBalance' => 0,
+        ]);
+    }
+
+    /**
+     * @return array{0: float, 1: \Illuminate\Support\Collection} [openingBalance, ledgerRows]
+     */
+    private function buildLedgerRows(Account $account, string $fromDate, string $toDate, ?string $reference): array
+    {
+        $openingTotals = TransactionLine::join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
+            ->where('transaction_lines.account_id', $account->id)
+            ->where('transactions.date', '<', $fromDate)
+            ->selectRaw('COALESCE(SUM(transaction_lines.debit), 0) as debit, COALESCE(SUM(transaction_lines.credit), 0) as credit')
+            ->first();
+
+        $openingBalance = $account->isDebitNormal()
+            ? ($openingTotals->debit - $openingTotals->credit)
+            : ($openingTotals->credit - $openingTotals->debit);
+
+        $lines = TransactionLine::with('transaction.createdBy')
+            ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
+            ->where('transaction_lines.account_id', $account->id)
+            ->where('transactions.date', '>=', $fromDate)
+            ->where('transactions.date', '<=', $toDate)
+            ->when($reference, fn($q) => $q->where('transactions.reference', 'like', "%{$reference}%"))
+            ->orderBy('transactions.date')
+            ->orderBy('transaction_lines.id')
+            ->select('transaction_lines.*')
+            ->get();
+
+        $running    = $openingBalance;
+        $ledgerRows = $lines->map(function ($line) use (&$running, $account) {
+            $running += $account->isDebitNormal()
+                ? ($line->debit - $line->credit)
+                : ($line->credit - $line->debit);
+            return ['line' => $line, 'balance' => $running];
+        });
+
+        return [$openingBalance, $ledgerRows];
     }
 
     public function create()
