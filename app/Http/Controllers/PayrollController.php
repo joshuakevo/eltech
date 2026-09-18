@@ -59,8 +59,15 @@ class PayrollController extends Controller {
             $basic     = (float) $item['basic_salary'];
             $allow     = (float) ($item['allowances'] ?? 0);
             $deduct    = (float) ($item['deductions'] ?? 0);
-            $net       = $basic + $allow - $deduct;
-            $totalGross += $net;
+
+            // PAYE and NSSF are statutory and always derived from gross server-side --
+            // never trusted from the client, even though the form shows them live.
+            $gross        = $basic + $allow;
+            $paye         = PayrollItem::calculatePaye($gross);
+            $nssfEmployee = PayrollItem::calculateNssfEmployee($gross);
+            $nssfEmployer = PayrollItem::calculateNssfEmployer($gross);
+            $net          = $gross - $paye - $nssfEmployee - $deduct;
+            $totalGross  += $net;
 
             PayrollItem::create([
                 'payroll_run_id'     => $run->id,
@@ -68,6 +75,9 @@ class PayrollController extends Controller {
                 'savings_account_id' => $employee->savings_account_id,
                 'basic_salary'       => $basic,
                 'allowances'         => $allow,
+                'paye'               => $paye,
+                'nssf_employee'      => $nssfEmployee,
+                'nssf_employer'      => $nssfEmployer,
                 'deductions'         => $deduct,
                 'net_salary'         => $net,
             ]);

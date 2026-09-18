@@ -38,15 +38,22 @@
             </button>
         </div>
 
+        <div class="form-text mb-2">
+            PAYE, NSSF 5% (employee) and NSSF 10% (employer) are calculated automatically from Gross Pay (Basic + Allowances) as you type.
+        </div>
         <div class="table-responsive">
             <table class="table table-bordered table-sm" id="itemsTable">
                 <thead class="table-light">
                     <tr>
                         <th>Employee</th>
-                        <th style="width:160px">Basic Salary</th>
-                        <th style="width:140px">Allowances</th>
-                        <th style="width:140px">Deductions</th>
-                        <th style="width:140px" class="text-end">Net Salary</th>
+                        <th style="width:140px">Basic Salary</th>
+                        <th style="width:120px">Allowances</th>
+                        <th style="width:130px" class="text-end">Gross Pay</th>
+                        <th style="width:120px" class="text-end">PAYE</th>
+                        <th style="width:110px" class="text-end">NSSF 5%</th>
+                        <th style="width:110px" class="text-end">NSSF 10%</th>
+                        <th style="width:120px">Deductions</th>
+                        <th style="width:140px" class="text-end">Net Pay</th>
                         <th style="width:50px"></th>
                     </tr>
                 </thead>
@@ -55,7 +62,12 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4" class="fw-semibold text-end">Total Net:</td>
+                        <td colspan="3" class="fw-semibold text-end">Totals:</td>
+                        <td class="text-end fw-semibold" id="totalGross">0</td>
+                        <td class="text-end fw-semibold" id="totalPaye">0</td>
+                        <td class="text-end fw-semibold" id="totalNssf5">0</td>
+                        <td class="text-end fw-semibold" id="totalNssf10">0</td>
+                        <td class="text-end fw-semibold" id="totalDeduct">0</td>
                         <td class="text-end fw-bold" id="grandTotal">0</td>
                         <td></td>
                     </tr>
@@ -89,6 +101,16 @@ function selectedEmployeeIds(excludeRowId) {
     return ids;
 }
 
+// Mirrors PayrollItem::calculatePaye() server-side -- Uganda monthly PAYE bands.
+function calcPaye(gross) {
+    if (gross <= 235000) return 0;
+    if (gross <= 335000) return (gross - 235000) * 0.10;
+    if (gross <= 410000) return 10000 + (gross - 335000) * 0.20;
+    let paye = 25000 + (gross - 410000) * 0.30;
+    if (gross > 10000000) paye += (gross - 10000000) * 0.10;
+    return paye;
+}
+
 function addRow(empId = '', basic = 0, allow = 0, deduct = 0) {
     const i = rowIndex++;
     const used = selectedEmployeeIds(-1);
@@ -104,12 +126,16 @@ function addRow(empId = '', basic = 0, allow = 0, deduct = 0) {
         </td>
         <td><input type="number" name="items[${i}][basic_salary]" id="basic_${i}" class="form-control form-control-sm" value="${basic}" min="0" step="1000" oninput="recalcRow(${i})" required></td>
         <td><input type="number" name="items[${i}][allowances]" id="allow_${i}" class="form-control form-control-sm" value="${allow}" min="0" step="1000" oninput="recalcRow(${i})"></td>
+        <td class="text-end align-middle" id="gross_${i}">0</td>
+        <td class="text-end align-middle text-danger" id="paye_${i}">0</td>
+        <td class="text-end align-middle text-danger" id="nssf5_${i}">0</td>
+        <td class="text-end align-middle text-muted" id="nssf10_${i}">0</td>
         <td><input type="number" name="items[${i}][deductions]" id="deduct_${i}" class="form-control form-control-sm" value="${deduct}" min="0" step="1000" oninput="recalcRow(${i})"></td>
-        <td class="text-end align-middle fw-semibold" id="net_${i}">${fmt(basic + allow - deduct)}</td>
+        <td class="text-end align-middle fw-semibold" id="net_${i}">0</td>
         <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeRow(${i})"><i class="bi bi-x"></i></button></td>
     </tr>`;
     document.getElementById('itemsBody').insertAdjacentHTML('beforeend', row);
-    recalcTotal();
+    recalcRow(i);
 }
 
 function refreshDisabled() {
@@ -138,7 +164,17 @@ function recalcRow(i) {
     const b = parseFloat(document.getElementById('basic_' + i).value) || 0;
     const a = parseFloat(document.getElementById('allow_' + i).value) || 0;
     const d = parseFloat(document.getElementById('deduct_' + i).value) || 0;
-    document.getElementById('net_' + i).textContent = fmt(b + a - d);
+    const gross  = b + a;
+    const paye   = calcPaye(gross);
+    const nssf5  = gross * 0.05;
+    const nssf10 = gross * 0.10;
+    const net    = gross - paye - nssf5 - d;
+
+    document.getElementById('gross_' + i).textContent  = fmt(gross);
+    document.getElementById('paye_' + i).textContent   = fmt(paye);
+    document.getElementById('nssf5_' + i).textContent  = fmt(nssf5);
+    document.getElementById('nssf10_' + i).textContent = fmt(nssf10);
+    document.getElementById('net_' + i).textContent    = fmt(net);
     recalcTotal();
 }
 
@@ -148,12 +184,25 @@ function removeRow(i) {
     recalcTotal();
 }
 
-function recalcTotal() {
+function sumCells(prefix) {
     let total = 0;
-    document.querySelectorAll('[id^="net_"]').forEach(el => {
+    document.querySelectorAll('[id^="' + prefix + '_"]').forEach(el => {
         total += parseFloat(el.textContent.replace(/,/g, '')) || 0;
     });
-    document.getElementById('grandTotal').textContent = fmt(total);
+    return total;
+}
+
+function recalcTotal() {
+    document.getElementById('totalGross').textContent  = fmt(sumCells('gross'));
+    document.getElementById('totalPaye').textContent   = fmt(sumCells('paye'));
+    document.getElementById('totalNssf5').textContent  = fmt(sumCells('nssf5'));
+    document.getElementById('totalNssf10').textContent = fmt(sumCells('nssf10'));
+
+    let deductTotal = 0;
+    document.querySelectorAll('[id^="deduct_"]').forEach(el => { deductTotal += parseFloat(el.value) || 0; });
+    document.getElementById('totalDeduct').textContent = fmt(deductTotal);
+
+    document.getElementById('grandTotal').textContent = fmt(sumCells('net'));
 }
 
 function addAllEmployees() {

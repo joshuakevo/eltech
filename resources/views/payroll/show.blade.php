@@ -87,6 +87,10 @@
                     <th>Savings Account</th>
                     <th class="text-end">Basic</th>
                     <th class="text-end">Allowances</th>
+                    <th class="text-end">Gross Pay</th>
+                    <th class="text-end">PAYE</th>
+                    <th class="text-end">NSSF 5%</th>
+                    <th class="text-end">NSSF 10%</th>
                     <th class="text-end">Deductions</th>
                     <th class="text-end fw-semibold">Net Salary</th>
                 </tr>
@@ -104,6 +108,10 @@
                 </td>
                 <td class="text-end">{{ number_format($item->basic_salary, 0) }}</td>
                 <td class="text-end text-success">{{ number_format($item->allowances, 0) }}</td>
+                <td class="text-end">{{ number_format($item->basic_salary + $item->allowances, 0) }}</td>
+                <td class="text-end text-danger">{{ number_format($item->paye, 0) }}</td>
+                <td class="text-end text-danger">{{ number_format($item->nssf_employee, 0) }}</td>
+                <td class="text-end text-muted">{{ number_format($item->nssf_employer, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->deductions, 0) }}</td>
                 <td class="text-end fw-semibold">{{ number_format($item->net_salary, 0) }}</td>
             </tr>
@@ -114,6 +122,10 @@
                     <td colspan="3">Totals</td>
                     <td class="text-end">{{ number_format($payroll->items->sum('basic_salary'), 0) }}</td>
                     <td class="text-end text-success">{{ number_format($payroll->items->sum('allowances'), 0) }}</td>
+                    <td class="text-end">{{ number_format($payroll->items->sum('basic_salary') + $payroll->items->sum('allowances'), 0) }}</td>
+                    <td class="text-end text-danger">{{ number_format($payroll->items->sum('paye'), 0) }}</td>
+                    <td class="text-end text-danger">{{ number_format($payroll->items->sum('nssf_employee'), 0) }}</td>
+                    <td class="text-end text-muted">{{ number_format($payroll->items->sum('nssf_employer'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('deductions'), 0) }}</td>
                     <td class="text-end">{{ number_format($payroll->items->sum('net_salary'), 0) }}</td>
                 </tr>
