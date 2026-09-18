@@ -42,19 +42,19 @@
             PAYE, NSSF 5% (employee) and NSSF 10% (employer) are calculated automatically from Gross Pay (Basic + Allowances) as you type.
         </div>
         <div class="table-responsive">
-            <table class="table table-bordered table-sm" id="itemsTable">
+            <table class="table table-bordered table-sm" id="itemsTable" style="min-width:1360px">
                 <thead class="table-light">
                     <tr>
-                        <th>Employee</th>
-                        <th style="width:140px">Basic Salary</th>
-                        <th style="width:120px">Allowances</th>
-                        <th style="width:130px" class="text-end">Gross Pay</th>
-                        <th style="width:120px" class="text-end">PAYE</th>
-                        <th style="width:110px" class="text-end">NSSF 5%</th>
-                        <th style="width:110px" class="text-end">NSSF 10%</th>
-                        <th style="width:120px">Deductions</th>
-                        <th style="width:140px" class="text-end">Net Pay</th>
-                        <th style="width:50px"></th>
+                        <th style="width:230px">Employee</th>
+                        <th style="width:150px">Basic Salary</th>
+                        <th style="width:130px">Allowances</th>
+                        <th style="width:140px" class="text-end">Gross Pay</th>
+                        <th style="width:130px" class="text-end">PAYE</th>
+                        <th style="width:120px" class="text-end">NSSF 5%</th>
+                        <th style="width:120px" class="text-end">NSSF 10%</th>
+                        <th style="width:130px">Deductions</th>
+                        <th style="width:150px" class="text-end">Net Pay</th>
+                        <th style="width:60px"></th>
                     </tr>
                 </thead>
                 <tbody id="itemsBody">
