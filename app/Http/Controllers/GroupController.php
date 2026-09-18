@@ -496,6 +496,91 @@ class GroupController extends Controller
         return redirect()->route('groups.show', $group)->with('success', 'Withdrawal posted.');
     }
 
+    // ── Edit a single (individual-mode) group transaction inline ───────────
+    // Equal-split/custom postings share one journal across many members and
+    // can't be safely edited from a single amount/account field -- those
+    // still go through Reverse + re-post. Individual-mode ones map 1:1 to a
+    // member and a 2-line journal, so they can be corrected in place.
+
+    public function editTransaction(\App\Models\GroupTransaction $groupTransaction)
+    {
+        if ($groupTransaction->posting_type !== 'individual') {
+            return back()->with('error', 'Only individual-member group transactions can be edited directly. Group-wide (equal split / custom) postings must be reversed and re-posted.');
+        }
+
+        $groupTransaction->load('group', 'member', 'journalTransaction.lines.account');
+        $paymentSourceAccounts = Account::where('is_payment_source', true)->where('is_active', true)->orderBy('account_code')->get();
+
+        $groupLiabilityAccountId = $this->groupService->getGroupLiabilityAccountId($groupTransaction->group);
+        $currentPaymentLine      = $groupTransaction->journalTransaction->lines
+            ->firstWhere('account_id', '!=', $groupLiabilityAccountId);
+
+        return view('groups.edit-transaction', compact('groupTransaction', 'paymentSourceAccounts', 'currentPaymentLine'));
+    }
+
+    public function updateTransaction(Request $request, \App\Models\GroupTransaction $groupTransaction)
+    {
+        if ($groupTransaction->posting_type !== 'individual') {
+            return back()->with('error', 'Only individual-member group transactions can be edited directly.');
+        }
+
+        $request->validate([
+            'amount'                    => 'required|numeric|min:0.01',
+            'payment_source_account_id' => 'required|exists:accounts,id',
+            'transaction_date'          => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
+            'notes'                     => 'nullable|string|max:500',
+        ]);
+
+        $member   = $groupTransaction->member;
+        $group    = $groupTransaction->group;
+        $journal  = $groupTransaction->journalTransaction;
+        $isCredit = in_array($groupTransaction->type, ['deposit', 'interest']);
+
+        $balanceAfterUndo = $isCredit
+            ? $member->balance - $groupTransaction->amount
+            : $member->balance + $groupTransaction->amount;
+
+        $newAmount = (float) $request->amount;
+        $balAfter  = $isCredit ? $balanceAfterUndo + $newAmount : $balanceAfterUndo - $newAmount;
+
+        if (!$isCredit && $balAfter < -0.005) {
+            return back()->withInput()->with('error', 'Insufficient balance for this withdrawal amount.');
+        }
+
+        \DB::transaction(function () use ($groupTransaction, $member, $group, $journal, $request, $isCredit, $balanceAfterUndo, $newAmount, $balAfter) {
+            $member->update(['balance' => $balAfter]);
+
+            $groupLiabilityAccountId = $this->groupService->getGroupLiabilityAccountId($group);
+            $paymentAccountId        = (int) $request->payment_source_account_id;
+            $label                   = "Group {$groupTransaction->type} — {$group->name} — {$member->name}";
+
+            $journal->lines()->delete();
+            $lines = $isCredit
+                ? [
+                    ['account_id' => $paymentAccountId, 'debit' => $newAmount, 'credit' => 0, 'description' => $label],
+                    ['account_id' => $groupLiabilityAccountId, 'debit' => 0, 'credit' => $newAmount, 'description' => "Group member savings — {$member->name}"],
+                ]
+                : [
+                    ['account_id' => $groupLiabilityAccountId, 'debit' => $newAmount, 'credit' => 0, 'description' => "Reduce savings — {$member->name}"],
+                    ['account_id' => $paymentAccountId, 'debit' => 0, 'credit' => $newAmount, 'description' => $label],
+                ];
+            foreach ($lines as $line) {
+                $journal->lines()->create($line);
+            }
+            $journal->update(['date' => $request->transaction_date, 'description' => $label]);
+
+            $groupTransaction->update([
+                'amount'           => $newAmount,
+                'balance_before'   => $balanceAfterUndo,
+                'balance_after'    => $balAfter,
+                'transaction_date' => $request->transaction_date,
+                'notes'            => $request->notes ?? $groupTransaction->notes,
+            ]);
+        });
+
+        return redirect()->route('transactions.show', $journal)->with('success', 'Group transaction updated.');
+    }
+
     public function interestForm(Group $group)
     {
         return view('groups.interest', compact('group'));

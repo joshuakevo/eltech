@@ -489,7 +489,20 @@ class TransactionController extends Controller
         $editBlockReason = $this->editBlockReason($transaction);
         $linkedClientId  = $this->resolveTransactionClientId($transaction) ?? $transaction->lines->pluck('client_id')->filter()->first();
         $linkedClient    = $linkedClientId ? Client::find($linkedClientId) : null;
-        return view('transactions.show', compact('transaction', 'editBlockReason', 'linkedClient'));
+
+        // Group deposits/withdrawals are blocked from the generic line editor
+        // (editing GL lines alone wouldn't touch the member's balance), but an
+        // individual-mode posting maps 1:1 to a single GroupTransaction row and
+        // can be corrected in place via its own small form instead.
+        $editableGroupTransaction = null;
+        if ($transaction->module === 'groups') {
+            $groupTxns = \App\Models\GroupTransaction::where('journal_transaction_id', $transaction->id)->get();
+            if ($groupTxns->count() === 1 && $groupTxns->first()->posting_type === 'individual') {
+                $editableGroupTransaction = $groupTxns->first();
+            }
+        }
+
+        return view('transactions.show', compact('transaction', 'editBlockReason', 'linkedClient', 'editableGroupTransaction'));
     }
 
     public function edit(Transaction $transaction)

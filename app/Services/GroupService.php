@@ -650,7 +650,7 @@ class GroupService
             ?? throw new \RuntimeException('Cash account (1001) not found.');
     }
 
-    protected function getGroupLiabilityAccountId(Group $group): int
+    public function getGroupLiabilityAccountId(Group $group): int
     {
         if ($group->gl_account_id) {
             return $group->gl_account_id;

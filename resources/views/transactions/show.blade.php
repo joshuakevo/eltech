@@ -38,6 +38,12 @@
                         <a href="{{ route('transactions.edit', $transaction) }}" class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-pencil me-1"></i>Edit
                         </a>
+                        @elseif($editableGroupTransaction)
+                        @can('manage groups')
+                        <a href="{{ route('groups.transactions.edit', $editableGroupTransaction) }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </a>
+                        @endcan
                         @else
                         <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="{{ $editBlockReason }}">
                             <i class="bi bi-pencil me-1"></i>Edit

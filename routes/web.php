@@ -169,6 +169,8 @@ Route::middleware('auth')->group(function () {
     Route::get('groups/{group}/members/{member}/statement', [GroupController::class, 'memberStatement'])->name('groups.members.statement')->middleware('permission:manage groups');
     Route::get('groups/{group}/deposit', [GroupController::class, 'depositForm'])->name('groups.deposit')->middleware('permission:manage groups');
     Route::post('groups/{group}/deposit', [GroupController::class, 'deposit'])->name('groups.deposit.store')->middleware('permission:manage groups');
+    Route::get('group-transactions/{groupTransaction}/edit', [GroupController::class, 'editTransaction'])->name('groups.transactions.edit')->middleware('permission:manage groups');
+    Route::put('group-transactions/{groupTransaction}', [GroupController::class, 'updateTransaction'])->name('groups.transactions.update')->middleware('permission:manage groups');
     Route::get('groups/{group}/withdraw', [GroupController::class, 'withdrawalForm'])->name('groups.withdraw')->middleware('permission:manage groups');
     Route::post('groups/{group}/withdraw', [GroupController::class, 'withdrawal'])->name('groups.withdraw.store')->middleware('permission:manage groups');
     Route::get('groups/{group}/interest', [GroupController::class, 'interestForm'])->name('groups.interest')->middleware('permission:manage groups');
