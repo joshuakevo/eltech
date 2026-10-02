@@ -331,17 +331,17 @@ class LoanService
             if ($loan->isLockedUp()) {
                 // Locked-Up Loans are tracked manually: no schedule, no due dates,
                 // no further accrual. Apply straight to the two running balances,
-                // interest first then principal, until the loan closes.
-                $iDue = $loan->outstanding_interest;
-                if ($remaining > 0 && $iDue > 0) {
-                    $interestPaid = min($remaining, $iDue);
-                    $remaining   -= $interestPaid;
-                }
-
+                // principal first then interest, until the loan closes.
                 $pDue = $loan->outstanding_principal;
                 if ($remaining > 0 && $pDue > 0) {
                     $principalPaid = min($remaining, $pDue);
                     $remaining    -= $principalPaid;
+                }
+
+                $iDue = $loan->outstanding_interest;
+                if ($remaining > 0 && $iDue > 0) {
+                    $interestPaid = min($remaining, $iDue);
+                    $remaining   -= $interestPaid;
                 }
             } else {
                 // 1. Per-installment allocation (interest → principal), earliest first

@@ -183,7 +183,7 @@
                     <div class="alert alert-secondary small mb-3">
                         <i class="bi bi-info-circle me-1"></i>
                         @if($loan->isLockedUp())
-                            Allocation: <strong>Interest → Principal</strong> (no schedule, no penalty — manually tracked until closed)
+                            Allocation: <strong>Principal → Interest</strong> (no schedule, no penalty — manually tracked until closed)
                         @else
                             Allocation: <strong>Per installment (Interest → Principal), earliest first → then Penalty</strong>
                         @endif
@@ -262,9 +262,9 @@ function updateBreakdown() {
     var installmentsCovered = [];
 
     if (isLockedUp) {
-        // No schedule: straight interest-then-principal against the running balances.
-        totalInterest  = Math.min(remaining, loanInterestOS); remaining -= totalInterest;
+        // No schedule: straight principal-then-interest against the running balances.
         totalPrincipal = Math.min(remaining, loanPrincipalOS); remaining -= totalPrincipal;
+        totalInterest  = Math.min(remaining, loanInterestOS); remaining -= totalInterest;
     } else {
         // Per-installment: interest then principal
         var schCopy = schedules.map(function(s) { return {installment_no: s.installment_no, iRem: s.interest_rem, pRem: s.principal_rem}; });
@@ -282,8 +282,13 @@ function updateBreakdown() {
     totalPenalty = pPenalty;
 
     var parts = [];
-    if (totalInterest > 0) parts.push('Interest: ' + fmt(totalInterest));
-    if (totalPrincipal> 0) parts.push('Principal: ' + fmt(totalPrincipal));
+    if (isLockedUp) {
+        if (totalPrincipal> 0) parts.push('Principal: ' + fmt(totalPrincipal));
+        if (totalInterest > 0) parts.push('Interest: ' + fmt(totalInterest));
+    } else {
+        if (totalInterest > 0) parts.push('Interest: ' + fmt(totalInterest));
+        if (totalPrincipal> 0) parts.push('Principal: ' + fmt(totalPrincipal));
+    }
     if (totalPenalty  > 0) parts.push('Penalty: ' + fmt(totalPenalty));
     if (installmentsCovered.length > 0) parts.push('Installments: #' + installmentsCovered.join(', #'));
 
