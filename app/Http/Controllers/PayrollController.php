@@ -116,7 +116,8 @@ class PayrollController extends Controller {
             $gross        = (float) $item['basic_salary'];
             $lunch        = (float) ($item['lunch'] ?? 0);
             $transport    = (float) ($item['transport'] ?? 0);
-            $staffSavings = (float) ($item['staff_savings'] ?? 0);
+            // Blank staff savings means the default (50,000); enter 0 for someone who doesn't save.
+            $staffSavings = $this->amountOrDefault($item['staff_savings'] ?? null, PayrollItem::DEFAULT_STAFF_SAVINGS);
             $deduct       = (float) ($item['deductions'] ?? 0);
 
             // PAYE / NSSF default to the statutory calculation on gross, but can be

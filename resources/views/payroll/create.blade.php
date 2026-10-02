@@ -184,7 +184,7 @@ function addRow(empId = '', gross = 0, deduct = 0, lunch = DEFAULT_LUNCH, transp
         <td>${statInput('nssf_employer', 'nssf10', i, ov.nssf10 ? overrides.nssf10 : '', ov.nssf10)}</td>
         <td><input type="number" name="items[${i}][lunch]" id="lunch_${i}" class="form-control form-control-sm" value="${lunch}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td><input type="number" name="items[${i}][transport]" id="transport_${i}" class="form-control form-control-sm" value="${transport}" min="0" step="any" oninput="recalcRow(${i})"></td>
-        <td><input type="number" name="items[${i}][staff_savings]" id="staffsav_${i}" class="form-control form-control-sm" value="${staffSavings}" min="0" step="any" oninput="recalcRow(${i})"></td>
+        <td><input type="number" name="items[${i}][staff_savings]" id="staffsav_${i}" class="form-control form-control-sm" value="${staffSavings}" min="0" step="any" placeholder="${DEFAULT_STAFF_SAVINGS}" oninput="recalcRow(${i})" title="Blank = ${fmt(DEFAULT_STAFF_SAVINGS)}; enter 0 for no staff savings"></td>
         <td><input type="number" name="items[${i}][deductions]" id="deduct_${i}" class="form-control form-control-sm" value="${deduct}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td class="text-end align-middle fw-semibold" id="net_${i}">0</td>
         <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeRow(${i})"><i class="bi bi-x"></i></button></td>
@@ -248,10 +248,16 @@ function recalcRow(i) {
     const stat  = p => { const v = document.getElementById(p + '_' + i).value; return v === '' ? auto[p] : (parseFloat(v) || 0); };
     const paye  = stat('paye');
     const nssf5 = stat('nssf5');
-    const net   = gross - paye - nssf5 - num('deduct_' + i) - num('lunch_' + i) - num('staffsav_' + i) + num('transport_' + i);
+    const net   = gross - paye - nssf5 - num('deduct_' + i) - num('lunch_' + i) - staffSavingsOf(i) + num('transport_' + i);
 
     document.getElementById('net_' + i).textContent   = fmt(net);
     recalcTotal();
+}
+
+// A blank Staff Savings cell counts as the default, matching the server.
+function staffSavingsOf(i) {
+    const v = document.getElementById('staffsav_' + i).value;
+    return v === '' ? DEFAULT_STAFF_SAVINGS : (parseFloat(v) || 0);
 }
 
 function removeRow(i) {
@@ -275,7 +281,9 @@ function recalcTotal() {
     document.getElementById('totalNssf10').textContent    = fmt(sumCells('nssf10'));
     document.getElementById('totalLunch').textContent     = fmt(sumCells('lunch'));
     document.getElementById('totalTransport').textContent = fmt(sumCells('transport'));
-    document.getElementById('totalStaffSavings').textContent = fmt(sumCells('staffsav'));
+    let staffSavTotal = 0;
+    document.querySelectorAll('#itemsBody [id^="staffsav_"]').forEach(el => { staffSavTotal += staffSavingsOf(el.id.replace('staffsav_', '')); });
+    document.getElementById('totalStaffSavings').textContent = fmt(staffSavTotal);
     document.getElementById('totalDeduct').textContent    = fmt(sumCells('deduct'));
     document.getElementById('grandTotal').textContent     = fmt(sumCells('net'));
 }
