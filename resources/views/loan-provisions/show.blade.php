@@ -1,5 +1,6 @@
 @extends('layouts.app')
-@section('title', 'General Provision — ' . $run->as_at_date->format('d M Y'))
+@php $specific = $run->provision_type === 'specific'; @endphp
+@section('title', ucfirst($run->provision_type) . ' Provision — ' . $run->as_at_date->format('d M Y'))
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('loans.index') }}">Loans</a></li>
     <li class="breadcrumb-item"><a href="{{ route('loan-provisions.index', ['type' => $run->provision_type]) }}">{{ ucfirst($run->provision_type) }} Provisions</a></li>
@@ -25,12 +26,12 @@
 
 <div class="row g-3 mb-4">
     <div class="col-md-3"><div class="card h-100"><div class="card-body">
-        <div class="text-muted small text-uppercase">Outstanding Principal</div>
+        <div class="text-muted small text-uppercase">{{ $specific ? 'Principal in Arrears > 90 Days' : 'Outstanding Principal' }}</div>
         <div class="fs-4 fw-bold">{{ number_format($run->total_outstanding, $dp) }}</div>
         <div class="small text-muted">{{ number_format($run->loan_count) }} loans (excl. Locked-Up)</div>
     </div></div></div>
     <div class="col-md-3"><div class="card h-100"><div class="card-body">
-        <div class="text-muted small text-uppercase">Required ({{ rtrim(rtrim(number_format($run->rate, 4), '0'), '.') }}%)</div>
+        <div class="text-muted small text-uppercase">Required{{ $specific ? ' (50% > 90 days, 100% ≥ 365 days)' : ' (' . rtrim(rtrim(number_format($run->rate, 4), '0'), '.') . '%)' }}</div>
         <div class="fs-4 fw-bold text-primary">{{ number_format($run->required_provision, $dp) }}</div>
     </div></div></div>
     <div class="col-md-3"><div class="card h-100"><div class="card-body">
@@ -49,6 +50,7 @@
         <table class="table table-hover table-sm align-middle mb-0">
             <thead><tr>
                 <th class="ps-3">#</th><th>Loan #</th><th>Client</th><th>Product</th><th>Disbursed</th>
+                @if($specific)<th>Oldest Arrears</th><th class="text-end">Days</th>@endif
                 <th class="text-end">Outstanding Principal</th><th class="text-end">Rate</th><th class="text-end pe-3">Provision</th>
             </tr></thead>
             <tbody>
@@ -63,16 +65,20 @@
                     <td>{{ optional($line->client)->name ?? '—' }}</td>
                     <td class="small text-muted">{{ optional(optional($line->loan)->product)->name }}</td>
                     <td class="small text-muted">{{ optional(optional($line->loan)->disbursement_date)->format('d M Y') }}</td>
+                    @if($specific)
+                        <td class="small text-muted">{{ $line->oldest_arrears_date ? \Carbon\Carbon::parse($line->oldest_arrears_date)->format('d M Y') : '—' }}</td>
+                        <td class="text-end fw-semibold {{ $line->days_in_arrears >= 365 ? 'text-danger' : 'text-warning' }}">{{ number_format((int) $line->days_in_arrears) }}</td>
+                    @endif
                     <td class="text-end">{{ number_format($line->outstanding_principal, $dp) }}</td>
                     <td class="text-end small text-muted">{{ rtrim(rtrim(number_format($line->rate, 4), '0'), '.') }}%</td>
                     <td class="text-end pe-3 fw-semibold">{{ number_format($line->provision_amount, $dp) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="text-center text-muted py-4">No loans in this run.</td></tr>
+                <tr><td colspan="{{ $specific ? 10 : 8 }}" class="text-center text-muted py-4">No loans in this run.</td></tr>
             @endforelse
             </tbody>
             <tfoot class="fw-bold"><tr>
-                <td colspan="5" class="ps-3 text-end">TOTAL</td>
+                <td colspan="{{ $specific ? 7 : 5 }}" class="ps-3 text-end">TOTAL</td>
                 <td class="text-end">{{ number_format($run->total_outstanding, $dp) }}</td>
                 <td></td>
                 <td class="text-end pe-3">{{ number_format($run->required_provision, $dp) }}</td>

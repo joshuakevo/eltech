@@ -10,7 +10,8 @@ class LoanProvisionLine extends Model
     use HasFactory;
 
     protected $fillable = [
-        'loan_provision_id', 'loan_id', 'client_id', 'outstanding_principal', 'rate', 'provision_amount',
+        'loan_provision_id', 'loan_id', 'client_id', 'days_in_arrears', 'oldest_arrears_date',
+        'outstanding_principal', 'rate', 'provision_amount',
     ];
 
     protected $casts = [

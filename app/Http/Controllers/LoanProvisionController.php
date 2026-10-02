@@ -17,8 +17,8 @@ class LoanProvisionController extends Controller
     }
 
     /**
-     * General / Specific provisions tabs. The General tab previews the run for the
-     * chosen as-at date (default: last month end) and lists previous runs.
+     * General / Specific provisions tabs. Each tab previews the run for the chosen
+     * as-at date (default: last month end) and lists previous runs.
      */
     public function index(Request $request)
     {
@@ -31,13 +31,17 @@ class LoanProvisionController extends Controller
             ? (float) $request->rate
             : (float) SystemSetting::get('general_provision_rate', LoanProvisionService::DEFAULT_GENERAL_RATE);
 
-        $preview = null;
-        if ($type === 'general') {
-            $preview = $this->provisionService->previewGeneral($asAt, $rate);
+        $preview = $this->provisionService->preview($type, $asAt, $rate);
 
-            if ($request->format === 'excel') {
-                return $this->previewCsv($preview);
-            }
+        if ($request->format === 'excel') {
+            return $this->csvDownload(
+                $this->breakdownRows($type, $preview['lines']->map(fn ($l) => [
+                    'loan' => $l['loan'], 'client' => $l['loan']->client, 'outstanding' => $l['outstanding'],
+                    'rate' => $l['rate'], 'provision' => $l['provision_amount'],
+                    'days' => $l['days_in_arrears'], 'arrears_date' => $l['arrears_date'],
+                ]), $preview['total_outstanding'], $preview['required']),
+                "{$type}-provision-preview-{$asAt}"
+            );
         }
 
         $runs = LoanProvision::with('transaction', 'createdBy')
@@ -57,21 +61,27 @@ class LoanProvisionController extends Controller
 
     public function store(Request $request)
     {
+        $type = $request->provision_type === 'specific' ? 'specific' : 'general';
+
         $data = $request->validate([
             'as_at_date' => ['required', 'date', new DateInOpenPeriod()],
-            'rate'       => 'required|numeric|gt:0|max:100',
+            'rate'       => $type === 'general' ? 'required|numeric|gt:0|max:100' : 'nullable',
             'notes'      => 'nullable|string|max:500',
         ]);
 
         $asAt = Carbon::parse($data['as_at_date'])->toDateString();
-        $run  = $this->provisionService->runGeneral($asAt, (float) $data['rate'], $data['notes'] ?? null);
+        $run  = $type === 'specific'
+            ? $this->provisionService->runSpecific($asAt, $data['notes'] ?? null)
+            : $this->provisionService->runGeneral($asAt, (float) $data['rate'], $data['notes'] ?? null);
 
-        AuditLog::record('created', "Posted general loan provision as at {$asAt} @ {$run->rate}% — required "
-            . number_format($run->required_provision, 2) . ', adjustment ' . number_format($run->adjustment, 2), 'loan_provisions');
+        AuditLog::record('created', "Posted {$type} loan provision as at {$asAt}"
+            . ($type === 'general' ? " @ {$run->rate}%" : '')
+            . ' — required ' . number_format($run->required_provision, 2)
+            . ', adjustment ' . number_format($run->adjustment, 2), 'loan_provisions');
 
         $msg = abs($run->adjustment) < 0.005
-            ? 'Provision run saved. The GL already holds the required provision, so no journal entry was needed.'
-            : 'General provision posted. Journal entry: ' . optional($run->transaction)->reference;
+            ? 'Provision run saved. The required provision is already held, so no journal entry was needed.'
+            : ucfirst($type) . ' provision posted. Journal entry: ' . optional($run->transaction)->reference;
 
         return redirect()->route('loan-provisions.show', $run)->with('success', $msg);
     }
@@ -81,48 +91,48 @@ class LoanProvisionController extends Controller
         $loanProvision->load('transaction', 'createdBy');
         $lines = $loanProvision->lines()
             ->with('loan.product', 'client')
-            ->orderByDesc('outstanding_principal')
+            ->when($loanProvision->provision_type === 'specific',
+                fn ($q) => $q->orderByDesc('days_in_arrears'),
+                fn ($q) => $q->orderByDesc('outstanding_principal'))
             ->get();
 
         if ($request->format === 'excel') {
-            $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Disbursed', 'Outstanding Principal', 'Rate %', 'Provision']];
-            foreach ($lines as $l) {
-                $rows[] = [
-                    optional($l->loan)->loan_number,
-                    optional($l->client)->name,
-                    optional($l->client)->client_number,
-                    optional(optional($l->loan)->product)->name,
-                    optional(optional($l->loan)->disbursement_date)->format('Y-m-d'),
-                    $l->outstanding_principal,
-                    $l->rate,
-                    $l->provision_amount,
-                ];
-            }
-            $rows[] = ['', '', '', '', 'TOTAL', $loanProvision->total_outstanding, '', $loanProvision->required_provision];
-            return $this->csvDownload($rows, 'general-provision-' . $loanProvision->as_at_date->format('Y-m-d'));
+            return $this->csvDownload(
+                $this->breakdownRows($loanProvision->provision_type, $lines->map(fn ($l) => [
+                    'loan' => $l->loan, 'client' => $l->client, 'outstanding' => $l->outstanding_principal,
+                    'rate' => $l->rate, 'provision' => $l->provision_amount,
+                    'days' => $l->days_in_arrears, 'arrears_date' => $l->oldest_arrears_date,
+                ]), $loanProvision->total_outstanding, $loanProvision->required_provision),
+                "{$loanProvision->provision_type}-provision-" . $loanProvision->as_at_date->format('Y-m-d')
+            );
         }
 
         return view('loan-provisions.show', ['run' => $loanProvision, 'lines' => $lines]);
     }
 
-    private function previewCsv(array $preview)
+    private function breakdownRows(string $type, $lines, float $totalOutstanding, float $required): array
     {
-        $rows = [['Loan #', 'Client', 'Client #', 'Product', 'Disbursed', 'Outstanding Principal', 'Rate %', 'Provision']];
-        foreach ($preview['lines'] as $line) {
-            $loan = $line['loan'];
-            $rows[] = [
-                $loan->loan_number,
-                optional($loan->client)->name,
-                optional($loan->client)->client_number,
-                optional($loan->product)->name,
-                optional($loan->disbursement_date)->format('Y-m-d'),
-                $line['outstanding'],
-                $line['rate'],
-                $line['provision_amount'],
-            ];
+        $specific = $type === 'specific';
+        $rows = [array_merge(
+            ['Loan #', 'Client', 'Client #', 'Product', 'Disbursed'],
+            $specific ? ['Oldest Arrears Date', 'Days in Arrears'] : [],
+            ['Outstanding Principal', 'Rate %', 'Provision']
+        )];
+        foreach ($lines as $l) {
+            $rows[] = array_merge(
+                [
+                    optional($l['loan'])->loan_number,
+                    optional($l['client'])->name,
+                    optional($l['client'])->client_number,
+                    optional(optional($l['loan'])->product)->name,
+                    optional(optional($l['loan'])->disbursement_date)->format('Y-m-d'),
+                ],
+                $specific ? [$l['arrears_date'] ? Carbon::parse($l['arrears_date'])->format('Y-m-d') : '', $l['days']] : [],
+                [$l['outstanding'], $l['rate'], $l['provision']]
+            );
         }
-        $rows[] = ['', '', '', '', 'TOTAL', $preview['total_outstanding'], '', $preview['required']];
-        return $this->csvDownload($rows, 'general-provision-preview-' . $preview['as_at']);
+        $rows[] = array_merge(['', '', '', '', 'TOTAL'], $specific ? ['', ''] : [], [$totalOutstanding, '', $required]);
+        return $rows;
     }
 
     private function defaultAsAt(): string

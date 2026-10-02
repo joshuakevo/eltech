@@ -58,7 +58,7 @@ php artisan migrate:fresh --seed  # Full reset
 - `LoanProvisionService` + `loan_provisions` / `loan_provision_lines`. Tabs (General / Specific) shown on the Loans page via `loans/_tabs.blade.php`.
 - **General**: rate (default 1%, setting `general_provision_rate`) × outstanding principal as at a date, **excluding Locked-Up Loans**. As-at outstanding = current `outstanding_principal` + `principal_paid` on repayments after the date (imported loans have no repayment history).
 - Each run posts only the movement to bring GL **1110** to the required level: increase DR **5120** / CR 1110, decrease DR 1110 / CR 5120. One posted run per date; runs cannot be back-dated before the latest posted run.
-- **Specific**: not built yet (accounts 1109 / 5119 reserved).
+- **Specific**: loans (excl. Locked-Up) in arrears as at the date — days since the oldest installment due and unpaid at that date (payments after the date are peeled back off the schedule). **> 90 days → 50%**, **≥ 365 days → 100%** of outstanding principal. Posts DR **5119** / CR **1109**. Sized against the sum of previous specific runs' adjustments only — the old-system opening balance in 1109 (covers the Locked-Up book) is deliberately left untouched. Loans with a specific provision **stay in the general 1% base** (user decision).
 
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 
