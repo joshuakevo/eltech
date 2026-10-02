@@ -180,6 +180,18 @@ class SettingsController extends Controller
         return back()->with('success', "Migrations run.\n\n{$output}");
     }
 
+    /**
+     * Dry run: lists pending migrations and the SQL each would execute, without
+     * touching the database (Laravel's --pretend mode).
+     */
+    public function previewMigrations()
+    {
+        Artisan::call('migrate', ['--pretend' => true, '--force' => true]);
+        $output = trim(Artisan::output());
+
+        return back()->with('migration_preview', $output !== '' ? $output : 'Nothing to migrate.');
+    }
+
     public function seed(Request $request)
     {
         $request->validate([

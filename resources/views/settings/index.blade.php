@@ -14,6 +14,14 @@
     </div>
 @endif
 
+@if(session('migration_preview'))
+    <div class="alert alert-info alert-dismissible fade show">
+        <div class="fw-semibold mb-2"><i class="bi bi-eye me-2"></i>Migration preview — nothing has been changed</div>
+        <pre class="small mb-0" style="white-space:pre-wrap;max-height:400px;overflow:auto">{{ session('migration_preview') }}</pre>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+@endif
+
 <form method="POST" action="{{ route('settings.update') }}">
 @csrf
 
@@ -195,6 +203,13 @@ $groupIcons = [
             Run these after deploying new code on a host with no terminal access. Run in order: Migrate, then Seed (if a release note says to), then Clear Cache.
         </p>
         <div class="d-flex flex-wrap gap-2 align-items-start">
+            <form method="POST" action="{{ route('settings.migrate.preview') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-primary" title="Dry run: shows pending migrations and the SQL they would run, without changing the database">
+                    <i class="bi bi-eye me-2"></i>Preview Migrations
+                </button>
+            </form>
+
             <form method="POST" action="{{ route('settings.migrate') }}"
                   onsubmit="return confirm('Run pending database migrations now? This changes the database schema.')">
                 @csrf
