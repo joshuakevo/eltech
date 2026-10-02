@@ -22,23 +22,7 @@
     </div>
 </div>
 
-<ul class="nav nav-pills mb-4 gap-2">
-    <li class="nav-item">
-        <a class="nav-link {{ $type === 'normal' ? 'active' : '' }}" href="{{ route('loans.index', ['type' => 'normal']) }}">Normal Loans</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link border border-danger {{ $type === 'locked-up' ? 'active bg-danger text-white' : 'text-danger' }}"
-           href="{{ route('loans.index', ['type' => 'locked-up']) }}">
-            <i class="bi bi-lock-fill me-1"></i>Locked-Up Loans
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link border border-secondary {{ $type === 'closed' ? 'active bg-secondary text-white' : 'text-secondary' }}"
-           href="{{ route('loans.index', ['type' => 'closed']) }}">
-            <i class="bi bi-check-circle-fill me-1"></i>Closed Loans
-        </a>
-    </li>
-</ul>
+@include('loans._tabs', ['activeTab' => $type])
 
 <div class="row g-3 mb-4">
     <div class="col-md-{{ $type === 'locked-up' ? '4' : '6' }}">

@@ -20,6 +20,7 @@ use App\Http\Controllers\FixedDepositController;
 use App\Http\Controllers\FixedDepositProductController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanProductController;
+use App\Http\Controllers\LoanProvisionController;
 use App\Http\Controllers\LoanReportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavingsAccountController;
@@ -246,6 +247,14 @@ Route::middleware('auth')->group(function () {
         ->name('loans.schedule-pdf')->middleware('permission:view loans');
     Route::delete('loans/{loan}', [LoanController::class, 'destroy'])
         ->name('loans.destroy')->middleware('permission:create loans');
+
+    // ── Loan Provisions (General / Specific) ──────────────────────────
+    Route::get('loan-provisions', [LoanProvisionController::class, 'index'])
+        ->name('loan-provisions.index')->middleware('permission:view loan provisions');
+    Route::post('loan-provisions', [LoanProvisionController::class, 'store'])
+        ->name('loan-provisions.store')->middleware('permission:run loan provisions');
+    Route::get('loan-provisions/{loanProvision}', [LoanProvisionController::class, 'show'])
+        ->name('loan-provisions.show')->middleware('permission:view loan provisions');
 
     // ── Savings Products ──────────────────────────────────────────────
     Route::resource('savings-products', SavingsProductController::class)

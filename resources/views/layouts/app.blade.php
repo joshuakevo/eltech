@@ -244,7 +244,7 @@
         @php
             $clientsGroupActive    = request()->routeIs('clients.*', 'shares.*', 'groups.*');
             $savingsGroupActive    = request()->routeIs('savings-products.*', 'savings.*');
-            $loansGroupActive      = request()->routeIs('loan-products.*', 'loans.*');
+            $loansGroupActive      = request()->routeIs('loan-products.*', 'loans.*', 'loan-provisions.*');
             $fdGroupActive         = request()->routeIs('fd-products.*', 'fixed-deposits.*');
             $hrGroupActive         = request()->routeIs('employees.*', 'payroll.*');
             $accountingGroupActive = request()->routeIs('accounts.*', 'transactions.*', 'periods.*');
@@ -325,7 +325,7 @@
         </div>
         @endcanany
 
-        @canany(['view loan-products', 'view loans', 'run loans'])
+        @canany(['view loan-products', 'view loans', 'run loans', 'view loan provisions'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#loansMenu" aria-expanded="{{ $loansGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-cash-stack"></i> Loans
             <i class="bi bi-chevron-right chevron"></i>
@@ -348,6 +348,11 @@
             @can('run loans')
             <a href="{{ route('loans.run') }}" class="nav-link-item {{ request()->routeIs('loans.run') ? 'active' : '' }}">
                 <i class="bi bi-calendar2-check"></i> Run Loans
+            </a>
+            @endcan
+            @can('view loan provisions')
+            <a href="{{ route('loan-provisions.index') }}" class="nav-link-item {{ request()->routeIs('loan-provisions.*') ? 'active' : '' }}">
+                <i class="bi bi-shield-check"></i> Loan Provisions
             </a>
             @endcan
         </div>

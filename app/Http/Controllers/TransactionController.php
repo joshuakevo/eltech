@@ -788,8 +788,19 @@ class TransactionController extends Controller
             'fixed_deposit' => $this->reverseFixedDepositImpact($transaction),
             'groups'        => $this->reverseGroupTransactionImpact($transaction),
             'manual'        => $this->reverseManualSubLedgers($transaction),
+            'loan_provision' => $this->reverseLoanProvisionImpact($transaction),
             default         => null,
         };
+    }
+
+    /**
+     * Loan provision journals: mark the provision run as reversed so it no longer
+     * counts as the latest posted run (the GL movement is unwound by the reversal itself).
+     */
+    private function reverseLoanProvisionImpact(Transaction $transaction): void
+    {
+        \App\Models\LoanProvision::where('id', $transaction->module_id)
+            ->update(['status' => 'reversed']);
     }
 
     /**

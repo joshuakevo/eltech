@@ -54,6 +54,12 @@ php artisan migrate:fresh --seed  # Full reset
 
 ---
 
+## Loan Provisions
+- `LoanProvisionService` + `loan_provisions` / `loan_provision_lines`. Tabs (General / Specific) shown on the Loans page via `loans/_tabs.blade.php`.
+- **General**: rate (default 1%, setting `general_provision_rate`) × outstanding principal as at a date, **excluding Locked-Up Loans**. As-at outstanding = current `outstanding_principal` + `principal_paid` on repayments after the date (imported loans have no repayment history).
+- Each run posts only the movement to bring GL **1110** to the required level: increase DR **5120** / CR 1110, decrease DR 1110 / CR 5120. One posted run per date; runs cannot be back-dated before the latest posted run.
+- **Specific**: not built yet (accounts 1109 / 5119 reserved).
+
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 
 When a manual journal entry line has a `client_id` attached (`transaction_lines.client_id`), the system **must also update the corresponding sub-ledger record** for that client. GL posting alone is not sufficient — the member's individual account balance and transaction history must stay in sync.
@@ -98,6 +104,7 @@ When a manual journal entry line has a `client_id` attached (`transaction_lines.
 | `groups` | `reverseGroupTransactionImpact` | `group_transactions` + any linked savings rows |
 | `manual` | `reverseManualSubLedgers` | Auto-detected manual journal sub-ledgers (savings, shares, loans, FD principal, membership fee) |
 | `client` | `reverseMembershipFeeImpact` | Membership fee paid on client (when description matches fee flow) |
+| `loan_provision` | `reverseLoanProvisionImpact` | Marks the `loan_provisions` run `reversed` (GL unwound by the reversal entry) |
 
 **Payroll implementation rule:** `PayrollController::process` posts the GL journal **first**, then creates each salary **`savings_transactions`** row with **`transaction_id`** pointing at that journal so payroll reversals update **client savings statements and balances**.
 
@@ -117,6 +124,7 @@ When a manual journal entry line has a `client_id` attached (`transaction_lines.
 | Journal Entries | `/transactions` | `TransactionController` |
 | Loan Products | `/loan-products` | `LoanProductController` |
 | Loans | `/loans` | `LoanController` |
+| Loan Provisions | `/loan-provisions` | `LoanProvisionController` |
 | Savings Products | `/savings-products` | `SavingsProductController` |
 | Savings Accounts | `/savings` | `SavingsAccountController` |
 | FD Products | `/fd-products` | `FixedDepositProductController` |
