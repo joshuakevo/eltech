@@ -19,6 +19,11 @@
     </div>
     @if($payroll->status === 'draft')
     <div class="d-flex gap-2">
+        @can('create payroll')
+        <a href="{{ route('payroll.edit', $payroll) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        @endcan
         <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#processModal">
             <i class="bi bi-check-circle me-1"></i>Process Payroll
         </button>
@@ -91,6 +96,8 @@
                     <th class="text-end">PAYE</th>
                     <th class="text-end">NSSF 5%</th>
                     <th class="text-end">NSSF 10%</th>
+                    <th class="text-end">Lunch</th>
+                    <th class="text-end">Transport</th>
                     <th class="text-end">Deductions</th>
                     <th class="text-end fw-semibold">Net Salary</th>
                 </tr>
@@ -112,6 +119,8 @@
                 <td class="text-end text-danger">{{ number_format($item->paye, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->nssf_employee, 0) }}</td>
                 <td class="text-end text-muted">{{ number_format($item->nssf_employer, 0) }}</td>
+                <td class="text-end text-danger">{{ number_format($item->lunch, 0) }}</td>
+                <td class="text-end text-success">{{ number_format($item->transport, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->deductions, 0) }}</td>
                 <td class="text-end fw-semibold">{{ number_format($item->net_salary, 0) }}</td>
             </tr>
@@ -126,6 +135,8 @@
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('paye'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('nssf_employee'), 0) }}</td>
                     <td class="text-end text-muted">{{ number_format($payroll->items->sum('nssf_employer'), 0) }}</td>
+                    <td class="text-end text-danger">{{ number_format($payroll->items->sum('lunch'), 0) }}</td>
+                    <td class="text-end text-success">{{ number_format($payroll->items->sum('transport'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('deductions'), 0) }}</td>
                     <td class="text-end">{{ number_format($payroll->items->sum('net_salary'), 0) }}</td>
                 </tr>

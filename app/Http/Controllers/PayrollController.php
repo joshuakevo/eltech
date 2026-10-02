@@ -26,6 +26,66 @@ class PayrollController extends Controller {
     }
 
     public function store(Request $request) {
+        $this->validateRun($request);
+
+        // Prevent duplicate employees before creating anything
+        if ($this->hasDuplicateEmployees($request)) {
+            return back()->withErrors(['items' => 'Duplicate employees detected. Each employee can only appear once per payroll run.'])->withInput();
+        }
+
+        $run = DB::transaction(function () use ($request) {
+            $run = PayrollRun::create([
+                'run_number'    => $this->generateRunNumber(),
+                'period_month'  => $request->period_month,
+                'period_year'   => $request->period_year,
+                'description'   => $request->description,
+                'total_gross'   => 0,
+                'status'        => 'draft',
+                'created_by'    => auth()->id(),
+            ]);
+            $this->saveItems($run, $request->items);
+            return $run;
+        });
+
+        return redirect()->route('payroll.show', $run)->with('success', 'Payroll run created. Review and process when ready.');
+    }
+
+    public function edit(PayrollRun $payroll) {
+        if ($payroll->status !== 'draft') {
+            return redirect()->route('payroll.show', $payroll)->with('error', 'Only draft payroll runs can be edited.');
+        }
+        $payroll->load('items');
+        $employees = Employee::with('client', 'savingsAccount.product')
+            ->where('status', 'active')
+            ->orWhereIn('id', $payroll->items->pluck('employee_id'))
+            ->get();
+        return view('payroll.create', compact('employees', 'payroll'));
+    }
+
+    public function update(Request $request, PayrollRun $payroll) {
+        if ($payroll->status !== 'draft') {
+            return redirect()->route('payroll.show', $payroll)->with('error', 'Only draft payroll runs can be edited.');
+        }
+        $this->validateRun($request);
+
+        if ($this->hasDuplicateEmployees($request)) {
+            return back()->withErrors(['items' => 'Duplicate employees detected. Each employee can only appear once per payroll run.'])->withInput();
+        }
+
+        DB::transaction(function () use ($request, $payroll) {
+            $payroll->update([
+                'period_month' => $request->period_month,
+                'period_year'  => $request->period_year,
+                'description'  => $request->description,
+            ]);
+            $payroll->items()->delete();
+            $this->saveItems($payroll, $request->items);
+        });
+
+        return redirect()->route('payroll.show', $payroll)->with('success', 'Payroll run updated.');
+    }
+
+    private function validateRun(Request $request): void {
         $request->validate([
             'period_month'  => 'required|integer|min:1|max:12',
             'period_year'   => 'required|integer|min:2000|max:2100',
@@ -34,40 +94,41 @@ class PayrollController extends Controller {
             'items.*.employee_id'    => 'required|exists:employees,id',
             'items.*.basic_salary'   => 'required|numeric|min:0',
             'items.*.allowances'     => 'nullable|numeric|min:0',
+            'items.*.paye'           => 'nullable|numeric|min:0',
+            'items.*.nssf_employee'  => 'nullable|numeric|min:0',
+            'items.*.nssf_employer'  => 'nullable|numeric|min:0',
+            'items.*.lunch'          => 'nullable|numeric|min:0',
+            'items.*.transport'      => 'nullable|numeric|min:0',
             'items.*.deductions'     => 'nullable|numeric|min:0',
         ]);
+    }
 
-        // Prevent duplicate employees before creating anything
+    private function hasDuplicateEmployees(Request $request): bool {
         $employeeIds = array_column($request->items, 'employee_id');
-        if (count($employeeIds) !== count(array_unique($employeeIds))) {
-            return back()->withErrors(['items' => 'Duplicate employees detected. Each employee can only appear once per payroll run.'])->withInput();
-        }
+        return count($employeeIds) !== count(array_unique($employeeIds));
+    }
 
-        $run = PayrollRun::create([
-            'run_number'    => $this->generateRunNumber(),
-            'period_month'  => $request->period_month,
-            'period_year'   => $request->period_year,
-            'description'   => $request->description,
-            'total_gross'   => 0,
-            'status'        => 'draft',
-            'created_by'    => auth()->id(),
-        ]);
-
-        $totalGross = 0;
-        foreach ($request->items as $item) {
+    private function saveItems(PayrollRun $run, array $items): void {
+        $totalNet = 0;
+        foreach ($items as $item) {
             $employee  = Employee::findOrFail($item['employee_id']);
             $basic     = (float) $item['basic_salary'];
             $allow     = (float) ($item['allowances'] ?? 0);
+            $lunch     = (float) ($item['lunch'] ?? 0);
+            $transport = (float) ($item['transport'] ?? 0);
             $deduct    = (float) ($item['deductions'] ?? 0);
 
-            // PAYE and NSSF are statutory and always derived from gross server-side --
-            // never trusted from the client, even though the form shows them live.
+            // PAYE / NSSF default to the statutory calculation on gross, but can be
+            // overridden per employee (e.g. someone not charged PAYE or NSSF).
+            // A blank cell means "use the calculated amount".
             $gross        = $basic + $allow;
-            $paye         = PayrollItem::calculatePaye($gross);
-            $nssfEmployee = PayrollItem::calculateNssfEmployee($gross);
-            $nssfEmployer = PayrollItem::calculateNssfEmployer($gross);
-            $net          = $gross - $paye - $nssfEmployee - $deduct;
-            $totalGross  += $net;
+            $paye         = $this->amountOrDefault($item['paye'] ?? null, PayrollItem::calculatePaye($gross));
+            $nssfEmployee = $this->amountOrDefault($item['nssf_employee'] ?? null, PayrollItem::calculateNssfEmployee($gross));
+            $nssfEmployer = $this->amountOrDefault($item['nssf_employer'] ?? null, PayrollItem::calculateNssfEmployer($gross));
+
+            // Lunch is deducted from net; transport is paid on top of net (not taxed).
+            $net       = $gross - $paye - $nssfEmployee - $deduct - $lunch + $transport;
+            $totalNet += $net;
 
             PayrollItem::create([
                 'payroll_run_id'     => $run->id,
@@ -78,14 +139,18 @@ class PayrollController extends Controller {
                 'paye'               => $paye,
                 'nssf_employee'      => $nssfEmployee,
                 'nssf_employer'      => $nssfEmployer,
+                'lunch'              => $lunch,
+                'transport'          => $transport,
                 'deductions'         => $deduct,
                 'net_salary'         => $net,
             ]);
         }
 
-        $run->update(['total_gross' => $totalGross]);
+        $run->update(['total_gross' => $totalNet]);
+    }
 
-        return redirect()->route('payroll.show', $run)->with('success', 'Payroll run created. Review and process when ready.');
+    private function amountOrDefault($value, float $default): float {
+        return ($value === null || $value === '') ? $default : round((float) $value, 2);
     }
 
     public function show(PayrollRun $payroll) {

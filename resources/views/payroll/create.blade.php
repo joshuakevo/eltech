@@ -1,21 +1,38 @@
+@php
+    $editing = isset($payroll);
+    $existingItems = $editing
+        ? $payroll->items->map->only(['employee_id', 'basic_salary', 'allowances', 'paye', 'nssf_employee', 'nssf_employer', 'lunch', 'transport', 'deductions'])->values()
+        : [];
+@endphp
 @extends('layouts.app')
-@section('title', 'New Payroll Run')
+@section('title', $editing ? 'Edit Payroll Run — ' . $payroll->run_number : 'New Payroll Run')
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('payroll.index') }}">Payroll</a></li>
-    <li class="breadcrumb-item active">New Run</li>
+    @if($editing)
+        <li class="breadcrumb-item"><a href="{{ route('payroll.show', $payroll) }}">{{ $payroll->run_number }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    @else
+        <li class="breadcrumb-item active">New Run</li>
+    @endif
 @endsection
 @section('content')
 <div class="card">
-    <div class="card-header fw-semibold">New Payroll Run</div>
+    <div class="card-header fw-semibold">{{ $editing ? 'Edit Payroll Run — ' . $payroll->run_number : 'New Payroll Run' }}</div>
     <div class="card-body">
-    <form method="POST" action="{{ route('payroll.store') }}" id="payrollForm">
+    @if($errors->any())
+    <div class="alert alert-danger small py-2">
+        @foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach
+    </div>
+    @endif
+    <form method="POST" action="{{ $editing ? route('payroll.update', $payroll) : route('payroll.store') }}" id="payrollForm">
         @csrf
+        @if($editing) @method('PUT') @endif
         <div class="row g-3 mb-4">
             <div class="col-md-3">
                 <label class="form-label fw-semibold">Month <span class="text-danger">*</span></label>
                 <select name="period_month" class="form-select" required>
                     @foreach(range(1,12) as $m)
-                    <option value="{{ $m }}" {{ old('period_month', now()->month) == $m ? 'selected' : '' }}>
+                    <option value="{{ $m }}" {{ old('period_month', $editing ? $payroll->period_month : now()->month) == $m ? 'selected' : '' }}>
                         {{ date('F', mktime(0,0,0,$m,1)) }}
                     </option>
                     @endforeach
@@ -23,11 +40,11 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label fw-semibold">Year <span class="text-danger">*</span></label>
-                <input type="number" name="period_year" class="form-control" value="{{ old('period_year', now()->year) }}" min="2000" max="2100" required>
+                <input type="number" name="period_year" class="form-control" value="{{ old('period_year', $editing ? $payroll->period_year : now()->year) }}" min="2000" max="2100" required>
             </div>
             <div class="col-md-7">
                 <label class="form-label fw-semibold">Description</label>
-                <input type="text" name="description" class="form-control" value="{{ old('description') }}" placeholder="Optional note">
+                <input type="text" name="description" class="form-control" value="{{ old('description', $editing ? $payroll->description : '') }}" placeholder="Optional note">
             </div>
         </div>
 
@@ -39,22 +56,26 @@
         </div>
 
         <div class="form-text mb-2">
-            PAYE, NSSF 5% (employee) and NSSF 10% (employer) are calculated automatically from Gross Pay (Basic + Allowances) as you type.
+            PAYE, NSSF 5% (employee) and NSSF 10% (employer) are filled in automatically from Gross Pay (Basic + Allowances).
+            They are editable — change them (e.g. to 0) for anyone who is not charged; clear a cell to go back to the automatic amount.
+            Lunch is deducted from Net Pay; Transport is added to Net Pay (not taxed).
         </div>
         <div class="table-responsive">
-            <table class="table table-bordered table-sm" id="itemsTable" style="min-width:1360px">
+            <table class="table table-bordered table-sm" id="itemsTable" style="min-width:1700px">
                 <thead class="table-light">
                     <tr>
                         <th style="width:230px">Employee</th>
-                        <th style="width:150px">Basic Salary</th>
-                        <th style="width:130px">Allowances</th>
-                        <th style="width:140px" class="text-end">Gross Pay</th>
-                        <th style="width:130px" class="text-end">PAYE</th>
-                        <th style="width:120px" class="text-end">NSSF 5%</th>
-                        <th style="width:120px" class="text-end">NSSF 10%</th>
-                        <th style="width:130px">Deductions</th>
-                        <th style="width:150px" class="text-end">Net Pay</th>
-                        <th style="width:60px"></th>
+                        <th style="width:140px">Basic Salary</th>
+                        <th style="width:120px">Allowances</th>
+                        <th style="width:130px" class="text-end">Gross Pay</th>
+                        <th style="width:125px">PAYE</th>
+                        <th style="width:120px">NSSF 5%</th>
+                        <th style="width:120px">NSSF 10%</th>
+                        <th style="width:110px">Lunch</th>
+                        <th style="width:120px">Transport</th>
+                        <th style="width:120px">Deductions</th>
+                        <th style="width:140px" class="text-end">Net Pay</th>
+                        <th style="width:50px"></th>
                     </tr>
                 </thead>
                 <tbody id="itemsBody">
@@ -67,6 +88,8 @@
                         <td class="text-end fw-semibold" id="totalPaye">0</td>
                         <td class="text-end fw-semibold" id="totalNssf5">0</td>
                         <td class="text-end fw-semibold" id="totalNssf10">0</td>
+                        <td class="text-end fw-semibold" id="totalLunch">0</td>
+                        <td class="text-end fw-semibold" id="totalTransport">0</td>
                         <td class="text-end fw-semibold" id="totalDeduct">0</td>
                         <td class="text-end fw-bold" id="grandTotal">0</td>
                         <td></td>
@@ -79,8 +102,8 @@
         </button>
 
         <div class="d-flex gap-2 mt-2">
-            <button class="btn btn-primary">Save Payroll Run</button>
-            <a href="{{ route('payroll.index') }}" class="btn btn-outline-secondary">Cancel</a>
+            <button class="btn btn-primary">{{ $editing ? 'Update Payroll Run' : 'Save Payroll Run' }}</button>
+            <a href="{{ $editing ? route('payroll.show', $payroll) : route('payroll.index') }}" class="btn btn-outline-secondary">Cancel</a>
         </div>
     </form>
     </div>
@@ -89,9 +112,12 @@
 @push('scripts')
 <script>
 const employees = @json($employees);
+const existingItems = @json($existingItems);
+const DEFAULT_LUNCH = {{ \App\Models\PayrollItem::DEFAULT_LUNCH }};
 let rowIndex = 0;
 
 function fmt(n) { return n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
 
 function selectedEmployeeIds(excludeRowId) {
     const ids = new Set();
@@ -103,34 +129,60 @@ function selectedEmployeeIds(excludeRowId) {
 
 // Mirrors PayrollItem::calculatePaye() server-side -- Uganda monthly PAYE bands.
 function calcPaye(gross) {
-    if (gross <= 235000) return 0;
-    if (gross <= 335000) return (gross - 235000) * 0.10;
-    if (gross <= 410000) return 10000 + (gross - 335000) * 0.20;
-    let paye = 25000 + (gross - 410000) * 0.30;
+    if (gross <= 335000) return 0;
+    if (gross <= 410000) return (gross - 335000) * 0.20;
+    if (gross <= 485000) return 15000 + (gross - 410000) * 0.25;
+    let paye = 33750 + (gross - 485000) * 0.30;
     if (gross > 10000000) paye += (gross - 10000000) * 0.10;
     return paye;
 }
 
-function addRow(empId = '', basic = 0, allow = 0, deduct = 0) {
+function statutory(gross) {
+    return {
+        paye:   Math.round(calcPaye(gross) * 100) / 100,
+        nssf5:  Math.round(gross * 0.05 * 100) / 100,
+        nssf10: Math.round(gross * 0.10 * 100) / 100,
+    };
+}
+
+// Statutory cells (PAYE / NSSF) auto-fill from gross until the user types in them.
+// Clearing a cell hands it back to the automatic calculation.
+function statInput(name, prefix, i, value, manual) {
+    return `<input type="number" name="items[${i}][${name}]" id="${prefix}_${i}" class="form-control form-control-sm text-end stat-input${manual ? ' bg-warning-subtle' : ''}"
+        value="${value}" min="0" step="any" data-manual="${manual ? 1 : 0}" oninput="onStatEdit(this,${i})" onblur="recalcRow(${i})" title="Auto-calculated — edit to override, clear to reset">`;
+}
+
+function addRow(empId = '', basic = 0, allow = 0, deduct = 0, lunch = DEFAULT_LUNCH, transport = 0, overrides = null) {
     const i = rowIndex++;
     const used = selectedEmployeeIds(-1);
     const opts = employees.map(e => {
         const isUsed = used.has(String(e.id)) && String(e.id) !== String(empId);
         return `<option value="${e.id}" data-salary="${e.basic_salary}" ${String(e.id) === String(empId) ? 'selected' : ''} ${isUsed ? 'disabled' : ''}>${e.client ? e.client.name : '?'}${isUsed ? ' (already added)' : ''}</option>`;
     }).join('');
+
+    // When editing a saved run, stored PAYE/NSSF that differ from the calculation are overrides.
+    const auto = statutory((parseFloat(basic) || 0) + (parseFloat(allow) || 0));
+    const ov = {
+        paye:   overrides && Math.abs(overrides.paye - auto.paye) > 0.005,
+        nssf5:  overrides && Math.abs(overrides.nssf5 - auto.nssf5) > 0.005,
+        nssf10: overrides && Math.abs(overrides.nssf10 - auto.nssf10) > 0.005,
+    };
+
     const row = `<tr id="row_${i}">
         <td>
             <select name="items[${i}][employee_id]" class="form-select form-select-sm" onchange="onEmpChange(this,${i})" required>
                 <option value="">— Select —</option>${opts}
             </select>
         </td>
-        <td><input type="number" name="items[${i}][basic_salary]" id="basic_${i}" class="form-control form-control-sm" value="${basic}" min="0" step="1000" oninput="recalcRow(${i})" required></td>
-        <td><input type="number" name="items[${i}][allowances]" id="allow_${i}" class="form-control form-control-sm" value="${allow}" min="0" step="1000" oninput="recalcRow(${i})"></td>
+        <td><input type="number" name="items[${i}][basic_salary]" id="basic_${i}" class="form-control form-control-sm" value="${basic}" min="0" step="any" oninput="recalcRow(${i})" required></td>
+        <td><input type="number" name="items[${i}][allowances]" id="allow_${i}" class="form-control form-control-sm" value="${allow}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td class="text-end align-middle" id="gross_${i}">0</td>
-        <td class="text-end align-middle text-danger" id="paye_${i}">0</td>
-        <td class="text-end align-middle text-danger" id="nssf5_${i}">0</td>
-        <td class="text-end align-middle text-muted" id="nssf10_${i}">0</td>
-        <td><input type="number" name="items[${i}][deductions]" id="deduct_${i}" class="form-control form-control-sm" value="${deduct}" min="0" step="1000" oninput="recalcRow(${i})"></td>
+        <td>${statInput('paye', 'paye', i, ov.paye ? overrides.paye : '', ov.paye)}</td>
+        <td>${statInput('nssf_employee', 'nssf5', i, ov.nssf5 ? overrides.nssf5 : '', ov.nssf5)}</td>
+        <td>${statInput('nssf_employer', 'nssf10', i, ov.nssf10 ? overrides.nssf10 : '', ov.nssf10)}</td>
+        <td><input type="number" name="items[${i}][lunch]" id="lunch_${i}" class="form-control form-control-sm" value="${lunch}" min="0" step="any" oninput="recalcRow(${i})"></td>
+        <td><input type="number" name="items[${i}][transport]" id="transport_${i}" class="form-control form-control-sm" value="${transport}" min="0" step="any" oninput="recalcRow(${i})"></td>
+        <td><input type="number" name="items[${i}][deductions]" id="deduct_${i}" class="form-control form-control-sm" value="${deduct}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td class="text-end align-middle fw-semibold" id="net_${i}">0</td>
         <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeRow(${i})"><i class="bi bi-x"></i></button></td>
     </tr>`;
@@ -152,29 +204,41 @@ function refreshDisabled() {
     });
 }
 
+function setManual(el, manual) {
+    el.dataset.manual = manual ? '1' : '0';
+    el.classList.toggle('bg-warning-subtle', manual);
+}
+
 function onEmpChange(sel, i) {
     const opt = sel.options[sel.selectedIndex];
     const salary = opt.dataset.salary || 0;
     document.getElementById('basic_' + i).value = salary;
+    ['paye', 'nssf5', 'nssf10'].forEach(p => setManual(document.getElementById(p + '_' + i), false));
     recalcRow(i);
     refreshDisabled();
 }
 
-function recalcRow(i) {
-    const b = parseFloat(document.getElementById('basic_' + i).value) || 0;
-    const a = parseFloat(document.getElementById('allow_' + i).value) || 0;
-    const d = parseFloat(document.getElementById('deduct_' + i).value) || 0;
-    const gross  = b + a;
-    const paye   = calcPaye(gross);
-    const nssf5  = gross * 0.05;
-    const nssf10 = gross * 0.10;
-    const net    = gross - paye - nssf5 - d;
+function onStatEdit(el, i) {
+    setManual(el, el.value !== '');
+    recalcRow(i);
+}
 
-    document.getElementById('gross_' + i).textContent  = fmt(gross);
-    document.getElementById('paye_' + i).textContent   = fmt(paye);
-    document.getElementById('nssf5_' + i).textContent  = fmt(nssf5);
-    document.getElementById('nssf10_' + i).textContent = fmt(nssf10);
-    document.getElementById('net_' + i).textContent    = fmt(net);
+function recalcRow(i) {
+    const gross = num('basic_' + i) + num('allow_' + i);
+    const auto  = statutory(gross);
+
+    ['paye', 'nssf5', 'nssf10'].forEach(p => {
+        const el = document.getElementById(p + '_' + i);
+        if (el.dataset.manual !== '1' && document.activeElement !== el) el.value = auto[p];
+    });
+
+    const stat  = p => { const v = document.getElementById(p + '_' + i).value; return v === '' ? auto[p] : (parseFloat(v) || 0); };
+    const paye  = stat('paye');
+    const nssf5 = stat('nssf5');
+    const net   = gross - paye - nssf5 - num('deduct_' + i) - num('lunch_' + i) + num('transport_' + i);
+
+    document.getElementById('gross_' + i).textContent = fmt(gross);
+    document.getElementById('net_' + i).textContent   = fmt(net);
     recalcTotal();
 }
 
@@ -186,29 +250,33 @@ function removeRow(i) {
 
 function sumCells(prefix) {
     let total = 0;
-    document.querySelectorAll('[id^="' + prefix + '_"]').forEach(el => {
-        total += parseFloat(el.textContent.replace(/,/g, '')) || 0;
+    document.querySelectorAll('#itemsBody [id^="' + prefix + '_"]').forEach(el => {
+        total += parseFloat(el.tagName === 'INPUT' ? el.value : el.textContent.replace(/,/g, '')) || 0;
     });
     return total;
 }
 
 function recalcTotal() {
-    document.getElementById('totalGross').textContent  = fmt(sumCells('gross'));
-    document.getElementById('totalPaye').textContent   = fmt(sumCells('paye'));
-    document.getElementById('totalNssf5').textContent  = fmt(sumCells('nssf5'));
-    document.getElementById('totalNssf10').textContent = fmt(sumCells('nssf10'));
-
-    let deductTotal = 0;
-    document.querySelectorAll('[id^="deduct_"]').forEach(el => { deductTotal += parseFloat(el.value) || 0; });
-    document.getElementById('totalDeduct').textContent = fmt(deductTotal);
-
-    document.getElementById('grandTotal').textContent = fmt(sumCells('net'));
+    document.getElementById('totalGross').textContent     = fmt(sumCells('gross'));
+    document.getElementById('totalPaye').textContent      = fmt(sumCells('paye'));
+    document.getElementById('totalNssf5').textContent     = fmt(sumCells('nssf5'));
+    document.getElementById('totalNssf10').textContent    = fmt(sumCells('nssf10'));
+    document.getElementById('totalLunch').textContent     = fmt(sumCells('lunch'));
+    document.getElementById('totalTransport').textContent = fmt(sumCells('transport'));
+    document.getElementById('totalDeduct').textContent    = fmt(sumCells('deduct'));
+    document.getElementById('grandTotal').textContent     = fmt(sumCells('net'));
 }
 
 function addAllEmployees() {
     document.getElementById('itemsBody').innerHTML = '';
     rowIndex = 0;
-    employees.forEach(e => addRow(e.id, e.basic_salary));
+    employees.filter(e => e.status === 'active').forEach(e => addRow(e.id, e.basic_salary));
 }
+
+existingItems.forEach(it => addRow(
+    it.employee_id, it.basic_salary, it.allowances, it.deductions, it.lunch, it.transport,
+    { paye: it.paye, nssf5: it.nssf_employee, nssf10: it.nssf_employer }
+));
+refreshDisabled();
 </script>
 @endpush
