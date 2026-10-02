@@ -42,12 +42,22 @@
                 <input type="text" name="department" class="form-control form-control-sm" value="{{ old('department') }}">
             </div>
             <div class="col-md-4">
-                <label class="form-label small mb-0 fw-semibold">Basic salary (UGX) <span class="text-danger">*</span></label>
+                <label class="form-label small mb-0 fw-semibold">Gross pay (UGX) <span class="text-danger">*</span></label>
                 <input type="number" name="basic_salary" class="form-control form-control-sm @error('basic_salary') is-invalid @enderror"
                        value="{{ old('basic_salary', 0) }}" min="0" step="1000" required>
                 @error('basic_salary')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
             </div>
 
+            <div class="col-md-4">
+                <label class="form-label small mb-0 fw-semibold">Pay type <span class="text-danger">*</span></label>
+                <select name="pay_type" class="form-select form-select-sm @error('pay_type') is-invalid @enderror" required>
+                    @foreach(\App\Models\Employee::PAY_TYPES as $value => $label)
+                    <option value="{{ $value }}" {{ old('pay_type', 'salary') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <div class="form-text" style="font-size:.72rem">Salary debits Staff Salaries (5003); Agency Commission debits Agency Commissions (5103).</div>
+                @error('pay_type')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+            </div>
             <div class="col-md-3">
                 <label class="form-label small mb-0 fw-semibold">Status <span class="text-danger">*</span></label>
                 <select name="status" class="form-select form-select-sm" required>
@@ -55,7 +65,7 @@
                     <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
                 </select>
             </div>
-            <div class="col-md-9">
+            <div class="col-md-5">
                 <details class="border rounded px-2 py-1 bg-light">
                     <summary class="small fw-semibold user-select-none" style="cursor:pointer">Notes <span class="text-muted fw-normal">(optional)</span></summary>
                     <textarea name="notes" class="form-control form-control-sm mt-1" rows="1" placeholder="Optional">{{ old('notes') }}</textarea>

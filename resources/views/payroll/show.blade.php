@@ -90,14 +90,14 @@
                     <th>#</th>
                     <th>Employee</th>
                     <th>Savings Account</th>
-                    <th class="text-end">Basic</th>
-                    <th class="text-end">Allowances</th>
+                    <th>Type</th>
                     <th class="text-end">Gross Pay</th>
                     <th class="text-end">PAYE</th>
                     <th class="text-end">NSSF 5%</th>
                     <th class="text-end">NSSF 10%</th>
                     <th class="text-end">Lunch</th>
                     <th class="text-end">Transport</th>
+                    <th class="text-end">Staff Savings</th>
                     <th class="text-end">Deductions</th>
                     <th class="text-end fw-semibold">Net Salary</th>
                 </tr>
@@ -113,14 +113,14 @@
                 <td class="font-monospace">
                     {{ $item->savingsAccount?->account_number ?? '<span class="text-danger">Not linked</span>' }}
                 </td>
-                <td class="text-end">{{ number_format($item->basic_salary, 0) }}</td>
-                <td class="text-end text-success">{{ number_format($item->allowances, 0) }}</td>
+                <td><span class="badge {{ $item->pay_type === 'commission' ? 'bg-info text-dark' : 'bg-light text-dark border' }}">{{ \App\Models\Employee::payTypeLabel($item->pay_type) }}</span></td>
                 <td class="text-end">{{ number_format($item->basic_salary + $item->allowances, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->paye, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->nssf_employee, 0) }}</td>
                 <td class="text-end text-muted">{{ number_format($item->nssf_employer, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->lunch, 0) }}</td>
                 <td class="text-end text-success">{{ number_format($item->transport, 0) }}</td>
+                <td class="text-end text-danger">{{ number_format($item->staff_savings, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->deductions, 0) }}</td>
                 <td class="text-end fw-semibold">{{ number_format($item->net_salary, 0) }}</td>
             </tr>
@@ -128,15 +128,14 @@
             </tbody>
             <tfoot class="table-light fw-bold small">
                 <tr>
-                    <td colspan="3">Totals</td>
-                    <td class="text-end">{{ number_format($payroll->items->sum('basic_salary'), 0) }}</td>
-                    <td class="text-end text-success">{{ number_format($payroll->items->sum('allowances'), 0) }}</td>
+                    <td colspan="4">Totals</td>
                     <td class="text-end">{{ number_format($payroll->items->sum('basic_salary') + $payroll->items->sum('allowances'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('paye'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('nssf_employee'), 0) }}</td>
                     <td class="text-end text-muted">{{ number_format($payroll->items->sum('nssf_employer'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('lunch'), 0) }}</td>
                     <td class="text-end text-success">{{ number_format($payroll->items->sum('transport'), 0) }}</td>
+                    <td class="text-end text-danger">{{ number_format($payroll->items->sum('staff_savings'), 0) }}</td>
                     <td class="text-end text-danger">{{ number_format($payroll->items->sum('deductions'), 0) }}</td>
                     <td class="text-end">{{ number_format($payroll->items->sum('net_salary'), 0) }}</td>
                 </tr>

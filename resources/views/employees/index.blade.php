@@ -18,7 +18,8 @@
                 <th>Name</th>
                 <th>Position</th>
                 <th>Department</th>
-                <th class="text-end">Basic Salary</th>
+                <th>Pay Type</th>
+                <th class="text-end">Gross Pay</th>
                 <th>Savings Account</th>
                 <th>Status</th>
                 <th class="pe-3">Actions</th>
@@ -30,6 +31,7 @@
                     <td class="fw-semibold">{{ $emp->name }}</td>
                     <td>{{ $emp->position ?? '—' }}</td>
                     <td>{{ $emp->department ?? '—' }}</td>
+                    <td><span class="badge {{ $emp->pay_type === 'commission' ? 'bg-info text-dark' : 'bg-light text-dark border' }}">{{ \App\Models\Employee::payTypeLabel($emp->pay_type) }}</span></td>
                     <td class="text-end">{{ number_format($emp->basic_salary, 0) }}</td>
                     <td class="small">
                         @if($emp->savingsAccount)

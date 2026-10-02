@@ -20,7 +20,8 @@
                     <tr><td class="text-muted w-40">Name</td><td class="fw-semibold">{{ $employee->name }}</td></tr>
                     <tr><td class="text-muted">Position</td><td>{{ $employee->position ?? '—' }}</td></tr>
                     <tr><td class="text-muted">Department</td><td>{{ $employee->department ?? '—' }}</td></tr>
-                    <tr><td class="text-muted">Basic Salary</td><td class="fw-semibold">{{ number_format($employee->basic_salary, 0) }}</td></tr>
+                    <tr><td class="text-muted">Pay Type</td><td>{{ \App\Models\Employee::payTypeLabel($employee->pay_type) }}</td></tr>
+                    <tr><td class="text-muted">Gross Pay</td><td class="fw-semibold">{{ number_format($employee->basic_salary, 0) }}</td></tr>
                     <tr><td class="text-muted">Status</td><td>
                         <span class="badge {{ $employee->status === 'active' ? 'bg-success' : 'bg-secondary' }}">{{ ucfirst($employee->status) }}</span>
                     </td></tr>
@@ -35,15 +36,14 @@
     <div class="table-responsive">
         <table class="table table-sm table-hover mb-0 small">
             <thead class="table-light"><tr>
-                <th>Run #</th><th>Period</th><th class="text-end">Basic</th><th class="text-end">Allowances</th><th class="text-end">Deductions</th><th class="text-end">Net</th><th>Status</th>
+                <th>Run #</th><th>Period</th><th class="text-end">Gross Pay</th><th class="text-end">Deductions</th><th class="text-end">Net</th><th>Status</th>
             </tr></thead>
             <tbody>
             @forelse($employee->payrollItems as $item)
             <tr>
                 <td class="font-monospace"><a href="{{ route('payroll.show', $item->payroll_run_id) }}">{{ $item->payrollRun->run_number }}</a></td>
                 <td>{{ $item->payrollRun->period_label }}</td>
-                <td class="text-end">{{ number_format($item->basic_salary, 0) }}</td>
-                <td class="text-end text-success">{{ number_format($item->allowances, 0) }}</td>
+                <td class="text-end">{{ number_format($item->basic_salary + $item->allowances, 0) }}</td>
                 <td class="text-end text-danger">{{ number_format($item->deductions, 0) }}</td>
                 <td class="text-end fw-semibold">{{ number_format($item->net_salary, 0) }}</td>
                 <td><span class="badge {{ $item->payrollRun->status === 'processed' ? 'bg-success' : 'bg-warning text-dark' }}">{{ ucfirst($item->payrollRun->status) }}</span></td>

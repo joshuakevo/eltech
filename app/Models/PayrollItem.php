@@ -5,9 +5,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class PayrollItem extends Model {
     protected $fillable = [
-        'payroll_run_id', 'employee_id', 'savings_account_id',
+        'payroll_run_id', 'employee_id', 'savings_account_id', 'pay_type',
         'basic_salary', 'allowances', 'paye', 'nssf_employee', 'nssf_employer',
-        'lunch', 'transport', 'deductions', 'net_salary',
+        'lunch', 'transport', 'staff_savings', 'deductions', 'net_salary',
     ];
 
     protected $casts = [
@@ -18,6 +18,7 @@ class PayrollItem extends Model {
         'nssf_employer' => 'float',
         'lunch'         => 'float',
         'transport'     => 'float',
+        'staff_savings' => 'float',
         'deductions'    => 'float',
         'net_salary'    => 'float',
     ];
@@ -25,6 +26,7 @@ class PayrollItem extends Model {
     public const NSSF_EMPLOYEE_RATE = 0.05;
     public const NSSF_EMPLOYER_RATE = 0.10;
     public const DEFAULT_LUNCH      = 3500;
+    public const DEFAULT_STAFF_SAVINGS = 50000;
 
     /**
      * Uganda monthly PAYE (resident individuals, employment income), marginal bands:

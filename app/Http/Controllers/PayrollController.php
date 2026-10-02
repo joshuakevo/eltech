@@ -93,12 +93,12 @@ class PayrollController extends Controller {
             'items'         => 'required|array|min:1',
             'items.*.employee_id'    => 'required|exists:employees,id',
             'items.*.basic_salary'   => 'required|numeric|min:0',
-            'items.*.allowances'     => 'nullable|numeric|min:0',
             'items.*.paye'           => 'nullable|numeric|min:0',
             'items.*.nssf_employee'  => 'nullable|numeric|min:0',
             'items.*.nssf_employer'  => 'nullable|numeric|min:0',
             'items.*.lunch'          => 'nullable|numeric|min:0',
             'items.*.transport'      => 'nullable|numeric|min:0',
+            'items.*.staff_savings'  => 'nullable|numeric|min:0',
             'items.*.deductions'     => 'nullable|numeric|min:0',
         ]);
     }
@@ -112,35 +112,37 @@ class PayrollController extends Controller {
         $totalNet = 0;
         foreach ($items as $item) {
             $employee  = Employee::findOrFail($item['employee_id']);
-            $basic     = (float) $item['basic_salary'];
-            $allow     = (float) ($item['allowances'] ?? 0);
-            $lunch     = (float) ($item['lunch'] ?? 0);
-            $transport = (float) ($item['transport'] ?? 0);
-            $deduct    = (float) ($item['deductions'] ?? 0);
+            // basic_salary holds the employee's Gross Pay (allowances are no longer used).
+            $gross        = (float) $item['basic_salary'];
+            $lunch        = (float) ($item['lunch'] ?? 0);
+            $transport    = (float) ($item['transport'] ?? 0);
+            $staffSavings = (float) ($item['staff_savings'] ?? 0);
+            $deduct       = (float) ($item['deductions'] ?? 0);
 
             // PAYE / NSSF default to the statutory calculation on gross, but can be
             // overridden per employee (e.g. someone not charged PAYE or NSSF).
             // A blank cell means "use the calculated amount".
-            $gross        = $basic + $allow;
             $paye         = $this->amountOrDefault($item['paye'] ?? null, PayrollItem::calculatePaye($gross));
             $nssfEmployee = $this->amountOrDefault($item['nssf_employee'] ?? null, PayrollItem::calculateNssfEmployee($gross));
             $nssfEmployer = $this->amountOrDefault($item['nssf_employer'] ?? null, PayrollItem::calculateNssfEmployer($gross));
 
-            // Lunch is deducted from net; transport is paid on top of net (not taxed).
-            $net       = $gross - $paye - $nssfEmployee - $deduct - $lunch + $transport;
+            // Lunch and staff savings are deducted from net; transport is paid on top (not taxed).
+            $net       = $gross - $paye - $nssfEmployee - $deduct - $lunch - $staffSavings + $transport;
             $totalNet += $net;
 
             PayrollItem::create([
                 'payroll_run_id'     => $run->id,
                 'employee_id'        => $employee->id,
                 'savings_account_id' => $employee->savings_account_id,
-                'basic_salary'       => $basic,
-                'allowances'         => $allow,
+                'pay_type'           => $employee->pay_type ?? 'salary',
+                'basic_salary'       => $gross,
+                'allowances'         => 0,
                 'paye'               => $paye,
                 'nssf_employee'      => $nssfEmployee,
                 'nssf_employer'      => $nssfEmployer,
                 'lunch'              => $lunch,
                 'transport'          => $transport,
+                'staff_savings'      => $staffSavings,
                 'deductions'         => $deduct,
                 'net_salary'         => $net,
             ]);
@@ -168,12 +170,18 @@ class PayrollController extends Controller {
 
         $payroll->load('items.employee.client', 'items.savingsAccount.product');
 
-        $salaryExpenseAccountId = Account::where('account_code', '5001')->value('id')
-            ?: Account::where('account_code', '5003')->value('id');
-        if (!$salaryExpenseAccountId) {
-            throw ValidationException::withMessages([
-                'payment_date' => 'Chart of accounts is missing a salary expense account (codes 5001 or 5003). Add one under Chart of Accounts.',
-            ]);
+        // Each pay type debits its own expense account: Salary -> 5003, Agency Commission -> 5103.
+        $expenseAccountIds = [];
+        foreach ($payroll->items->pluck('pay_type')->map(fn ($t) => $t ?: 'salary')->unique() as $payType) {
+            $code = Employee::PAY_TYPE_EXPENSE_ACCOUNTS[$payType] ?? Employee::PAY_TYPE_EXPENSE_ACCOUNTS['salary'];
+            $accountId = Account::where('account_code', $code)->value('id');
+            if (!$accountId) {
+                $label = Employee::payTypeLabel($payType);
+                throw ValidationException::withMessages([
+                    'payment_date' => "Chart of accounts is missing the {$label} expense account (code {$code}). Add it under Chart of Accounts.",
+                ]);
+            }
+            $expenseAccountIds[$payType] = $accountId;
         }
 
         foreach ($payroll->items as $item) {
@@ -202,8 +210,9 @@ class PayrollController extends Controller {
             }
         }
 
-        DB::transaction(function () use ($payroll, $paymentDate, $salaryExpenseAccountId) {
+        DB::transaction(function () use ($payroll, $paymentDate, $expenseAccountIds) {
             $totalNet    = 0;
+            $debitLines  = [];
             $creditLines = [];
 
             // 1) Totals + journal lines (no sub-ledger writes yet)
@@ -215,6 +224,9 @@ class PayrollController extends Controller {
                 $savingsProduct = $item->savingsAccount->product;
                 $totalNet += $item->net_salary;
 
+                $payType = $item->pay_type ?: 'salary';
+                $debitLines[$payType] = ($debitLines[$payType] ?? 0) + $item->net_salary;
+
                 $liabilityAccId = $savingsProduct->savings_liability_account_id;
                 if (!isset($creditLines[$liabilityAccId])) {
                     $creditLines[$liabilityAccId] = 0;
@@ -225,20 +237,21 @@ class PayrollController extends Controller {
             // 2) Post GL first so we have transaction.id for savings_transactions.transaction_id
             $journalTx = null;
             if ($totalNet > 0) {
-                $journalLines = [
-                    [
-                        'account_id'  => $salaryExpenseAccountId,
-                        'debit'       => $totalNet,
+                $journalLines = [];
+                foreach ($debitLines as $payType => $amount) {
+                    $journalLines[] = [
+                        'account_id'  => $expenseAccountIds[$payType],
+                        'debit'       => $amount,
                         'credit'      => 0,
-                        'description' => "Salary expense — {$payroll->run_number}",
-                    ],
-                ];
+                        'description' => Employee::payTypeLabel($payType) . " expense — {$payroll->run_number}",
+                    ];
+                }
                 foreach ($creditLines as $accountId => $amount) {
                     $journalLines[] = [
                         'account_id'  => $accountId,
                         'debit'       => 0,
                         'credit'      => $amount,
-                        'description' => "Salary credited to savings — {$payroll->run_number}",
+                        'description' => "Pay credited to savings — {$payroll->run_number}",
                     ];
                 }
 

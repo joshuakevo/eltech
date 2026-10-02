@@ -1,7 +1,7 @@
 @php
     $editing = isset($payroll);
     $existingItems = $editing
-        ? $payroll->items->map->only(['employee_id', 'basic_salary', 'allowances', 'paye', 'nssf_employee', 'nssf_employer', 'lunch', 'transport', 'deductions'])->values()
+        ? $payroll->items->map->only(['employee_id', 'basic_salary', 'allowances', 'paye', 'nssf_employee', 'nssf_employer', 'lunch', 'transport', 'staff_savings', 'deductions'])->values()
         : [];
 @endphp
 @extends('layouts.app')
@@ -56,23 +56,23 @@
         </div>
 
         <div class="form-text mb-2">
-            PAYE, NSSF 5% (employee) and NSSF 10% (employer) are filled in automatically from Gross Pay (Basic + Allowances).
+            PAYE, NSSF 5% (employee) and NSSF 10% (employer) are filled in automatically from Gross Pay.
             They are editable — change them (e.g. to 0) for anyone who is not charged; clear a cell to go back to the automatic amount.
-            Lunch is deducted from Net Pay; Transport is added to Net Pay (not taxed).
+            Lunch and Staff Savings are deducted from Net Pay; Transport is added to Net Pay (not taxed).
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-sm" id="itemsTable" style="min-width:1700px">
                 <thead class="table-light">
                     <tr>
                         <th style="width:230px">Employee</th>
-                        <th style="width:140px">Basic Salary</th>
-                        <th style="width:120px">Allowances</th>
-                        <th style="width:130px" class="text-end">Gross Pay</th>
+                        <th style="width:120px">Type</th>
+                        <th style="width:150px">Gross Pay</th>
                         <th style="width:125px">PAYE</th>
                         <th style="width:120px">NSSF 5%</th>
                         <th style="width:120px">NSSF 10%</th>
                         <th style="width:110px">Lunch</th>
                         <th style="width:120px">Transport</th>
+                        <th style="width:130px">Staff Savings</th>
                         <th style="width:120px">Deductions</th>
                         <th style="width:140px" class="text-end">Net Pay</th>
                         <th style="width:50px"></th>
@@ -83,13 +83,14 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="3" class="fw-semibold text-end">Totals:</td>
+                        <td colspan="2" class="fw-semibold text-end">Totals:</td>
                         <td class="text-end fw-semibold" id="totalGross">0</td>
                         <td class="text-end fw-semibold" id="totalPaye">0</td>
                         <td class="text-end fw-semibold" id="totalNssf5">0</td>
                         <td class="text-end fw-semibold" id="totalNssf10">0</td>
                         <td class="text-end fw-semibold" id="totalLunch">0</td>
                         <td class="text-end fw-semibold" id="totalTransport">0</td>
+                        <td class="text-end fw-semibold" id="totalStaffSavings">0</td>
                         <td class="text-end fw-semibold" id="totalDeduct">0</td>
                         <td class="text-end fw-bold" id="grandTotal">0</td>
                         <td></td>
@@ -113,7 +114,9 @@
 <script>
 const employees = @json($employees);
 const existingItems = @json($existingItems);
+const PAY_TYPES = @json(\App\Models\Employee::PAY_TYPES);
 const DEFAULT_LUNCH = {{ \App\Models\PayrollItem::DEFAULT_LUNCH }};
+const DEFAULT_STAFF_SAVINGS = {{ \App\Models\PayrollItem::DEFAULT_STAFF_SAVINGS }};
 let rowIndex = 0;
 
 function fmt(n) { return n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}); }
@@ -152,16 +155,16 @@ function statInput(name, prefix, i, value, manual) {
         value="${value}" min="0" step="any" data-manual="${manual ? 1 : 0}" oninput="onStatEdit(this,${i})" onblur="recalcRow(${i})" title="Auto-calculated — edit to override, clear to reset">`;
 }
 
-function addRow(empId = '', basic = 0, allow = 0, deduct = 0, lunch = DEFAULT_LUNCH, transport = 0, overrides = null) {
+function addRow(empId = '', gross = 0, deduct = 0, lunch = DEFAULT_LUNCH, transport = 0, staffSavings = DEFAULT_STAFF_SAVINGS, overrides = null) {
     const i = rowIndex++;
     const used = selectedEmployeeIds(-1);
     const opts = employees.map(e => {
         const isUsed = used.has(String(e.id)) && String(e.id) !== String(empId);
-        return `<option value="${e.id}" data-salary="${e.basic_salary}" ${String(e.id) === String(empId) ? 'selected' : ''} ${isUsed ? 'disabled' : ''}>${e.client ? e.client.name : '?'}${isUsed ? ' (already added)' : ''}</option>`;
+        return `<option value="${e.id}" data-salary="${e.basic_salary}" data-paytype="${e.pay_type || 'salary'}" ${String(e.id) === String(empId) ? 'selected' : ''} ${isUsed ? 'disabled' : ''}>${e.client ? e.client.name : '?'}${isUsed ? ' (already added)' : ''}</option>`;
     }).join('');
 
     // When editing a saved run, stored PAYE/NSSF that differ from the calculation are overrides.
-    const auto = statutory((parseFloat(basic) || 0) + (parseFloat(allow) || 0));
+    const auto = statutory(parseFloat(gross) || 0);
     const ov = {
         paye:   overrides && Math.abs(overrides.paye - auto.paye) > 0.005,
         nssf5:  overrides && Math.abs(overrides.nssf5 - auto.nssf5) > 0.005,
@@ -174,20 +177,29 @@ function addRow(empId = '', basic = 0, allow = 0, deduct = 0, lunch = DEFAULT_LU
                 <option value="">— Select —</option>${opts}
             </select>
         </td>
-        <td><input type="number" name="items[${i}][basic_salary]" id="basic_${i}" class="form-control form-control-sm" value="${basic}" min="0" step="any" oninput="recalcRow(${i})" required></td>
-        <td><input type="number" name="items[${i}][allowances]" id="allow_${i}" class="form-control form-control-sm" value="${allow}" min="0" step="any" oninput="recalcRow(${i})"></td>
-        <td class="text-end align-middle" id="gross_${i}">0</td>
+        <td class="align-middle small" id="type_${i}">—</td>
+        <td><input type="number" name="items[${i}][basic_salary]" id="gross_${i}" class="form-control form-control-sm" value="${gross}" min="0" step="any" oninput="recalcRow(${i})" required></td>
         <td>${statInput('paye', 'paye', i, ov.paye ? overrides.paye : '', ov.paye)}</td>
         <td>${statInput('nssf_employee', 'nssf5', i, ov.nssf5 ? overrides.nssf5 : '', ov.nssf5)}</td>
         <td>${statInput('nssf_employer', 'nssf10', i, ov.nssf10 ? overrides.nssf10 : '', ov.nssf10)}</td>
         <td><input type="number" name="items[${i}][lunch]" id="lunch_${i}" class="form-control form-control-sm" value="${lunch}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td><input type="number" name="items[${i}][transport]" id="transport_${i}" class="form-control form-control-sm" value="${transport}" min="0" step="any" oninput="recalcRow(${i})"></td>
+        <td><input type="number" name="items[${i}][staff_savings]" id="staffsav_${i}" class="form-control form-control-sm" value="${staffSavings}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td><input type="number" name="items[${i}][deductions]" id="deduct_${i}" class="form-control form-control-sm" value="${deduct}" min="0" step="any" oninput="recalcRow(${i})"></td>
         <td class="text-end align-middle fw-semibold" id="net_${i}">0</td>
         <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeRow(${i})"><i class="bi bi-x"></i></button></td>
     </tr>`;
     document.getElementById('itemsBody').insertAdjacentHTML('beforeend', row);
+    showPayType(i);
     recalcRow(i);
+}
+
+function showPayType(i) {
+    const sel  = document.querySelector('#row_' + i + ' select');
+    const type = sel.value ? (sel.options[sel.selectedIndex].dataset.paytype || 'salary') : '';
+    document.getElementById('type_' + i).innerHTML = type
+        ? `<span class="badge ${type === 'commission' ? 'bg-info text-dark' : 'bg-light text-dark border'}">${PAY_TYPES[type] || type}</span>`
+        : '—';
 }
 
 function refreshDisabled() {
@@ -212,7 +224,8 @@ function setManual(el, manual) {
 function onEmpChange(sel, i) {
     const opt = sel.options[sel.selectedIndex];
     const salary = opt.dataset.salary || 0;
-    document.getElementById('basic_' + i).value = salary;
+    document.getElementById('gross_' + i).value = salary;
+    showPayType(i);
     ['paye', 'nssf5', 'nssf10'].forEach(p => setManual(document.getElementById(p + '_' + i), false));
     recalcRow(i);
     refreshDisabled();
@@ -224,7 +237,7 @@ function onStatEdit(el, i) {
 }
 
 function recalcRow(i) {
-    const gross = num('basic_' + i) + num('allow_' + i);
+    const gross = num('gross_' + i);
     const auto  = statutory(gross);
 
     ['paye', 'nssf5', 'nssf10'].forEach(p => {
@@ -235,9 +248,8 @@ function recalcRow(i) {
     const stat  = p => { const v = document.getElementById(p + '_' + i).value; return v === '' ? auto[p] : (parseFloat(v) || 0); };
     const paye  = stat('paye');
     const nssf5 = stat('nssf5');
-    const net   = gross - paye - nssf5 - num('deduct_' + i) - num('lunch_' + i) + num('transport_' + i);
+    const net   = gross - paye - nssf5 - num('deduct_' + i) - num('lunch_' + i) - num('staffsav_' + i) + num('transport_' + i);
 
-    document.getElementById('gross_' + i).textContent = fmt(gross);
     document.getElementById('net_' + i).textContent   = fmt(net);
     recalcTotal();
 }
@@ -263,6 +275,7 @@ function recalcTotal() {
     document.getElementById('totalNssf10').textContent    = fmt(sumCells('nssf10'));
     document.getElementById('totalLunch').textContent     = fmt(sumCells('lunch'));
     document.getElementById('totalTransport').textContent = fmt(sumCells('transport'));
+    document.getElementById('totalStaffSavings').textContent = fmt(sumCells('staffsav'));
     document.getElementById('totalDeduct').textContent    = fmt(sumCells('deduct'));
     document.getElementById('grandTotal').textContent     = fmt(sumCells('net'));
 }
@@ -274,7 +287,7 @@ function addAllEmployees() {
 }
 
 existingItems.forEach(it => addRow(
-    it.employee_id, it.basic_salary, it.allowances, it.deductions, it.lunch, it.transport,
+    it.employee_id, (parseFloat(it.basic_salary) || 0) + (parseFloat(it.allowances) || 0), it.deductions, it.lunch, it.transport, it.staff_savings,
     { paye: it.paye, nssf5: it.nssf_employee, nssf10: it.nssf_employer }
 ));
 refreshDisabled();

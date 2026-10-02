@@ -33,6 +33,7 @@ class EmployeeController extends Controller {
             'client_id'          => 'required|exists:clients,id',
             'position'           => 'nullable|string|max:100',
             'department'         => 'nullable|string|max:100',
+            'pay_type'           => 'required|in:salary,commission',
             'basic_salary'       => 'required|numeric|min:0',
             'savings_account_id' => 'required|exists:savings_accounts,id',
             'status'             => 'required|in:active,inactive',
@@ -74,6 +75,7 @@ class EmployeeController extends Controller {
         $data = $request->validate([
             'position'           => 'nullable|string|max:100',
             'department'         => 'nullable|string|max:100',
+            'pay_type'           => 'required|in:salary,commission',
             'basic_salary'       => 'required|numeric|min:0',
             'savings_account_id' => 'required|exists:savings_accounts,id',
             'status'             => 'required|in:active,inactive',
