@@ -244,11 +244,23 @@ class ReportController extends Controller
 
     public function loanAging(Request $request)
     {
-        $asOf = $request->as_of ?? now()->toDateString();
+        $request->validate([
+            'from' => 'nullable|date',
+            'to'   => 'nullable|date|after_or_equal:from',
+        ], [], ['from' => 'Due Date From', 'to' => 'Due Date To']);
 
-        $overdueSchedules = LoanSchedule::with('loan.client', 'loan.product')
-            ->where('due_date', '<', $asOf)
-            ->whereIn('status', ['pending', 'partial', 'overdue'])
+        // Date range filters installments by due date. Aging is measured as of today, since
+        // "Amount Received" reflects payments made to date.
+        $today = now()->startOfDay();
+        $from  = $request->from;
+        $to    = $request->to ?: $today->toDateString();
+
+        $schedules = LoanSchedule::with('loan.client', 'loan.product')
+            ->whereHas('loan', fn ($q) => $q->whereIn('status', ['active', 'defaulted']))
+            ->when($from, fn ($q) => $q->where('due_date', '>=', $from))
+            ->where('due_date', '<=', $to)
+            ->where('due_date', '<', $today->toDateString())
+            ->orderBy('due_date')
             ->get();
 
         $buckets = [
@@ -259,43 +271,85 @@ class ReportController extends Controller
             '181+'   => [],
         ];
 
-        foreach ($overdueSchedules as $schedule) {
-            $days = Carbon::parse($schedule->due_date)->diffInDays($asOf);
-            $outstanding = ($schedule->principal_due - $schedule->principal_paid) + ($schedule->interest_due - $schedule->interest_paid);
+        // One row per loan: installments due in the range, with the oldest unpaid one driving days overdue.
+        foreach ($schedules->groupBy('loan_id') as $loanSchedules) {
+            $loan     = $loanSchedules->first()->loan;
+            $expected = $loanSchedules->sum(fn ($s) => (float) $s->principal_due + (float) $s->interest_due);
+            $received = $loanSchedules->sum(fn ($s) => (float) $s->principal_paid + (float) $s->interest_paid);
+            $balance  = round($expected - $received, 2);
 
-            if ($days <= 30)       $buckets['1-30'][]   = ['schedule' => $schedule, 'days' => $days, 'outstanding' => $outstanding];
-            elseif ($days <= 60)   $buckets['31-60'][]  = ['schedule' => $schedule, 'days' => $days, 'outstanding' => $outstanding];
-            elseif ($days <= 90)   $buckets['61-90'][]  = ['schedule' => $schedule, 'days' => $days, 'outstanding' => $outstanding];
-            elseif ($days <= 180)  $buckets['91-180'][] = ['schedule' => $schedule, 'days' => $days, 'outstanding' => $outstanding];
-            else                   $buckets['181+'][]   = ['schedule' => $schedule, 'days' => $days, 'outstanding' => $outstanding];
+            $oldestUnpaid = $loanSchedules->first(fn ($s) =>
+                ((float) $s->principal_due + (float) $s->interest_due) - ((float) $s->principal_paid + (float) $s->interest_paid) > 0.005);
+            if (!$oldestUnpaid || $balance <= 0.005) {
+                continue; // everything due in the range has been paid
+            }
+
+            $days = $oldestUnpaid->due_date->diffInDays($today);
+            $row  = [
+                'loan'              => $loan,
+                'disbursed'         => (float) $loan->principal,
+                'due_date'          => $oldestUnpaid->due_date,
+                'installments'      => $loanSchedules->count(),
+                'expected'          => round($expected, 2),
+                'received'          => round($received, 2),
+                'balance'           => $balance,
+                'days'              => $days,
+                'total_outstanding' => round($loan->total_outstanding, 2),
+            ];
+
+            if ($days <= 30)       $buckets['1-30'][]   = $row;
+            elseif ($days <= 60)   $buckets['31-60'][]  = $row;
+            elseif ($days <= 90)   $buckets['61-90'][]  = $row;
+            elseif ($days <= 180)  $buckets['91-180'][] = $row;
+            else                   $buckets['181+'][]   = $row;
         }
+        foreach ($buckets as &$rows) {
+            usort($rows, fn ($x, $y) => $y['days'] <=> $x['days']);
+        }
+        unset($rows);
+
+        $columns = ['disbursed', 'expected', 'received', 'balance', 'total_outstanding'];
+        $totals  = [];
+        foreach ($buckets as $key => $rows) {
+            foreach ($columns as $c) {
+                $totals[$key][$c] = array_sum(array_column($rows, $c));
+            }
+        }
+        foreach ($columns as $c) {
+            $totals['all'][$c] = array_sum(array_column($totals, $c));
+        }
+        $totals['all']['loans'] = array_sum(array_map('count', $buckets));
+
+        $data = compact('buckets', 'totals', 'from', 'to');
 
         if ($request->format === 'pdf') {
-            $pdf = Pdf::loadView('pdf.reports.loan-aging', compact('buckets', 'asOf'))
-                ->setPaper('a4', 'landscape');
+            $pdf = Pdf::loadView('pdf.reports.loan-aging', $data)->setPaper('a4', 'landscape');
             return $pdf->download('loan-aging-' . now()->format('Y-m-d') . '.pdf');
         }
 
         if ($request->format === 'excel') {
-            $rows = [];
-            $rows[] = ['Bucket', 'Loan #', 'Client', 'Product', 'Due Date', 'Days Overdue', 'Outstanding'];
+            $rows   = [];
+            $rows[] = ['Bucket', 'Loan #', 'Client', 'Amount Disbursed', 'Due Date', 'Expected Installment', 'Amount Received', 'Balance', 'Days Overdue', 'Total Outstanding'];
             foreach ($buckets as $bucket => $items) {
                 foreach ($items as $item) {
                     $rows[] = [
                         $bucket . ' Days',
-                        $item['schedule']->loan->loan_number,
-                        $item['schedule']->loan->client->name,
-                        $item['schedule']->loan->product->name,
-                        $item['schedule']->due_date->format('Y-m-d'),
+                        $item['loan']->loan_number,
+                        $item['loan']->client->name,
+                        $item['disbursed'],
+                        $item['due_date']->format('Y-m-d'),
+                        $item['expected'],
+                        $item['received'],
+                        $item['balance'],
                         $item['days'],
-                        $item['outstanding'],
+                        $item['total_outstanding'],
                     ];
                 }
             }
             return $this->csvDownload($rows, 'loan-aging-' . now()->format('Y-m-d'));
         }
 
-        return view('reports.loan-aging', compact('buckets', 'asOf'));
+        return view('reports.loan-aging', $data);
     }
 
     public function repaymentSchedule(Request $request)

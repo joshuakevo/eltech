@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -31,10 +31,10 @@
 <div class="header clearfix">
     <div class="header-right">
         <div>Generated: {{ now()->format('d M Y H:i') }}</div>
-        <div>As of {{ $asOf }}</div>
+        <div>Due {{ $from ? \Carbon\Carbon::parse($from)->format('d M Y') : 'all dates' }} – {{ \Carbon\Carbon::parse($to)->format('d M Y') }}</div>
     </div>
     <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — Loan Aging Report</h1>
-    <p>Overdue installments grouped by days past due</p>
+    <p>Loans with overdue installments, grouped by days past due (as of today)</p>
 </div>
 
 @php
@@ -43,38 +43,61 @@ $bucketLabels  = ['1-30'=>'1–30 Days','31-60'=>'31–60 Days','61-90'=>'61–9
 @endphp
 
 @foreach($buckets as $bucket => $items)
+@php $t = $totals[$bucket]; @endphp
 <div class="bucket-header {{ $bucketClasses[$bucket] }}">
-    {{ $bucketLabels[$bucket] }} Overdue — {{ count($items) }} installment(s) &bull; {{ number_format(array_sum(array_column($items, 'outstanding')), 2) }}
+    {{ $bucketLabels[$bucket] }} Overdue — {{ count($items) }} loan(s) &bull; Balance {{ number_format($t['balance'], 0) }}
 </div>
 @if(count($items) > 0)
 <table>
     <thead>
         <tr>
-            <th>Loan #</th><th>Client</th><th>Product</th><th>Due Date</th>
-            <th class="r">Days Overdue</th><th class="r">Outstanding</th>
+            <th>Loan #</th><th>Client</th><th class="r">Amount Disbursed</th><th>Due Date</th>
+            <th class="r">Expected Installment</th><th class="r">Amount Received</th><th class="r">Balance</th>
+            <th class="r">Days Overdue</th><th class="r">Total Outstanding</th>
         </tr>
     </thead>
     <tbody>
     @foreach($items as $item)
     <tr>
-        <td style="font-family:monospace;font-size:7px">{{ $item['schedule']->loan->loan_number }}</td>
-        <td>{{ $item['schedule']->loan->client->name }}</td>
-        <td style="font-size:7px;color:#6b7280">{{ $item['schedule']->loan->product->name }}</td>
-        <td>{{ $item['schedule']->due_date->format('d M Y') }}</td>
+        <td style="font-family:monospace;font-size:7px">{{ $item['loan']->loan_number }}</td>
+        <td>{{ $item['loan']->client->name }}</td>
+        <td class="r">{{ number_format($item['disbursed'], 0) }}</td>
+        <td>{{ $item['due_date']->format('d M Y') }}</td>
+        <td class="r">{{ number_format($item['expected'], 0) }}</td>
+        <td class="r">{{ number_format($item['received'], 0) }}</td>
+        <td class="r"><strong>{{ number_format($item['balance'], 0) }}</strong></td>
         <td class="r"><strong>{{ $item['days'] }}</strong></td>
-        <td class="r">{{ number_format($item['outstanding'], 2) }}</td>
+        <td class="r">{{ number_format($item['total_outstanding'], 0) }}</td>
     </tr>
     @endforeach
     </tbody>
     <tfoot>
         <tr>
-            <td colspan="5">Subtotal</td>
-            <td class="r">{{ number_format(array_sum(array_column($items, 'outstanding')), 2) }}</td>
+            <td colspan="2">Subtotal</td>
+            <td class="r">{{ number_format($t['disbursed'], 0) }}</td>
+            <td></td>
+            <td class="r">{{ number_format($t['expected'], 0) }}</td>
+            <td class="r">{{ number_format($t['received'], 0) }}</td>
+            <td class="r">{{ number_format($t['balance'], 0) }}</td>
+            <td></td>
+            <td class="r">{{ number_format($t['total_outstanding'], 0) }}</td>
         </tr>
     </tfoot>
 </table>
 @endif
 @endforeach
+
+<table style="margin-top:8px">
+    <tfoot>
+        <tr>
+            <td>Grand total — {{ $totals['all']['loans'] }} loan(s)</td>
+            <td class="r">Expected {{ number_format($totals['all']['expected'], 0) }}</td>
+            <td class="r">Received {{ number_format($totals['all']['received'], 0) }}</td>
+            <td class="r">Balance {{ number_format($totals['all']['balance'], 0) }}</td>
+            <td class="r">Total outstanding {{ number_format($totals['all']['total_outstanding'], 0) }}</td>
+        </tr>
+    </tfoot>
+</table>
 
 <div class="footer">Printed by {{ auth()->user()->name ?? 'System' }} &bull; {{ now()->format('d M Y H:i') }}</div>
 </body>
