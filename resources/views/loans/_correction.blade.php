@@ -101,6 +101,11 @@
                             </div>
                         </div>
                         <div class="form-text mb-2">Only a principal change posts a journal (against Loan Receivables). Interest is booked when received, so it needs none.</div>
+                        <div class="form-check small border rounded p-2 ps-4 bg-light">
+                            <input class="form-check-input lc-in" type="checkbox" name="no_journal" value="1" id="lcNoJournal" {{ old('no_journal') ? 'checked' : '' }}>
+                            <label class="form-check-label" for="lcNoJournal"><b>Loan figures only — the books are already correct</b>
+                                <span class="d-block text-muted">No journal. Use when only the loan record is wrong, e.g. a repayment was reversed in Journal Entries but its amounts stayed on the loan.</span></label>
+                        </div>
 
                         <div class="lc-step mt-3"><span>3</span> Why?</div>
                         <textarea name="reason" class="form-control form-control-sm" rows="2" maxlength="500" required placeholder="e.g. Transfer balance per old system statement of 31/07/2026">{{ old('reason') }}</textarea>
@@ -241,7 +246,7 @@
             ? '<table class="table table-sm small mb-0 border"><thead class="table-light"><tr><th>Account</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead><tbody>'
               + d.journal.map(l => `<tr><td><span class="font-monospace">${esc(l.code)}</span> ${esc(l.name)}</td><td class="text-end">${l.debit ? n(l.debit) : ''}</td><td class="text-end">${l.credit ? n(l.credit) : ''}</td></tr>`).join('')
               + `</tbody></table><div class="form-text">Dated ${fmtDate(d.journal_date)}.</div>`
-            : '<div class="small text-muted border rounded p-2">No journal — outstanding principal does not change.</div>';
+            : '<div class="small text-muted border rounded p-2">' + (d.no_journal ? 'No journal — loan figures only (the books are already correct).' : 'No journal — outstanding principal does not change.') + '</div>';
 
         const rp = d.replayed || [];
         document.getElementById('lcReplayWrap').classList.toggle('d-none', rp.length === 0);
@@ -267,7 +272,7 @@
         form.querySelector('[name=interest]').value = e.target.dataset.v;
         preview();
     });
-    form.querySelectorAll('.lc-in').forEach(el => el.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(preview, 350); }));
+    form.querySelectorAll('.lc-in').forEach(el => el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => { clearTimeout(timer); timer = setTimeout(preview, 350); }));
     document.getElementById('correctLoanModal').addEventListener('shown.bs.modal', preview);
     form.addEventListener('submit', () => { document.getElementById('lcApply').disabled = true; });
 

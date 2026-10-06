@@ -212,8 +212,9 @@ class LoanController extends Controller
             'interest'          => 'nullable|numeric|min:0',
             'journal_date'      => 'nullable|date',
             'offset_account_id' => 'nullable|integer',
+            'no_journal'        => 'nullable|boolean',
         ]);
-        return $request->only(['as_at_date', 'principal', 'interest', 'journal_date', 'offset_account_id']);
+        return $request->only(['as_at_date', 'principal', 'interest', 'journal_date', 'offset_account_id', 'no_journal']);
     }
 
     /** JSON preview of a correction (nothing is saved). */
@@ -232,7 +233,7 @@ class LoanController extends Controller
         return redirect()->route('loans.show', $loan)->with('success',
             'Loan balances corrected: principal ' . number_format($correction->new_principal, 0)
             . ', interest ' . number_format($correction->new_interest, 0)
-            . ($correction->transaction ? '. Adjustment journal ' . $correction->transaction->reference . ' posted.' : '. No journal needed (principal unchanged).'));
+            . ($correction->transaction ? '. Adjustment journal ' . $correction->transaction->reference . ' posted.' : '. No journal posted.'));
     }
 
     public function undoCorrection(Request $request, Loan $loan, \App\Models\LoanCorrection $correction, \App\Services\LoanCorrectionService $corrections)

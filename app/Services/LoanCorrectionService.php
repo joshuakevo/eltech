@@ -46,7 +46,10 @@ class LoanCorrectionService
     /**
      * Works out the full correction without writing anything.
      *
-     * @param array{as_at_date:string, principal:float|string, interest:float|string|null, journal_date?:string, offset_account_id?:int} $in
+     * @param array{as_at_date:string, principal:float|string, interest:float|string|null, journal_date?:string, offset_account_id?:int, no_journal?:bool} $in
+     *
+     * no_journal: loan figures only — for when the GL already shows the right balance and only the
+     * loan record drifted (e.g. a repayment journal was reversed without unwinding the loan).
      */
     public function build(Loan $loan, array $in): array
     {
@@ -136,8 +139,16 @@ class LoanCorrectionService
             $errors[] = 'No loan receivable account found for this loan product.';
         }
 
+        $noJournal = filter_var($in['no_journal'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($noJournal) {
+            $errors = array_values(array_filter($errors, fn ($e) => !str_contains($e, 'Offset account') && !str_contains($e, 'receivable account')));
+            if (abs($adjustment) >= 0.01) {
+                $warnings[] = 'No journal will be posted for the ' . number_format(abs($adjustment), 0) . ' principal change. Use this only when the books already show the correct balance.';
+            }
+        }
+
         $journal = [];
-        if (abs($adjustment) >= 0.01 && $offset && $receivable) {
+        if (!$noJournal && abs($adjustment) >= 0.01 && $offset && $receivable) {
             $amt = abs($adjustment);
             $journal = $adjustment > 0
                 ? [['account' => $receivable, 'debit' => $amt, 'credit' => 0], ['account' => $offset, 'debit' => 0, 'credit' => $amt]]
@@ -174,6 +185,7 @@ class LoanCorrectionService
             'new'               => ['principal' => $newPrincipal, 'interest' => $newInterest],
             'principal_adjustment' => $adjustment,
             'journal_date'      => $journalDate,
+            'no_journal'        => $noJournal,
             'offset_account_id' => $offset?->id,
             'journal'           => array_map(fn ($l) => [
                 'account_id' => $l['account']->id, 'code' => $l['account']->account_code, 'name' => $l['account']->account_name,
