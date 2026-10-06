@@ -10,12 +10,13 @@ use App\Models\SavingsTransaction;
 use App\Models\Transaction;
 use App\Models\SystemSetting;
 use App\Services\AccountingService;
+use App\Services\SavingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PayrollController extends Controller {
-    public function __construct(protected AccountingService $accounting) {}
+    public function __construct(protected AccountingService $accounting, protected SavingsService $savingsService) {}
 
     public function index() {
         $runs = PayrollRun::withCount('items')->latest()->paginate(20);
@@ -424,6 +425,16 @@ class PayrollController extends Controller {
                         'created_by'         => auth()->id(),
                     ]);
                 }
+            }
+
+            // 4) The payment date is often back-dated (e.g. month end), so rebuild running balances
+            //    in date order -- otherwise later withdrawals show balances that exclude this pay.
+            $touched = $payroll->items->where('net_salary', '>', 0)->pluck('savings_account_id')->filter();
+            if ($journal['staff_savings_account']) {
+                $touched->push($journal['staff_savings_account']->id);
+            }
+            foreach (SavingsAccount::whereIn('id', $touched->unique())->get() as $account) {
+                $this->savingsService->recalculateLedger($account);
             }
 
             $payroll->update([
