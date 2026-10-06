@@ -466,7 +466,7 @@
             <i class="bi bi-chevron-right chevron"></i>
         </button>
         <div class="collapse nav-sub {{ request()->routeIs($savingsReportRoutes) ? 'show' : '' }}" id="savingsReportMenu">
-            <a href="{{ route('reports.savings-balances') }}"  class="nav-link-item {{ request()->routeIs('reports.savings-balances') ? 'active' : '' }}"><i class="bi bi-piggy-bank"></i> Savings Balances</a>
+            <a href="{{ route('reports.savings-balances') }}"  class="nav-link-item {{ request()->routeIs('reports.savings-balances') ? 'active' : '' }}"><i class="bi bi-piggy-bank"></i> Savings Report</a>
             <a href="{{ route('reports.fd-maturity') }}"       class="nav-link-item {{ request()->routeIs('reports.fd-maturity') ? 'active' : '' }}"><i class="bi bi-safe"></i> FD Maturity</a>
         </div>
         @endcan

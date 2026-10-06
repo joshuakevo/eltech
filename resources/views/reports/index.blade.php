@@ -16,7 +16,7 @@
         ['title'=>'Loan Aging','icon'=>'bi-clock-history','desc'=>'Overdue loans by age bucket','route'=>'reports.loan-aging','color'=>'danger'],
         ['title'=>'Repayment Schedule','icon'=>'bi-calendar3','desc'=>'Full schedule for a selected loan','route'=>'reports.repayment-schedule','color'=>'primary'],
         ['title'=>'Interest Income','icon'=>'bi-currency-dollar','desc'=>'Interest earned over a period','route'=>'reports.interest-income','color'=>'success'],
-        ['title'=>'Savings Balances','icon'=>'bi-piggy-bank','desc'=>'All active savings account balances','route'=>'reports.savings-balances','color'=>'info'],
+        ['title'=>'Savings Report','icon'=>'bi-piggy-bank','desc'=>'Saving trends, top savers, dormant & overdrawn accounts, balances','route'=>'reports.savings-balances','color'=>'info'],
         ['title'=>'FD Maturity','icon'=>'bi-safe','desc'=>'Fixed deposits maturing in a period','route'=>'reports.fd-maturity','color'=>'secondary'],
         ['title'=>'Member Summary','icon'=>'bi-people-fill','desc'=>'Savings, loans, FD & shares per member','route'=>'reports.member-summary','color'=>'primary'],
     ];

@@ -13,6 +13,7 @@ use App\Models\TransactionLine;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\AccountingService;
 use App\Services\SavingsService;
+use App\Services\SavingsInsightsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -429,32 +430,59 @@ class ReportController extends Controller
         return view('reports.interest-income', compact('rows', 'total', 'fromDate', 'toDate'));
     }
 
-    public function savingsBalances(Request $request)
+    public function savingsBalances(Request $request, SavingsInsightsService $insightsService)
     {
-        $accounts = SavingsAccount::with('client', 'product')
-            ->where('status', 'active')
-            ->when($request->product_id, fn($q) => $q->where('product_id', $request->product_id))
-            ->get();
+        $request->validate([
+            'period'     => 'nullable|string',
+            'from'       => 'nullable|date',
+            'to'         => 'nullable|date',
+            'product_id' => 'nullable|integer',
+        ]);
+        $productId = $request->integer('product_id') ?: null;
 
-        $total = $accounts->sum('balance');
+        [$from, $to, $period] = $insightsService->resolvePeriod($request->period, $request->from, $request->to);
 
-        if ($request->format === 'pdf') {
-            $pdf = Pdf::loadView('pdf.reports.savings-balances', compact('accounts', 'total'))
-                ->setPaper('a4', 'portrait');
-            return $pdf->download('savings-balances-' . now()->format('Y-m-d') . '.pdf');
-        }
+        // Previous period of the same length, for comparison
+        $days     = $from->diffInDays($to) + 1;
+        $prevTo   = $from->copy()->subDay();
+        $prevFrom = $prevTo->copy()->subDays($days - 1);
+
+        $flows     = $insightsService->flows($from, $to, $productId);
+        $previous  = $insightsService->flows($prevFrom, $prevTo, $productId);
+        $rows      = $insightsService->accounts($from, $to, $productId);
+        $insights  = $insightsService->insights($rows, $flows, $previous);
 
         if ($request->format === 'excel') {
-            $rows = [];
-            $rows[] = ['Account #', 'Client', 'Product', 'Balance', 'Status'];
-            foreach ($accounts as $acc) {
-                $rows[] = [$acc->account_number, $acc->client->name, $acc->product->name, $acc->balance, ucfirst($acc->status)];
+            $csv   = [];
+            $csv[] = ['Savings report', $from->format('d M Y') . ' – ' . $to->format('d M Y')];
+            $csv[] = ['Account #', 'Client', 'Product', 'Balance at start', 'Deposits', 'Interest', 'Withdrawals', 'Net saved', 'Current balance', 'Last deposit', 'Trend'];
+            foreach ($rows->sortBy('account.account_number') as $r) {
+                $csv[] = [
+                    $r->account->account_number, $r->account->client?->name, $r->account->product?->name,
+                    $r->opening, $r->deposits, $r->interest, $r->withdrawals, $r->net, $r->balance,
+                    $r->last_deposit?->format('Y-m-d') ?? '', ucfirst($r->trend),
+                ];
             }
-            $rows[] = ['', 'TOTAL', '', $total, ''];
-            return $this->csvDownload($rows, 'savings-balances-' . now()->format('Y-m-d'));
+            $csv[] = ['', 'TOTAL', '', $rows->sum('opening'), $rows->sum('deposits'), $rows->sum('interest'), $rows->sum('withdrawals'), $rows->sum('net'), $rows->sum('balance'), '', ''];
+            return $this->csvDownload($csv, 'savings-report-' . now()->format('Y-m-d'));
         }
 
-        return view('reports.savings-balances', compact('accounts', 'total'));
+        if ($request->format === 'pdf') {
+            $pdf = Pdf::loadView('pdf.reports.savings-balances', compact('rows', 'flows', 'previous', 'insights', 'from', 'to', 'period'))
+                ->setPaper('a4', 'landscape');
+            return $pdf->download('savings-report-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        $snapshots = $insightsService->snapshots($productId);
+        $trend     = $insightsService->trend($from, $to, $productId);
+        $weekdays  = $insightsService->weekdayPattern($from, $to, $productId);
+        $products  = \App\Models\SavingsProduct::orderBy('name')->get(['id', 'name']);
+        $presets   = SavingsInsightsService::PRESETS;
+
+        return view('reports.savings-balances', compact(
+            'rows', 'flows', 'previous', 'insights', 'snapshots', 'trend', 'weekdays',
+            'from', 'to', 'period', 'products', 'productId', 'presets'
+        ));
     }
 
     public function fixedDepositMaturity(Request $request)
