@@ -35,6 +35,9 @@ class LoanInterestService
     /** Loans brought over from the old system start day-based interest from this date. */
     public const TRANSFER_DATE = '2026-07-31';
 
+    /** True while preview() runs: nothing it writes may outlive the rollback. */
+    private bool $previewing = false;
+
     public function __construct(
         protected LoanService $loans,
         protected SavingsService $savings,
@@ -173,7 +176,7 @@ class LoanInterestService
             'interest_accrued_to'  => $to->toDateString(),
         ])->save();
 
-        LoanInterestCharge::create([
+        if (!$this->previewing) LoanInterestCharge::create([
             'loan_id' => $loan->id, 'loan_schedule_id' => $row->id,
             'from_date' => $from->toDateString(), 'to_date' => $to->toDateString(), 'days' => $days,
             'principal' => $prin, 'rate' => $rate, 'amount' => $accrued,
@@ -286,6 +289,7 @@ class LoanInterestService
     /** What run() would do, without saving anything (runs it and rolls back). */
     public function preview(Loan $loan, Carbon $date): array
     {
+        $this->previewing = true;
         DB::beginTransaction();
         try {
             return $this->run($loan, $date);
@@ -294,6 +298,7 @@ class LoanInterestService
                 'before' => ['principal' => round($loan->outstanding_principal, 2), 'interest' => round($loan->outstanding_interest, 2)]];
         } finally {
             DB::rollBack();
+            $this->previewing = false;
         }
     }
 

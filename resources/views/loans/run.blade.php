@@ -81,7 +81,7 @@
         </p>
     </div>
 
-    <form method="POST" action="{{ route('loans.run.process') }}" id="runForm" onsubmit="return confirm('Run the selected loans for {{ $date->format('d M Y') }}? Interest will be charged and installments recovered from savings.');">
+    <form method="POST" action="{{ route('loans.run.process') }}" id="runForm" onsubmit="if (this.dataset.sent) return false; if (!confirm('Run the selected loans for {{ $date->format('d M Y') }}? Interest will be charged and installments recovered from savings.')) return false; this.dataset.sent = 1; const b = document.getElementById('runBtn'); if (b) { b.disabled = true; b.innerHTML = '<span class=&quot;spinner-border spinner-border-sm me-1&quot;></span>Running…'; } return true;">
         @csrf
         <input type="hidden" name="date" value="{{ $date->toDateString() }}">
         <table class="table table-sm table-hover align-middle mb-0 run-table">
