@@ -36,7 +36,7 @@
     <div class="table-responsive">
         <table class="table table-sm table-hover mb-0 small">
             <thead class="table-light"><tr>
-                <th>Run #</th><th>Period</th><th class="text-end">Gross Pay</th><th class="text-end">Deductions</th><th class="text-end">Net</th><th>Status</th>
+                <th>Run #</th><th>Period</th><th class="text-end">Gross Pay</th><th class="text-end">Net</th><th>Status</th>
             </tr></thead>
             <tbody>
             @forelse($employee->payrollItems as $item)
@@ -44,7 +44,6 @@
                 <td class="font-monospace"><a href="{{ route('payroll.show', $item->payroll_run_id) }}">{{ $item->payrollRun->run_number }}</a></td>
                 <td>{{ $item->payrollRun->period_label }}</td>
                 <td class="text-end">{{ number_format($item->basic_salary + $item->allowances, 0) }}</td>
-                <td class="text-end text-danger">{{ number_format($item->deductions, 0) }}</td>
                 <td class="text-end fw-semibold">{{ number_format($item->net_salary, 0) }}</td>
                 <td><span class="badge {{ $item->payrollRun->status === 'processed' ? 'bg-success' : 'bg-warning text-dark' }}">{{ ucfirst($item->payrollRun->status) }}</span></td>
             </tr>

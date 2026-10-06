@@ -106,6 +106,8 @@ When a manual journal entry line has a `client_id` attached (`transaction_lines.
 | `client` | `reverseMembershipFeeImpact` | Membership fee paid on client (when description matches fee flow) |
 | `loan_provision` | `reverseLoanProvisionImpact` | Marks the `loan_provisions` run `reversed` (GL unwound by the reversal entry) |
 
+**Payroll journal** (`PayrollController::buildJournal`, shared by the pre-process preview and the posting): DR **5003** Staff Salaries / **5103** Agency Commissions (gross, by employee `pay_type`), DR **5104** NSSF Expense (10%), DR **5110** Local Travel (transport); CR **2011** NSSF Liability (5% + 10%), CR **2012** PAYE Liability, CR **4007** Other Income (lunch), CR Staff Savings (deposited into the savings account set in setting `payroll_staff_savings_account`, default `SA-SK00037` "Staff Saving Account" — one `savings_transactions` row per employee, linked via `transaction_id`), CR each employee's savings liability (net pay). Net = Gross − PAYE − NSSF 5% − Lunch − Staff Savings + Transport. PAYE/NSSF are editable per employee (blank = statutory calc).
+
 **Payroll implementation rule:** `PayrollController::process` posts the GL journal **first**, then creates each salary **`savings_transactions`** row with **`transaction_id`** pointing at that journal so payroll reversals update **client savings statements and balances**.
 
 **Loan fees from savings:** `LoanService` posts the fee journal then sets **`savings_transactions.transaction_id`** (and reference) on the withdrawal row so reversal unwinds the savings statement.

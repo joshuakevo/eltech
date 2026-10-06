@@ -7,6 +7,8 @@ use App\Models\PayrollItem;
 use App\Models\SavingsAccount;
 use App\Models\PayrollRun;
 use App\Models\SavingsTransaction;
+use App\Models\Transaction;
+use App\Models\SystemSetting;
 use App\Services\AccountingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,7 +101,6 @@ class PayrollController extends Controller {
             'items.*.lunch'          => 'nullable|numeric|min:0',
             'items.*.transport'      => 'nullable|numeric|min:0',
             'items.*.staff_savings'  => 'nullable|numeric|min:0',
-            'items.*.deductions'     => 'nullable|numeric|min:0',
         ]);
     }
 
@@ -118,7 +119,6 @@ class PayrollController extends Controller {
             $transport    = (float) ($item['transport'] ?? 0);
             // Blank staff savings means the default (50,000); enter 0 for someone who doesn't save.
             $staffSavings = $this->amountOrDefault($item['staff_savings'] ?? null, PayrollItem::DEFAULT_STAFF_SAVINGS);
-            $deduct       = (float) ($item['deductions'] ?? 0);
 
             // PAYE / NSSF default to the statutory calculation on gross, but can be
             // overridden per employee (e.g. someone not charged PAYE or NSSF).
@@ -128,7 +128,7 @@ class PayrollController extends Controller {
             $nssfEmployer = $this->amountOrDefault($item['nssf_employer'] ?? null, PayrollItem::calculateNssfEmployer($gross));
 
             // Lunch and staff savings are deducted from net; transport is paid on top (not taxed).
-            $net       = $gross - $paye - $nssfEmployee - $deduct - $lunch - $staffSavings + $transport;
+            $net       = $gross - $paye - $nssfEmployee - $lunch - $staffSavings + $transport;
             $totalNet += $net;
 
             PayrollItem::create([
@@ -144,7 +144,7 @@ class PayrollController extends Controller {
                 'lunch'              => $lunch,
                 'transport'          => $transport,
                 'staff_savings'      => $staffSavings,
-                'deductions'         => $deduct,
+                'deductions'         => 0,
                 'net_salary'         => $net,
             ]);
         }
@@ -158,7 +158,178 @@ class PayrollController extends Controller {
 
     public function show(PayrollRun $payroll) {
         $payroll->load('items.employee.client', 'items.savingsAccount.product', 'processedBy');
-        return view('payroll.show', compact('payroll'));
+
+        $journalPreview = null;
+        $postedJournal  = null;
+        if ($payroll->status === 'draft') {
+            $journalPreview = $this->buildJournal($payroll);
+        } else {
+            $postedJournal = Transaction::with('lines.account')
+                ->where('module', 'payroll')
+                ->where('module_id', $payroll->id)
+                ->whereNull('reversal_of')
+                ->whereNull('reversed_by')
+                ->latest('id')
+                ->first();
+        }
+
+        return view('payroll.show', compact('payroll', 'journalPreview', 'postedJournal'));
+    }
+
+    /**
+     * Builds the double-entry journal processing this run will post, per employee then summed:
+     *   DR 5003 Staff Salaries / 5103 Agency Commissions   gross pay (by pay type)
+     *   DR 5104 NSSF Expense (10%)                         employer NSSF 10%
+     *   DR 5110 Local Travel                               transport
+     *   CR 2011 NSSF Liability                             NSSF 5% + 10%
+     *   CR 2012 PAYE Liability                             PAYE
+     *   CR 4007 Other Income                               lunch
+     *   CR Staff Saving Account's savings liability         staff savings (deposited to that savings account)
+     *   CR savings liability (employee's savings product)  net pay
+     * Used for both the pre-process preview and the actual posting, so they always agree.
+     *
+     * @return array{lines: array, total_debit: float, total_credit: float, total_net: float, staff_savings_account: ?SavingsAccount, issues: string[]}
+     */
+    private function buildJournal(PayrollRun $payroll): array {
+        $issues     = [];
+        $byCode     = [];   // account code => ['debit' => x, 'credit' => y, 'description' => ...]
+        $byAccount  = [];   // savings liability account id => net credited
+        $totalNet   = 0;
+        $totalStaffSavings = 0;
+
+        $add = function (string $code, float $debit, float $credit, string $description) use (&$byCode) {
+            if (round($debit, 2) == 0 && round($credit, 2) == 0) {
+                return;
+            }
+            $byCode[$code] ??= ['debit' => 0, 'credit' => 0, 'description' => $description];
+            $byCode[$code]['debit']  += $debit;
+            $byCode[$code]['credit'] += $credit;
+        };
+
+        foreach ($payroll->items as $item) {
+            $name = $item->employee?->name ?? 'Employee #' . $item->employee_id;
+
+            // Runs saved before the Deductions column was removed have no account to post it to.
+            if ($item->deductions > 0) {
+                $issues[] = "{$name} has an old \"Deductions\" amount (" . number_format($item->deductions, 0) . "), which is no longer used. Edit the run and save it again.";
+                continue;
+            }
+
+            $net = (float) $item->net_salary;
+            if ($net < 0) {
+                $issues[] = "{$name}'s net pay is negative (" . number_format($net, 0) . "). Reduce their deductions.";
+                continue;
+            }
+            if ($net > 0) {
+                $acc = $item->savingsAccount;
+                if (!$item->savings_account_id) {
+                    $issues[] = "{$name} has no payroll savings account linked. Edit the employee and assign an active savings account.";
+                    continue;
+                }
+                if (!$acc || $acc->status !== 'active') {
+                    $issues[] = "{$name}'s linked savings account is missing or not active.";
+                    continue;
+                }
+                $liabilityAccId = $acc->product?->savings_liability_account_id;
+                if (!$liabilityAccId) {
+                    $pn = $acc->product?->name ?? '(missing product)';
+                    $issues[] = "Savings product “{$pn}” has no liability GL account. Configure it under Savings Products.";
+                    continue;
+                }
+                $byAccount[$liabilityAccId] = ($byAccount[$liabilityAccId] ?? 0) + $net;
+                $totalNet += $net;
+            }
+
+            $payType     = $item->pay_type ?: 'salary';
+            $expenseCode = Employee::PAY_TYPE_EXPENSE_ACCOUNTS[$payType] ?? Employee::PAY_TYPE_EXPENSE_ACCOUNTS['salary'];
+            $gross       = (float) $item->basic_salary + (float) $item->allowances;
+
+            $add($expenseCode, $gross, 0, Employee::payTypeLabel($payType) . " — gross pay");
+            $add(PayrollItem::GL_NSSF_EXPENSE, (float) $item->nssf_employer, 0, 'Employer NSSF 10%');
+            $add(PayrollItem::GL_TRANSPORT, (float) $item->transport, 0, 'Staff transport');
+            $add(PayrollItem::GL_NSSF_LIABILITY, 0, (float) $item->nssf_employee + (float) $item->nssf_employer, 'NSSF 5% employee + 10% employer');
+            $add(PayrollItem::GL_PAYE_LIABILITY, 0, (float) $item->paye, 'PAYE deducted');
+            $add(PayrollItem::GL_LUNCH_INCOME, 0, (float) $item->lunch, 'Lunch deducted');
+            $totalStaffSavings += (float) $item->staff_savings;
+        }
+
+        // Staff savings go into one designated savings account (Settings → Financial).
+        $staffAccount = null;
+        if (round($totalStaffSavings, 2) > 0) {
+            $number       = trim((string) SystemSetting::get(PayrollItem::STAFF_SAVINGS_SETTING, ''));
+            $staffAccount = $number !== '' ? SavingsAccount::with('product', 'client')->where('account_number', $number)->first() : null;
+            if (!$staffAccount) {
+                $issues[] = $number === ''
+                    ? 'No Staff Savings account is set. Set "Payroll — Staff Savings account number" under Settings → Financial.'
+                    : "Staff Savings account {$number} was not found. Check \"Payroll — Staff Savings account number\" under Settings → Financial.";
+            } elseif ($staffAccount->status !== 'active') {
+                $issues[] = "Staff Savings account {$number} is not active.";
+                $staffAccount = null;
+            } elseif (!$staffAccount->product?->savings_liability_account_id) {
+                $issues[] = "Staff Savings account {$number}'s savings product has no liability GL account. Configure it under Savings Products.";
+                $staffAccount = null;
+            }
+        }
+
+        ksort($byCode);
+        $accounts = Account::whereIn('account_code', array_keys($byCode))->get()->keyBy('account_code');
+        $lines = [];
+        // Debits first, then credits -- reads like a normal journal.
+        foreach ([true, false] as $debitSide) {
+            foreach ($byCode as $code => $row) {
+                if (($row['debit'] > 0) !== $debitSide) {
+                    continue;
+                }
+                $account = $accounts->get((string) $code);
+                if (!$account) {
+                    $issues[] = "Chart of accounts is missing account {$code} (needed for {$row['description']}). Add it under Chart of Accounts, or run migrations.";
+                    continue;
+                }
+                $lines[] = [
+                    'account_id'  => $account->id,
+                    'account'     => $account,
+                    'debit'       => round($row['debit'], 2),
+                    'credit'      => round($row['credit'], 2),
+                    'description' => "{$row['description']} — {$payroll->run_number}",
+                ];
+            }
+        }
+
+        $savingsAccounts = Account::whereIn('id', array_keys($byAccount))->get()->keyBy('id');
+        foreach ($byAccount as $accountId => $amount) {
+            $lines[] = [
+                'account_id'  => $accountId,
+                'account'     => $savingsAccounts->get($accountId),
+                'debit'       => 0,
+                'credit'      => round($amount, 2),
+                'description' => "Net pay credited to savings — {$payroll->run_number}",
+            ];
+        }
+
+        if ($staffAccount) {
+            $lines[] = [
+                'account_id'  => $staffAccount->product->savings_liability_account_id,
+                'account'     => Account::find($staffAccount->product->savings_liability_account_id),
+                'debit'       => 0,
+                'credit'      => round($totalStaffSavings, 2),
+                'description' => "Staff savings to {$staffAccount->account_number}" . ($staffAccount->client ? " ({$staffAccount->client->name})" : '') . " — {$payroll->run_number}",
+            ];
+        }
+
+        $totalDebit  = round(array_sum(array_column($lines, 'debit')), 2);
+        $totalCredit = round(array_sum(array_column($lines, 'credit')), 2);
+        if (!$issues && abs($totalDebit - $totalCredit) > 0.01) {
+            $issues[] = 'Journal does not balance (debits ' . number_format($totalDebit, 2) . ' vs credits ' . number_format($totalCredit, 2) . '). Edit the run and save it again to recalculate net pay.';
+        }
+
+        return [
+            'lines'        => $lines,
+            'total_debit'  => $totalDebit,
+            'total_credit' => $totalCredit,
+            'total_net'    => round($totalNet, 2),
+            'staff_savings_account' => $staffAccount,
+            'issues'       => array_values(array_unique($issues)),
+        ];
     }
 
     public function process(Request $request, PayrollRun $payroll) {
@@ -171,90 +342,23 @@ class PayrollController extends Controller {
 
         $payroll->load('items.employee.client', 'items.savingsAccount.product');
 
-        // Each pay type debits its own expense account: Salary -> 5003, Agency Commission -> 5103.
-        $expenseAccountIds = [];
-        foreach ($payroll->items->pluck('pay_type')->map(fn ($t) => $t ?: 'salary')->unique() as $payType) {
-            $code = Employee::PAY_TYPE_EXPENSE_ACCOUNTS[$payType] ?? Employee::PAY_TYPE_EXPENSE_ACCOUNTS['salary'];
-            $accountId = Account::where('account_code', $code)->value('id');
-            if (!$accountId) {
-                $label = Employee::payTypeLabel($payType);
-                throw ValidationException::withMessages([
-                    'payment_date' => "Chart of accounts is missing the {$label} expense account (code {$code}). Add it under Chart of Accounts.",
-                ]);
-            }
-            $expenseAccountIds[$payType] = $accountId;
+        $journal = $this->buildJournal($payroll);
+        if ($journal['issues']) {
+            throw ValidationException::withMessages(['payment_date' => 'Cannot process: ' . $journal['issues'][0]]);
         }
 
-        foreach ($payroll->items as $item) {
-            if ($item->net_salary <= 0) {
-                continue;
-            }
-            if (!$item->savings_account_id) {
-                $name = $item->employee?->name ?? 'Employee #' . $item->employee_id;
-                throw ValidationException::withMessages([
-                    'payment_date' => "Cannot process: {$name} has no payroll savings account linked. Edit the employee and assign an active savings account.",
-                ]);
-            }
-            $acc = $item->savingsAccount;
-            if (!$acc || $acc->status !== 'active') {
-                $name = $item->employee?->name ?? 'Employee #' . $item->employee_id;
-                throw ValidationException::withMessages([
-                    'payment_date' => "Cannot process: {$name}'s linked savings account is missing or not active.",
-                ]);
-            }
-            $product = $acc->product;
-            if (!$product || !$product->savings_liability_account_id) {
-                $pn = $product?->name ?? '(missing product)';
-                throw ValidationException::withMessages([
-                    'payment_date' => "Cannot process: savings product “{$pn}” has no liability GL account. Configure it under Savings Products.",
-                ]);
-            }
-        }
+        $journalTx = null;
+        DB::transaction(function () use ($payroll, $paymentDate, $journal, &$journalTx) {
+            $totalNet = $journal['total_net'];
 
-        DB::transaction(function () use ($payroll, $paymentDate, $expenseAccountIds) {
-            $totalNet    = 0;
-            $debitLines  = [];
-            $creditLines = [];
-
-            // 1) Totals + journal lines (no sub-ledger writes yet)
-            foreach ($payroll->items as $item) {
-                if (!$item->savings_account_id || $item->net_salary <= 0) {
-                    continue;
-                }
-
-                $savingsProduct = $item->savingsAccount->product;
-                $totalNet += $item->net_salary;
-
-                $payType = $item->pay_type ?: 'salary';
-                $debitLines[$payType] = ($debitLines[$payType] ?? 0) + $item->net_salary;
-
-                $liabilityAccId = $savingsProduct->savings_liability_account_id;
-                if (!isset($creditLines[$liabilityAccId])) {
-                    $creditLines[$liabilityAccId] = 0;
-                }
-                $creditLines[$liabilityAccId] += $item->net_salary;
-            }
-
-            // 2) Post GL first so we have transaction.id for savings_transactions.transaction_id
-            $journalTx = null;
-            if ($totalNet > 0) {
-                $journalLines = [];
-                foreach ($debitLines as $payType => $amount) {
-                    $journalLines[] = [
-                        'account_id'  => $expenseAccountIds[$payType],
-                        'debit'       => $amount,
-                        'credit'      => 0,
-                        'description' => Employee::payTypeLabel($payType) . " expense — {$payroll->run_number}",
-                    ];
-                }
-                foreach ($creditLines as $accountId => $amount) {
-                    $journalLines[] = [
-                        'account_id'  => $accountId,
-                        'debit'       => 0,
-                        'credit'      => $amount,
-                        'description' => "Pay credited to savings — {$payroll->run_number}",
-                    ];
-                }
+            // 1) Post GL first so we have transaction.id for savings_transactions.transaction_id
+            if ($journal['total_debit'] > 0) {
+                $journalLines = array_map(fn ($l) => [
+                    'account_id'  => $l['account_id'],
+                    'debit'       => $l['debit'],
+                    'credit'      => $l['credit'],
+                    'description' => $l['description'],
+                ], $journal['lines']);
 
                 $journalTx = $this->accounting->post(
                     $paymentDate,
@@ -265,7 +369,7 @@ class PayrollController extends Controller {
                 );
             }
 
-            // 3) Credit savings + statement lines linked to the journal (enables reversal)
+            // 2) Credit savings + statement lines linked to the journal (enables reversal)
             foreach ($payroll->items as $item) {
                 if (!$item->savings_account_id || $item->net_salary <= 0) {
                     continue;
@@ -295,6 +399,33 @@ class PayrollController extends Controller {
                 ]);
             }
 
+            // 3) Staff savings: one deposit per employee on the Staff Savings account, linked to the journal
+            if ($journal['staff_savings_account']) {
+                $staffAccount = SavingsAccount::query()->whereKey($journal['staff_savings_account']->id)->lockForUpdate()->first();
+                foreach ($payroll->items as $item) {
+                    if ($item->staff_savings <= 0) {
+                        continue;
+                    }
+                    $balBefore = (float) $staffAccount->balance;
+                    $balAfter  = $balBefore + $item->staff_savings;
+                    $staffAccount->update(['balance' => $balAfter]);
+
+                    $name = $item->employee?->name ?? 'Employee #' . $item->employee_id;
+                    SavingsTransaction::create([
+                        'savings_account_id' => $staffAccount->id,
+                        'transaction_type'   => 'deposit',
+                        'amount'             => $item->staff_savings,
+                        'balance_before'     => $balBefore,
+                        'balance_after'      => $balAfter,
+                        'transaction_date'   => $paymentDate,
+                        'reference'          => $journalTx?->reference,
+                        'description'        => "Staff savings — {$name} — {$payroll->run_number} ({$payroll->period_label})",
+                        'transaction_id'     => $journalTx?->id,
+                        'created_by'         => auth()->id(),
+                    ]);
+                }
+            }
+
             $payroll->update([
                 'status'       => 'processed',
                 'processed_by' => auth()->id(),
@@ -303,7 +434,9 @@ class PayrollController extends Controller {
             ]);
         });
 
-        return redirect()->route('payroll.show', $payroll)->with('success', 'Payroll processed. Salaries credited to employee savings accounts.');
+        return redirect()->route('payroll.show', $payroll)->with('success',
+            'Payroll processed' . ($journalTx ? " — journal {$journalTx->reference}" : '')
+            . '. ' . number_format($journal['total_net'], 0) . ' net pay credited to employee savings accounts. See the journal breakdown below.');
     }
 
     public function destroy(PayrollRun $payroll) {

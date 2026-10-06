@@ -29,6 +29,18 @@ class PayrollItem extends Model {
     public const DEFAULT_STAFF_SAVINGS = 50000;
 
     /**
+     * GL accounts used when a payroll run is processed (besides the pay-type expense
+     * account on Employee and each employee's savings liability account).
+     */
+    public const GL_NSSF_EXPENSE   = '5104'; // DR employer NSSF 10%
+    public const GL_TRANSPORT      = '5110'; // DR transport (Local Travel)
+    public const GL_NSSF_LIABILITY = '2011'; // CR NSSF 5% + 10%
+    public const GL_PAYE_LIABILITY = '2012'; // CR PAYE
+    public const GL_LUNCH_INCOME   = '4007'; // CR lunch (Other Income)
+    // Staff savings are deposited into a savings account (setting: payroll_staff_savings_account).
+    public const STAFF_SAVINGS_SETTING = 'payroll_staff_savings_account';
+
+    /**
      * Uganda monthly PAYE (resident individuals, employment income), marginal bands:
      *   0 – 335,000: nil
      *   335,001 – 410,000: 20% of excess over 335,000
