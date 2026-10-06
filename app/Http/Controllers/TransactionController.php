@@ -990,8 +990,10 @@ class TransactionController extends Controller
         $remainingPrincipal = $repayment->principal_paid;
         $remainingInterest  = $repayment->interest_paid;
 
+        // Unwind from any installment carrying payments, whatever its status: a part-paid
+        // installment that has since fallen due is relabelled "overdue" but still holds the money.
         $loan->schedules()
-            ->whereIn('status', ['paid', 'partial'])
+            ->where(fn ($q) => $q->where('principal_paid', '>', 0)->orWhere('interest_paid', '>', 0))
             ->orderByDesc('installment_no')
             ->each(function ($schedule) use (&$remainingPrincipal, &$remainingInterest) {
                 if ($remainingPrincipal <= 0 && $remainingInterest <= 0) return false;
