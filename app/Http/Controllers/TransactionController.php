@@ -1036,6 +1036,15 @@ class TransactionController extends Controller
                 $schedule->save();
             });
 
+        // Day-based loans: interest the repayment paid beyond its installments was carried
+        // interest — give it back, then re-project the installments not yet charged.
+        if ($loan->isDayBasedInterest()) {
+            if ($remainingInterest > 0.005) {
+                $loan->update(['interest_carried' => round((float) $loan->interest_carried + $remainingInterest, 2)]);
+            }
+            app(\App\Services\LoanInterestService::class)->rebalance($loan->fresh());
+        }
+
         $repayment->delete();
     }
 

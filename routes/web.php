@@ -223,6 +223,8 @@ Route::middleware('auth')->group(function () {
         ->name('loans.index')->middleware('permission:view loans');
     Route::get('loans/run', [LoanController::class, 'run'])
         ->name('loans.run')->middleware('permission:run loans');
+    Route::post('loans/run', [LoanController::class, 'runProcess'])
+        ->name('loans.run.process')->middleware(['permission:run loans', 'permission:repay loans']);
     Route::get('loans/{loan}', [LoanController::class, 'show'])
         ->name('loans.show')->middleware('permission:view loans');
     Route::get('loans/{loan}/schedule', [LoanController::class, 'schedule'])

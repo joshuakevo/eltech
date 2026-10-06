@@ -147,12 +147,18 @@ class ReconcileData extends Command
             if ($scheduleRemaining && $scheduleRemaining->cnt > 0) {
                 $correctPrincipal = max(0, (float) $scheduleRemaining->rem);
 
-                // Interest = sum of (interest_due - interest_paid) across unpaid/partial schedules
+                // Interest = sum of (interest_due - interest_paid) across unpaid/partial schedules.
+                // Day-based loans: only charged installments count (others hold projections),
+                // plus interest carried forward.
                 $correctInterest = max(0, (float) DB::table('loan_schedules')
                     ->where('loan_id', $loan->id)
                     ->whereIn('status', ['pending', 'partial', 'overdue'])
+                    ->when($loan->interest_accrued_to !== null, fn ($q) => $q->where('interest_charged', true))
                     ->selectRaw('COALESCE(SUM(interest_due - interest_paid), 0) as rem')
                     ->value('rem'));
+                if ($loan->interest_accrued_to !== null) {
+                    $correctInterest = max(0, $correctInterest + (float) $loan->interest_carried);
+                }
             } else {
                 // No schedule rows to reconcile against (e.g. opening-balance/locked-up
                 // loans imported directly with a manually-set outstanding_interest and

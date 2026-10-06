@@ -96,41 +96,77 @@ class LoanController extends Controller
      * to), so a collector can pick a date and see everyone due that day
      * along with when each one last paid.
      */
-    public function run(Request $request)
+    public function run(Request $request, \App\Services\LoanInterestService $interest)
     {
-        $date = $request->date ? \Carbon\Carbon::parse($request->date) : today();
+        $date = $request->date ? \Carbon\Carbon::parse($request->date)->startOfDay() : today();
         $day  = $date->day;
 
         $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
 
-        $loans = Loan::with([
-                'client.activeSavingsAccounts',
-                'schedules' => fn ($q) => $q->where('status', '!=', 'paid')->orderBy('due_date'),
-                'repayments' => fn ($q) => $q->orderByDesc('payment_date'),
-            ])
+        // Loans due on this date: anniversary day-of-month, or an installment falling on the date
+        // (covers month-end due dates that shift, e.g. 31st -> 30th).
+        $loans = Loan::with(['client', 'product'])
             ->where('status', 'active')
             ->whereNotNull('disbursement_date')
-            ->whereRaw('DAY(disbursement_date) = ?', [$day])
+            ->where(fn ($q) => $q->whereRaw('DAY(disbursement_date) = ?', [$day])
+                ->orWhereHas('schedules', fn ($s) => $s->whereDate('due_date', $date->toDateString())))
             ->when($lockedUpProductId, fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('loan_product_id', '!=', $lockedUpProductId)
                 ->orWhereNull('loan_product_id')))
-            ->when($request->search, fn ($q) => $q->where('loan_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn ($q2) => $q2->where('name', 'like', "%{$request->search}%")))
+            ->when($request->search, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_number', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn ($q3) => $q3->where('name', 'like', "%{$request->search}%"))))
             ->get()
-            ->map(function ($loan) {
-                $loan->next_schedule    = $loan->schedules->first();
-                $loan->last_recovered   = optional($loan->repayments->first())->payment_date;
-                $loan->savings_balance  = $loan->client ? $loan->client->activeSavingsAccounts->sum('balance') : 0;
-                return $loan;
-            })
             ->sortBy(fn ($loan) => $loan->client->name ?? '')
             ->values();
 
-        $totalPrincipalBalance = $loans->sum('outstanding_principal');
-        $totalInterestBalance  = $loans->sum('outstanding_interest');
-        $totalCount            = $loans->count();
+        // Preview = the real run, rolled back -- so what you see is exactly what Run will do.
+        $previews = $loans->mapWithKeys(fn ($loan) => [$loan->id => $interest->preview($loan, $date)]);
 
-        return view('loans.run', compact('loans', 'date', 'day', 'totalPrincipalBalance', 'totalInterestBalance', 'totalCount'));
+        $totals = [
+            'principal' => $loans->sum('outstanding_principal'),
+            'interest'  => $loans->sum('outstanding_interest'),
+            'charge'    => $previews->sum(fn ($p) => collect($p['steps'])->sum('accrued')),
+            'recover'   => $previews->sum(fn ($p) => collect($p['steps'])->sum(fn ($s) => $s['recovery']['recovered'] ?? 0)),
+            'expected'  => $previews->sum(fn ($p) => collect($p['steps'])->sum(fn ($s) => $s['recovery']['expected'] ?? 0)),
+        ];
+        $totalCount = $loans->count();
+
+        return view('loans.run', compact('loans', 'previews', 'date', 'day', 'totals', 'totalCount'));
+    }
+
+    /** Runs the selected loans for the date: charge day-based interest, recover from savings. */
+    public function runProcess(Request $request, \App\Services\LoanInterestService $interest)
+    {
+        $request->validate([
+            'date'       => ['required', 'date', 'before_or_equal:today'],
+            'loan_ids'   => 'required|array|min:1',
+            'loan_ids.*' => 'integer|exists:loans,id',
+        ]);
+        $date = \Carbon\Carbon::parse($request->date)->startOfDay();
+
+        $results = [];
+        foreach (Loan::with('client')->whereIn('id', $request->loan_ids)->get() as $loan) {
+            try {
+                $r = $interest->run($loan, $date);
+            } catch (\Throwable $e) {
+                $r = ['loan_id' => $loan->id, 'steps' => [], 'errors' => [$e->getMessage()]];
+            }
+            $results[] = [
+                'loan'      => $loan->loan_number,
+                'client'    => $loan->client->name ?? '—',
+                'charged'   => round(collect($r['steps'])->sum('accrued'), 2),
+                'recovered' => round(collect($r['steps'])->sum(fn ($s) => $s['recovery']['recovered'] ?? 0), 2),
+                'expected'  => round(collect($r['steps'])->sum(fn ($s) => $s['recovery']['expected'] ?? 0), 2),
+                'errors'    => $r['errors'] ?? [],
+            ];
+        }
+
+        $ok = collect($results)->filter(fn ($r) => !$r['errors'])->count();
+        return redirect()->route('loans.run', ['date' => $date->toDateString()])
+            ->with('run_results', $results)
+            ->with('success', "Run complete for {$date->format('d M Y')}: {$ok} of " . count($results) . ' loans processed, '
+                . number_format(collect($results)->sum('charged'), 0) . ' interest charged, '
+                . number_format(collect($results)->sum('recovered'), 0) . ' recovered from savings.');
     }
 
     public function store(Request $request)

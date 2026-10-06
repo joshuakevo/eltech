@@ -367,7 +367,7 @@ class SavingsService
      * derived from the savings_transactions ledger.
      * Falls back to 0 if no transactions exist on or before that date.
      */
-    protected function balanceAsOf(SavingsAccount $account, string $date): float
+    public function balanceAsOf(SavingsAccount $account, string $date): float
     {
         $last = SavingsTransaction::where('savings_account_id', $account->id)
             ->where('transaction_date', '<=', $date)

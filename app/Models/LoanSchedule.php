@@ -11,7 +11,7 @@ class LoanSchedule extends Model
 
     protected $fillable = [
         'loan_id', 'installment_no', 'due_date', 'principal_due', 'interest_due',
-        'total_due', 'balance_after', 'principal_paid', 'interest_paid', 'status',
+        'total_due', 'balance_after', 'principal_paid', 'interest_paid', 'interest_charged', 'status',
     ];
 
     protected $casts = [
@@ -22,6 +22,7 @@ class LoanSchedule extends Model
         'balance_after'  => 'float',
         'principal_paid' => 'float',
         'interest_paid'  => 'float',
+        'interest_charged' => 'boolean',
     ];
 
     public function loan()

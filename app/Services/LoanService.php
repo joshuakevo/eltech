@@ -198,9 +198,9 @@ class LoanService
             ]);
         }
 
-        $loan->update([
-            'outstanding_interest' => $loan->schedules()->sum('interest_due'),
-        ]);
+        // Day-based interest: nothing is charged at disbursement; Run Loans charges
+        // principal × rate × days / 365 on each due date. Installments hold projections.
+        app(LoanInterestService::class)->initialiseNewLoan($loan->fresh());
     }
 
     /**
@@ -350,10 +350,32 @@ class LoanService
                     ->orderBy('installment_no')
                     ->get();
 
+                // Day-based loans: only charged interest is owed. Pay charged installments
+                // first, then carried interest, then principal ahead on later installments
+                // (their projected interest is not owed yet).
+                $dayBased = $loan->isDayBasedInterest();
+                if ($dayBased) {
+                    $charged   = $schedules->filter(fn ($s) => $s->interest_charged);
+                    $uncharged = $schedules->filter(fn ($s) => !$s->interest_charged);
+                    $schedules = $charged->values();
+                }
+
+                $carriedPaid = 0;
+                foreach ([1, 2] as $pass) {
+                if ($pass === 2) {
+                    if (!$dayBased) break;
+                    $carried = max(0, (float) $loan->interest_carried);
+                    if ($remaining > 0 && $carried > 0) {
+                        $carriedPaid   = min($remaining, $carried);
+                        $interestPaid += $carriedPaid;
+                        $remaining    -= $carriedPaid;
+                    }
+                    $schedules = $uncharged->values();
+                }
                 foreach ($schedules as $schedule) {
                     if ($remaining <= 0) break;
 
-                    $iDue = $schedule->interest_due - $schedule->interest_paid;
+                    $iDue = ($dayBased && !$schedule->interest_charged) ? 0 : $schedule->interest_due - $schedule->interest_paid;
                     if ($remaining > 0 && $iDue > 0) {
                         $iApply = min($remaining, $iDue);
                         $schedule->interest_paid += $iApply;
@@ -379,6 +401,11 @@ class LoanService
                     }
 
                     $schedule->save();
+                }
+                }
+                if ($carriedPaid > 0) {
+                    $loan->interest_carried = round((float) $loan->interest_carried - $carriedPaid, 2);
+                    $loan->save();
                 }
             }
 
@@ -428,6 +455,8 @@ class LoanService
 
             if ($newPrincipal <= 0.01 && $newInterest <= 0.01 && $newPenalty <= 0.01) {
                 $loan->update(['status' => 'closed']);
+            } elseif ($loan->isDayBasedInterest() && !$loan->isLockedUp()) {
+                app(LoanInterestService::class)->rebalance($loan->fresh());
             }
 
             return $repayment;

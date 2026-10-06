@@ -219,7 +219,8 @@ class LoanCorrectionService
                 'offset_account_id'    => $plan['journal'] ? $plan['offset_account_id'] : null,
                 'reason'               => $reason,
                 'snapshot'             => [
-                    'loan'      => $loan->only(['outstanding_principal', 'outstanding_interest', 'outstanding_penalty', 'status']),
+                    'loan'      => $loan->only(['outstanding_principal', 'outstanding_interest', 'outstanding_penalty', 'status',
+                        'interest_accrued_to', 'interest_carried', 'installment_amount']),
                     // Repayments that existed at correction time: undo is only safe while this set is unchanged.
                     'repayment_ids' => LoanRepayment::where('loan_id', $loan->id)->orderBy('id')->pluck('id')->all(),
                     'schedules' => $loan->schedules()->orderBy('installment_no')->get()
@@ -273,7 +274,14 @@ class LoanCorrectionService
                 'outstanding_principal' => $plan['new']['principal'],
                 'outstanding_interest'  => $plan['new']['interest'],
                 'status'                => $status,
+                'interest_accrued_to'   => null,   // re-based below from the as-at date
             ]);
+
+            // Day-based interest restarts from the as-at date: the corrected interest is what
+            // was owing then (carried), and Run Loans charges days from there.
+            if (!$loan->isLockedUp() && $status === 'active') {
+                app(LoanInterestService::class)->convert($loan->fresh(), Carbon::parse($plan['as_at'])->addDay());
+            }
 
             $this->audit('loan_correction', "Corrected {$loan->loan_number} as at {$plan['as_at']}: principal "
                 . number_format($plan['old']['principal'], 2) . ' → ' . number_format($plan['new']['principal'], 2)
@@ -339,7 +347,8 @@ class LoanCorrectionService
             foreach ($snap['schedules'] ?? [] as $attrs) {
                 LoanSchedule::create(collect($attrs)->except(['created_at', 'updated_at'])->all());
             }
-            $loan->update($snap['loan']);
+            // Older snapshots predate day-based interest: restore those loans to "not converted".
+            $loan->forceFill($snap['loan'] + ['interest_accrued_to' => null, 'interest_carried' => 0, 'installment_amount' => null])->save();
 
             $correction->update(['status' => 'reversed', 'reversed_at' => now(), 'reversed_by' => auth()->id()]);
             $this->audit('loan_correction_undone', "Undid balance correction #{$correction->id} on {$loan->loan_number}");

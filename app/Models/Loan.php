@@ -14,6 +14,7 @@ class Loan extends Model
         'loan_number', 'client_id', 'loan_product_id', 'principal', 'interest_rate',
         'interest_method', 'repayment_frequency', 'term_months', 'disbursement_date', 'maturity_date',
         'outstanding_principal', 'outstanding_interest', 'outstanding_penalty',
+        'interest_accrued_to', 'interest_carried', 'installment_amount',
         'application_fee', 'application_fee_rate', 'application_fee_method',
         'management_fee', 'management_fee_rate', 'management_fee_method',
         'insurance_fee', 'insurance_fee_rate', 'insurance_fee_method',
@@ -27,6 +28,9 @@ class Loan extends Model
         'outstanding_principal' => 'float',
         'outstanding_interest'  => 'float',
         'outstanding_penalty'   => 'float',
+        'interest_accrued_to'   => 'date',
+        'interest_carried'      => 'float',
+        'installment_amount'    => 'float',
         'application_fee'       => 'float',
         'application_fee_rate'  => 'float',
         'management_fee'        => 'float',
@@ -116,5 +120,16 @@ class Loan extends Model
     public function isLockedUp(): bool
     {
         return optional($this->product)->name === 'Locked-Up Loans';
+    }
+
+    public function interestCharges()
+    {
+        return $this->hasMany(LoanInterestCharge::class)->orderBy('to_date');
+    }
+
+    /** True once the loan is on day-based interest (charged by Run Loans on each due date). */
+    public function isDayBasedInterest(): bool
+    {
+        return $this->interest_accrued_to !== null;
     }
 }

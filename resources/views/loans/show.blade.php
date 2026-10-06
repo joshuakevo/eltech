@@ -158,6 +158,32 @@
     </div>
 </div>
 
+@if($loan->interestCharges->isNotEmpty())
+<div class="card mb-3">
+    <div class="card-header fw-semibold d-flex justify-content-between">
+        <span><i class="bi bi-percent me-1"></i>Interest Charges</span>
+        <span class="small text-muted fw-normal">Charged up to {{ $loan->interest_accrued_to?->format('d M Y') }}@if($loan->interest_carried > 0.5) · {{ number_format($loan->interest_carried, $dp) }} carried forward @endif</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 small align-middle">
+            <thead><tr><th class="ps-3">Period</th><th class="text-end">Days</th><th class="text-end">Principal</th><th class="text-end">Rate</th><th class="text-end pe-3">Interest charged</th></tr></thead>
+            <tbody>
+            @foreach($loan->interestCharges as $ic)
+                <tr>
+                    <td class="ps-3">{{ $ic->from_date->format('d M Y') }} → {{ $ic->to_date->format('d M Y') }}</td>
+                    <td class="text-end">{{ $ic->days }}</td>
+                    <td class="text-end">{{ number_format($ic->principal, $dp) }}</td>
+                    <td class="text-end">{{ rtrim(rtrim(number_format($ic->rate, 2), '0'), '.') }}%</td>
+                    <td class="text-end pe-3 fw-semibold">{{ number_format($ic->amount, $dp) }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+            <tfoot class="table-light fw-semibold"><tr><td class="ps-3" colspan="4">Total charged</td><td class="text-end pe-3">{{ number_format($loan->interestCharges->sum('amount'), $dp) }}</td></tr></tfoot>
+        </table>
+    </div>
+</div>
+@endif
+
 @include('loans._correction')
 
 <!-- Guarantors -->
