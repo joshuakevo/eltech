@@ -789,6 +789,7 @@ class TransactionController extends Controller
             'groups'        => $this->reverseGroupTransactionImpact($transaction),
             'manual'        => $this->reverseManualSubLedgers($transaction),
             'loan_provision' => $this->reverseLoanProvisionImpact($transaction),
+            'loan_correction' => $this->reverseLoanCorrectionImpact($transaction),
             default         => null,
         };
     }
@@ -797,6 +798,15 @@ class TransactionController extends Controller
      * Loan provision journals: mark the provision run as reversed so it no longer
      * counts as the latest posted run (the GL movement is unwound by the reversal itself).
      */
+    /** Loan balance correction journals: restore the loan + schedule from the correction's snapshot. */
+    private function reverseLoanCorrectionImpact(Transaction $transaction): void
+    {
+        $correction = \App\Models\LoanCorrection::find($transaction->module_id);
+        if ($correction && $correction->status === 'applied') {
+            app(\App\Services\LoanCorrectionService::class)->undo($correction, false);
+        }
+    }
+
     private function reverseLoanProvisionImpact(Transaction $transaction): void
     {
         \App\Models\LoanProvision::where('id', $transaction->module_id)
@@ -809,6 +819,21 @@ class TransactionController extends Controller
     private function assertSubLedgerReversible(Transaction $transaction, bool $isDestroy): void
     {
         $desc = strtolower($transaction->description ?? '');
+
+        if ($transaction->module === 'loan_correction') {
+            $correction = \App\Models\LoanCorrection::find($transaction->module_id);
+            if ($correction && $correction->status === 'applied') {
+                try {
+                    app(\App\Services\LoanCorrectionService::class)->assertUndoable($correction);
+                } catch (ValidationException $e) {
+                    $msg = collect($e->errors())->flatten()->first();
+                    if ($isDestroy) {
+                        throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+                    }
+                    throw ValidationException::withMessages(['reversal_reason' => $msg]);
+                }
+            }
+        }
 
         if ($transaction->module === 'loan' && str_contains($desc, 'loan disbursement')) {
             $loan = Loan::find($transaction->module_id);

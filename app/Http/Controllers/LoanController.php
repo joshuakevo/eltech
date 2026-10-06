@@ -195,7 +195,53 @@ class LoanController extends Controller
             ? \App\Models\Account::where('is_payment_source', true)->where('is_active', true)->orderBy('account_code')->get()
             : collect();
 
-        return view('loans.show', compact('loan', 'schedulePreview', 'clientSavingsAccounts', 'currentPenalty', 'penaltyBreakdown', 'paymentSourceAccounts'));
+        $corrections    = \App\Models\LoanCorrection::with('createdBy', 'transaction', 'offsetAccount')
+            ->where('loan_id', $loan->id)->latest('id')->get();
+        $offsetAccounts = app(\App\Services\LoanCorrectionService::class)->offsetAccounts();
+
+        return view('loans.show', compact('loan', 'schedulePreview', 'clientSavingsAccounts', 'currentPenalty', 'penaltyBreakdown', 'paymentSourceAccounts', 'corrections', 'offsetAccounts'));
+    }
+
+    // ── Balance correction ──────────────────────────────────────────────────
+
+    private function correctionInput(Request $request): array
+    {
+        $request->validate([
+            'as_at_date'        => 'required|date',
+            'principal'         => 'required|numeric|min:0',
+            'interest'          => 'nullable|numeric|min:0',
+            'journal_date'      => 'nullable|date',
+            'offset_account_id' => 'nullable|integer',
+        ]);
+        return $request->only(['as_at_date', 'principal', 'interest', 'journal_date', 'offset_account_id']);
+    }
+
+    /** JSON preview of a correction (nothing is saved). */
+    public function correctionPreview(Request $request, Loan $loan, \App\Services\LoanCorrectionService $corrections)
+    {
+        return response()->json($corrections->build($loan, $this->correctionInput($request)));
+    }
+
+    public function correct(Request $request, Loan $loan, \App\Services\LoanCorrectionService $corrections)
+    {
+        $input = $this->correctionInput($request);
+        $request->validate(['reason' => 'required|string|max:500']);
+
+        $correction = $corrections->apply($loan, $input, $request->reason);
+
+        return redirect()->route('loans.show', $loan)->with('success',
+            'Loan balances corrected: principal ' . number_format($correction->new_principal, 0)
+            . ', interest ' . number_format($correction->new_interest, 0)
+            . ($correction->transaction ? '. Adjustment journal ' . $correction->transaction->reference . ' posted.' : '. No journal needed (principal unchanged).'));
+    }
+
+    public function undoCorrection(Request $request, Loan $loan, \App\Models\LoanCorrection $correction, \App\Services\LoanCorrectionService $corrections)
+    {
+        abort_unless($correction->loan_id === $loan->id, 404);
+        $request->validate(['reversal_date' => ['nullable', 'date', 'before_or_equal:today']]);
+        $corrections->undo($correction, true, $request->reversal_date);
+
+        return redirect()->route('loans.show', $loan)->with('success', 'Correction undone — balances and schedule restored.');
     }
 
     public function disburse(Request $request, Loan $loan)

@@ -33,6 +33,11 @@
         @if($loan->status === 'active')
             <a href="{{ route('loans.schedule', $loan) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar3"></i> Schedule</a>
         @endif
+        @can('correct loans')
+        @if(in_array($loan->status, ['active', 'defaulted', 'closed']))
+            <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#correctLoanModal"><i class="bi bi-wrench-adjustable"></i> Correct Balance</button>
+        @endif
+        @endcan
         <div class="dropdown">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
                 <i class="bi bi-download me-1"></i> Export
@@ -152,6 +157,8 @@
         </table>
     </div>
 </div>
+
+@include('loans._correction')
 
 <!-- Guarantors -->
 <div class="card mb-3">

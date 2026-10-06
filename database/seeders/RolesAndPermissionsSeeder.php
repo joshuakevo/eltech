@@ -31,7 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view loan-products', 'create loan-products', 'edit loan-products',
 
             // Loans
-            'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans',
+            'view loans', 'create loans', 'disburse loans', 'repay loans', 'run loans', 'correct loans',
             'view loan provisions', 'run loan provisions',
 
             // Savings Products

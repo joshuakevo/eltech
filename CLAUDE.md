@@ -60,6 +60,13 @@ php artisan migrate:fresh --seed  # Full reset
 - Each run posts only the movement to bring GL **1110** to the required level: increase DR **5120** / CR 1110, decrease DR 1110 / CR 5120. One posted run per date; runs cannot be back-dated before the latest posted run.
 - **Specific**: loans (excl. Locked-Up) in arrears as at the date — days since the oldest installment due and unpaid at that date (payments after the date are peeled back off the schedule). **> 90 days → 50%**, **≥ 365 days → 100%** of outstanding principal. Posts DR **5119** / CR **1109**. Sized against the sum of previous specific runs' adjustments only — the old-system opening balance in 1109 (covers the Locked-Up book) is deliberately left untouched. Loans with a specific provision **stay in the general 1% base** (user decision).
 
+## Loan Balance Corrections
+- "Correct Balance" pop-up on the loan page (`loans/_correction.blade.php`, permission `correct loans`), logic in `LoanCorrectionService`.
+- Inputs: as-at date (default 31/07/2026 transfer date), correct outstanding principal and interest at that date. Interest field defaults to the current figure (current + interest repaid since); "use this" fills the loan-terms calculation.
+- Rebuilds installments from the as-at date to the **existing maturity** on the loan's due-day pattern, rate and method; interest above the natural curve is arrears on installment 1. **Repayments after the as-at date are replayed** onto the new schedule (repayment records unchanged).
+- Principal difference posts DR/CR the product receivable (fallback 1101) vs **3004 Opening Balance Equity** (or 3002), module `loan_correction`. Interest needs no journal (interest is recognised when received).
+- Each correction stores a snapshot (loan figures, schedule, repayment ids) so Undo / journal reversal restores exactly.
+
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 
 When a manual journal entry line has a `client_id` attached (`transaction_lines.client_id`), the system **must also update the corresponding sub-ledger record** for that client. GL posting alone is not sufficient — the member's individual account balance and transaction history must stay in sync.
@@ -105,6 +112,7 @@ When a manual journal entry line has a `client_id` attached (`transaction_lines.
 | `manual` | `reverseManualSubLedgers` | Auto-detected manual journal sub-ledgers (savings, shares, loans, FD principal, membership fee) |
 | `client` | `reverseMembershipFeeImpact` | Membership fee paid on client (when description matches fee flow) |
 | `loan_provision` | `reverseLoanProvisionImpact` | Marks the `loan_provisions` run `reversed` (GL unwound by the reversal entry) |
+| `loan_correction` | `reverseLoanCorrectionImpact` | Restores the loan + schedule from the `loan_corrections.snapshot` (blocked if repayments were added/removed since, or a later correction exists) |
 
 **Payroll journal** (`PayrollController::buildJournal`, shared by the pre-process preview and the posting): DR **5003** Staff Salaries / **5103** Agency Commissions (gross, by employee `pay_type`), DR **5104** NSSF Expense (10%), DR **5110** Local Travel (transport); CR **2011** NSSF Liability (5% + 10%), CR **2012** PAYE Liability, CR **4007** Other Income (lunch), CR Staff Savings (deposited into the savings account set in setting `payroll_staff_savings_account`, default `SA-SK00037` "Staff Saving Account" — one `savings_transactions` row per employee, linked via `transaction_id`), CR each employee's savings liability (net pay). Net = Gross − PAYE − NSSF 5% − Lunch − Staff Savings + Transport. PAYE/NSSF are editable per employee (blank = statutory calc).
 
