@@ -11,10 +11,13 @@ class SystemSetting extends Model
 
     public static function get(string $key, $default = null)
     {
-        return Cache::remember("setting_{$key}", 3600, function () use ($key, $default) {
-            $setting = static::where('key', $key)->first();
-            return $setting ? $setting->value : $default;
+        // Only real values are cached -- caching the default would hide a setting that is
+        // added later (e.g. by a migration) until the cache expires.
+        $value = Cache::remember("setting_{$key}", 3600, function () use ($key) {
+            return static::where('key', $key)->value('value');
         });
+
+        return $value ?? $default;
     }
 
     public static function set(string $key, $value): void
