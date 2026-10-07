@@ -128,9 +128,21 @@ class LoanResetService
         $afterP = $lockedUp
             ? round($loan->outstanding_principal + $g['repayments']->sum('principal_paid'), 2)
             : round($schedules->sum('principal_due'), 2);
-        $afterI = $lockedUp
-            ? round($loan->outstanding_interest + $g['repayments']->sum('interest_paid'), 2)
-            : round($correction ? $correction->interest_at_date : 0, 2);
+        // Interest charged at the starting point (kept, then carried into the first run):
+        // the correction's figure; else the loan's interest before its first recorded run;
+        // else today's interest plus what the removed repayments paid off.
+        $firstRun = LoanRun::where('loan_id', $loan->id)->orderBy('id')->first();
+        if ($lockedUp) {
+            $afterI = round($loan->outstanding_interest + $g['repayments']->sum('interest_paid'), 2);
+        } elseif ($correction) {
+            $afterI = round($correction->interest_at_date, 2);
+        } elseif ($firstRun && isset($firstRun->snapshot['loan']['outstanding_interest'])) {
+            $priorIds = collect($firstRun->snapshot['repayment_ids'] ?? [])->map(fn ($id) => (int) $id)->all();
+            $paidBeforeRuns = $g['repayments']->filter(fn ($r) => in_array((int) $r->id, $priorIds, true))->sum('interest_paid');
+            $afterI = round((float) $firstRun->snapshot['loan']['outstanding_interest'] + $paidBeforeRuns, 2);
+        } else {
+            $afterI = round((float) $loan->outstanding_interest + $g['repayments']->sum('interest_paid'), 2);
+        }
 
         // A loan that is merely on day-based interest from its starting point has nothing to reset.
         $baseline = $loan->disbursement_date ? $loan->disbursement_date->copy()->max(Carbon::parse(LoanInterestService::TRANSFER_DATE)) : null;

@@ -321,6 +321,14 @@ class LoanService
     public function processRepayment(Loan $loan, array $data): LoanRepayment
     {
         return DB::transaction(function () use ($loan, $data) {
+            // Every repayment works on day-based interest: a loan not yet converted moves over
+            // first (carrying its interest charged at the transfer), so a repayment never pays
+            // pre-scheduled interest that has not been charged.
+            if (!$loan->isLockedUp() && !$loan->isDayBasedInterest() && $loan->disbursement_date && $loan->schedules()->exists()) {
+                app(LoanInterestService::class)->convert($loan, Carbon::parse($data['payment_date']));
+                $loan->refresh();
+            }
+
             $amount    = $data['amount'];
             $remaining = $amount;
 

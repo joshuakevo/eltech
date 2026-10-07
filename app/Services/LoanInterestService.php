@@ -53,8 +53,9 @@ class LoanInterestService
 
     /**
      * Moves a loan onto day-based interest, counting from the latest of: disbursement, the
-     * 31/07/2026 transfer date, or an applied balance correction's as-at date (whose interest
-     * becomes carried interest). Every installment after that is caught up by days on the run.
+     * 31/07/2026 transfer date, or an applied balance correction's as-at date. For loans that
+     * existed at the transfer, outstanding interest is interest already charged at that date and
+     * is carried into the first run. Every installment after that is caught up by days on the run.
      * $before is kept for callers; installments are never pre-charged at scheduled amounts.
      */
     public function convert(Loan $loan, Carbon $before): array
@@ -90,9 +91,13 @@ class LoanInterestService
             $row->save();
         }
 
-        // After a correction, outstanding interest is already net of interest paid since the
-        // as-at date. Otherwise interest paid ahead on uncharged installments is a credit.
-        $carried = $fromCorrection
+        // Loans that existed at the transfer (or were corrected): their outstanding interest is the
+        // interest already charged at the baseline -- carry it (less what sits on installments due
+        // by then, already counted). It is net of anything repaid since, so no further deduction.
+        // Loans disbursed after the transfer owed nothing at disbursement; their old outstanding
+        // interest was pre-scheduled future interest, so only interest paid ahead is carried (as a credit).
+        $transferred = $fromCorrection || $loan->disbursement_date->lt($transfer);
+        $carried = $transferred
             ? round(max(0, $oldInterest - $chargedUnpaid), 2)
             : round(-$prepaidInterest, 2);
 
