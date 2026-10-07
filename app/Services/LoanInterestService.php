@@ -6,11 +6,17 @@ use App\Models\FinancialPeriod;
 use App\Models\Loan;
 use App\Models\LoanCorrection;
 use App\Models\LoanInterestCharge;
+use App\Models\LoanRepayment;
+use App\Models\LoanRun;
+use App\Models\SavingsTransaction;
+use App\Models\Transaction;
 use App\Models\LoanSchedule;
 use App\Models\SavingsAccount;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Day-based loan interest, charged on each due date by Run Loans:
@@ -46,10 +52,10 @@ class LoanInterestService
     // ── Conversion ──────────────────────────────────────────────────────────
 
     /**
-     * Moves a loan onto day-based interest. Installments due before $before keep their
-     * scheduled interest as already charged; later ones become projections.
-     * A balance correction dated after that point sets the baseline (its interest at the
-     * as-at date becomes carried interest).
+     * Moves a loan onto day-based interest, counting from the latest of: disbursement, the
+     * 31/07/2026 transfer date, or an applied balance correction's as-at date (whose interest
+     * becomes carried interest). Every installment after that is caught up by days on the run.
+     * $before is kept for callers; installments are never pre-charged at scheduled amounts.
      */
     public function convert(Loan $loan, Carbon $before): array
     {
@@ -60,10 +66,6 @@ class LoanInterestService
         $transfer = Carbon::parse(self::TRANSFER_DATE);
         if ($baseline->lt($transfer)) {
             $baseline = $transfer->copy();
-        }
-        $lastPastDue = $rows->filter(fn ($r) => $r->due_date->lt($before))->max('due_date');
-        if ($lastPastDue && $lastPastDue->gt($baseline)) {
-            $baseline = $lastPastDue->copy()->startOfDay();
         }
 
         $correction = LoanCorrection::where('loan_id', $loan->id)->where('status', 'applied')->latest('id')->first();
@@ -176,7 +178,7 @@ class LoanInterestService
             'interest_accrued_to'  => $to->toDateString(),
         ])->save();
 
-        if (!$this->previewing) LoanInterestCharge::create([
+        $charge = $this->previewing ? null : LoanInterestCharge::create([
             'loan_id' => $loan->id, 'loan_schedule_id' => $row->id,
             'from_date' => $from->toDateString(), 'to_date' => $to->toDateString(), 'days' => $days,
             'principal' => $prin, 'rate' => $rate, 'amount' => $accrued,
@@ -187,6 +189,7 @@ class LoanInterestService
         $this->rebalance($loan);
 
         return [
+            'charge_id' => $charge?->id, 'schedule_id' => $row->id,
             'installment_no' => $row->installment_no, 'due_date' => $to->toDateString(),
             'from' => $from->toDateString(), 'days' => $days, 'principal' => $prin, 'accrued' => $accrued,
             'carried_before' => $carriedBefore, 'interest_due' => round($interestDue, 2),
@@ -236,10 +239,12 @@ class LoanInterestService
      * before the date that hasn't been charged — charge interest, then recover what is due
      * from savings (dated the installment's due date).
      */
-    public function run(Loan $loan, Carbon $date): array
+    public function run(Loan $loan, Carbon $date, ?string $batch = null): array
     {
-        return DB::transaction(function () use ($loan, $date) {
+        $batch ??= (string) Str::uuid();
+        return DB::transaction(function () use ($loan, $date, $batch) {
             $loan = Loan::with('client', 'product')->whereKey($loan->id)->lockForUpdate()->firstOrFail();
+            $snapshot = $this->snapshot($loan);   // before conversion: undoing the first step un-converts
             $result = [
                 'loan_id' => $loan->id, 'conversion' => null, 'steps' => [], 'errors' => [],
                 'before'  => ['principal' => round($loan->outstanding_principal, 2), 'interest' => round($loan->outstanding_interest, 2)],
@@ -268,6 +273,8 @@ class LoanInterestService
                 $loan->refresh();
                 $step['recovery'] = $this->recover($loan, $row->due_date->copy());
                 $loan->refresh();
+                $this->record($batch, $loan, $date, $row->due_date, $snapshot, $step);
+                $snapshot = $this->snapshot($loan);
                 $result['steps'][] = $step;
             }
 
@@ -275,9 +282,13 @@ class LoanInterestService
             if (!$due->count() && !$result['errors']) {
                 $expected = $this->expectedDue($loan, $date);
                 if ($expected > 0.01) {
-                    $result['steps'][] = ['installment_no' => null, 'due_date' => $date->toDateString(), 'accrued' => 0, 'days' => 0,
+                    $step = ['installment_no' => null, 'due_date' => $date->toDateString(), 'accrued' => 0, 'days' => 0,
                         'recovery' => $this->recover($loan, $date->copy())];
                     $loan->refresh();
+                    if (($step['recovery']['recovered'] ?? 0) > 0) {
+                        $this->record($batch, $loan, $date, $date, $snapshot, $step);
+                    }
+                    $result['steps'][] = $step;
                 }
             }
 
@@ -336,8 +347,8 @@ class LoanInterestService
             return $out;
         }
 
-        $this->savings->withdraw($account, $amount, $date->toDateString(), "Loan repayment - {$loan->loan_number}", null, 0.0);
-        $this->loans->processRepayment($loan->fresh(), [
+        $withdrawal = $this->savings->withdraw($account, $amount, $date->toDateString(), "Loan repayment - {$loan->loan_number}", null, 0.0);
+        $repayment = $this->loans->processRepayment($loan->fresh(), [
             'amount'         => $amount,
             'payment_date'   => $date->toDateString(),
             'payment_method' => 'savings',
@@ -346,7 +357,12 @@ class LoanInterestService
         ]);
         $this->savings->recalculateLedger($account->fresh());
 
-        $out['recovered'] = $amount;
+        $out['recovered']     = $amount;
+        $out['savings_tx_id'] = $withdrawal->id;
+        $out['withdrawal_tx'] = $withdrawal->transaction_id;
+        $out['account_id']    = $account->id;
+        $out['repayment_id']  = $repayment->id;
+        $out['repayment_tx']  = $repayment->transaction_id;
         $out['note'] = $amount + 0.01 < $expected ? 'Partly recovered' : 'Recovered';
         return $out;
     }
@@ -356,6 +372,120 @@ class LoanInterestService
     {
         $accounts = SavingsAccount::with('product')->where('client_id', $loan->client_id)->where('status', 'active')->get();
         return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()) - (float) ($a->product->minimum_balance ?? 0))->first();
+    }
+
+    // ── Run records & undo ──────────────────────────────────────────────────
+
+    private function snapshot(Loan $loan): array
+    {
+        return [
+            // Raw stored values: casting dates to Carbon and back through JSON shifts them by the timezone.
+            'loan' => collect($loan->getAttributes())->only(['outstanding_principal', 'outstanding_interest', 'outstanding_penalty', 'status',
+                'interest_accrued_to', 'interest_carried', 'installment_amount'])->all(),
+            'schedules' => $loan->schedules()->orderBy('installment_no')->get()
+                ->map(fn ($s) => collect($s->getAttributes())->except(['id', 'created_at', 'updated_at'])->all())->all(),
+            'repayment_ids' => LoanRepayment::where('loan_id', $loan->id)->orderBy('id')->pluck('id')->all(),
+            'correction_id' => LoanCorrection::where('loan_id', $loan->id)->where('status', 'applied')->max('id'),
+        ];
+    }
+
+    private function record(string $batch, Loan $loan, Carbon $runDate, Carbon $dueDate, array $snapshot, array $step): void
+    {
+        if ($this->previewing) {
+            return;
+        }
+        $rec = $step['recovery'] ?? [];
+        LoanRun::create([
+            'batch' => $batch, 'loan_id' => $loan->id, 'run_date' => $runDate->toDateString(), 'due_date' => $dueDate->toDateString(),
+            'loan_schedule_id' => $step['schedule_id'] ?? null, 'interest_charge_id' => $step['charge_id'] ?? null,
+            'repayment_id' => $rec['repayment_id'] ?? null, 'repayment_transaction_id' => $rec['repayment_tx'] ?? null,
+            'savings_transaction_id' => $rec['savings_tx_id'] ?? null, 'withdrawal_transaction_id' => $rec['withdrawal_tx'] ?? null,
+            'savings_account_id' => $rec['account_id'] ?? null,
+            'accrued' => $step['accrued'] ?? 0, 'recovered' => $rec['recovered'] ?? 0,
+            'snapshot' => $snapshot, 'created_by' => auth()->id(),
+        ]);
+    }
+
+    /** Throws if this run step can't be undone cleanly. */
+    public function assertUndoable(LoanRun $run): void
+    {
+        if ($run->status !== 'applied') {
+            throw ValidationException::withMessages(['run' => 'This run has already been undone.']);
+        }
+        if (LoanRun::where('loan_id', $run->loan_id)->where('status', 'applied')->where('id', '>', $run->id)->exists()) {
+            throw ValidationException::withMessages(['run' => 'A later run exists on this loan — undo that first.']);
+        }
+        $expected = collect($run->snapshot['repayment_ids'] ?? [])->push($run->repayment_id)->filter()->sort()->values()->all();
+        $now = LoanRepayment::where('loan_id', $run->loan_id)->orderBy('id')->pluck('id')->sort()->values()->all();
+        if ($now !== $expected) {
+            throw ValidationException::withMessages(['run' => 'Repayments on this loan were added or removed after this run — undo is no longer exact.']);
+        }
+        $correction = LoanCorrection::where('loan_id', $run->loan_id)->where('status', 'applied')->max('id');
+        if ($correction != ($run->snapshot['correction_id'] ?? null)) {
+            throw ValidationException::withMessages(['run' => 'The loan balance was corrected after this run — undo that correction first.']);
+        }
+    }
+
+    /** Removes everything a run step created and restores the loan + schedule from before it. */
+    public function undo(LoanRun $run): void
+    {
+        DB::transaction(function () use ($run) {
+            $run  = LoanRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            $this->assertUndoable($run);
+            $loan = Loan::whereKey($run->loan_id)->lockForUpdate()->firstOrFail();
+
+            if ($run->repayment_id) {
+                LoanRepayment::whereKey($run->repayment_id)->delete();
+            }
+            $this->deleteJournal($run->repayment_transaction_id);
+            if ($run->savings_transaction_id) {
+                SavingsTransaction::whereKey($run->savings_transaction_id)->delete();
+            }
+            $this->deleteJournal($run->withdrawal_transaction_id);
+            if ($run->savings_account_id && ($acc = SavingsAccount::find($run->savings_account_id))) {
+                $this->savings->recalculateLedger($acc);
+            }
+            if ($run->interest_charge_id) {
+                LoanInterestCharge::whereKey($run->interest_charge_id)->delete();
+            }
+
+            $loan->schedules()->delete();
+            foreach ($run->snapshot['schedules'] ?? [] as $attrs) {
+                LoanSchedule::create($attrs);
+            }
+            $loan->forceFill($run->snapshot['loan'])->save();
+
+            $run->update(['status' => 'undone', 'undone_at' => now(), 'undone_by' => auth()->id()]);
+            \App\Models\AuditLog::record('loan_run_undone', "Undid Run Loans step for {$loan->loan_number} due {$run->due_date->toDateString()} (charged " . number_format($run->accrued, 2) . ', recovered ' . number_format($run->recovered, 2) . ')', 'loans');
+        });
+    }
+
+    /** Undoes every applied step of the given runs, newest first, per loan. Returns [undone, errors]. */
+    public function undoMany($runs): array
+    {
+        $done = 0; $errors = [];
+        foreach ($runs->sortByDesc('id') as $run) {
+            try {
+                $this->undo($run);
+                $done++;
+            } catch (\Throwable $e) {
+                $msg = $e instanceof ValidationException ? collect($e->errors())->flatten()->first() : $e->getMessage();
+                $errors[] = ($run->loan?->loan_number ?? "Loan #{$run->loan_id}") . ': ' . $msg;
+            }
+        }
+        return [$done, $errors];
+    }
+
+    /** Deletes a journal and its reversal (lines go with it). */
+    private function deleteJournal(?int $id): void
+    {
+        if (!$id || !($tx = Transaction::find($id))) {
+            return;
+        }
+        if ($tx->reversed_by) {
+            Transaction::whereKey($tx->reversed_by)->delete();
+        }
+        $tx->delete();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

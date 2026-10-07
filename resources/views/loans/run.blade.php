@@ -13,7 +13,49 @@
         <h4 class="fw-bold mb-0">Run Loans</h4>
         <div class="text-muted small">Charge interest for the days since the last charge, then recover the installment from savings.</div>
     </div>
+    @can('correct loans')
+    <a href="{{ route('loans.reset') }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset repayments…</a>
+    @endcan
 </div>
+
+@if($runsDone->isNotEmpty())
+<div class="card mb-3 border-warning">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-semibold"><i class="bi bi-clock-history me-1"></i>Runs done for {{ $date->format('d M Y') }}</span>
+        @can('repay loans')
+        <form method="POST" action="{{ route('loans.run.undo') }}" onsubmit="return confirm('Undo ALL runs recorded for {{ $date->format('d M Y') }}? Interest charges, recoveries, savings withdrawals and journals they created will be deleted and the loans restored.');">
+            @csrf <input type="hidden" name="date" value="{{ $date->toDateString() }}">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-arrow-counterclockwise me-1"></i>Undo all runs for this date</button>
+        </form>
+        @endcan
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 small align-middle">
+            <thead><tr><th class="ps-3">Loan</th><th>Client</th><th>Installment due</th><th class="text-end">Interest charged</th><th class="text-end">Recovered</th><th>By</th><th class="pe-3"></th></tr></thead>
+            <tbody>
+            @foreach($runsDone as $rd)
+                <tr>
+                    <td class="ps-3 font-monospace"><a href="{{ route('loans.show', $rd->loan_id) }}">{{ $rd->loan->loan_number ?? '#' . $rd->loan_id }}</a></td>
+                    <td>{{ $rd->loan->client->name ?? '—' }}</td>
+                    <td>{{ $rd->due_date->format('d M Y') }}</td>
+                    <td class="text-end">{{ number_format($rd->accrued, $dp) }}</td>
+                    <td class="text-end">{{ number_format($rd->recovered, $dp) }}</td>
+                    <td>{{ $rd->createdBy->name ?? '—' }} <span class="text-muted">{{ $rd->created_at->format('H:i') }}</span></td>
+                    <td class="pe-3 text-end">
+                        @can('repay loans')
+                        <form method="POST" action="{{ route('loans.run.undo') }}" class="d-inline" onsubmit="return confirm('Undo this run for {{ $rd->loan->loan_number ?? '' }}? (Later runs on the same loan must be undone first.)');">
+                            @csrf <input type="hidden" name="date" value="{{ $date->toDateString() }}"><input type="hidden" name="run_id" value="{{ $rd->id }}">
+                            <button class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-arrow-counterclockwise"></i> Undo</button>
+                        </form>
+                        @endcan
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 @if(session('run_results'))
 <div class="card mb-3 border-success">

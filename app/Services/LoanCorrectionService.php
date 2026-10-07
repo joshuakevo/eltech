@@ -219,8 +219,9 @@ class LoanCorrectionService
                 'offset_account_id'    => $plan['journal'] ? $plan['offset_account_id'] : null,
                 'reason'               => $reason,
                 'snapshot'             => [
-                    'loan'      => $loan->only(['outstanding_principal', 'outstanding_interest', 'outstanding_penalty', 'status',
-                        'interest_accrued_to', 'interest_carried', 'installment_amount']),
+                    // Raw stored values (casting dates through JSON shifts them by the timezone).
+                    'loan'      => collect($loan->getAttributes())->only(['outstanding_principal', 'outstanding_interest', 'outstanding_penalty', 'status',
+                        'interest_accrued_to', 'interest_carried', 'installment_amount'])->all(),
                     // Repayments that existed at correction time: undo is only safe while this set is unchanged.
                     'repayment_ids' => LoanRepayment::where('loan_id', $loan->id)->orderBy('id')->pluck('id')->all(),
                     'schedules' => $loan->schedules()->orderBy('installment_no')->get()

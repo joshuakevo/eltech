@@ -225,6 +225,12 @@ Route::middleware('auth')->group(function () {
         ->name('loans.run')->middleware('permission:run loans');
     Route::post('loans/run', [LoanController::class, 'runProcess'])
         ->name('loans.run.process')->middleware(['permission:run loans', 'permission:repay loans']);
+    Route::post('loans/run/undo', [LoanController::class, 'runUndo'])
+        ->name('loans.run.undo')->middleware(['permission:run loans', 'permission:repay loans']);
+    Route::get('loans/reset', [LoanController::class, 'resetForm'])
+        ->name('loans.reset')->middleware('permission:correct loans');
+    Route::post('loans/reset', [LoanController::class, 'resetExecute'])
+        ->name('loans.reset.execute')->middleware('permission:correct loans');
     Route::get('loans/{loan}', [LoanController::class, 'show'])
         ->name('loans.show')->middleware('permission:view loans');
     Route::get('loans/{loan}/schedule', [LoanController::class, 'schedule'])

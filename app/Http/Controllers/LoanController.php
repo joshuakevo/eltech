@@ -131,7 +131,58 @@ class LoanController extends Controller
         ];
         $totalCount = $loans->count();
 
-        return view('loans.run', compact('loans', 'previews', 'date', 'day', 'totals', 'totalCount'));
+        // Runs already recorded for this date (can be undone)
+        $runsDone = \App\Models\LoanRun::with('loan.client', 'createdBy')->where('run_date', $date->toDateString())
+            ->where('status', 'applied')->orderByDesc('id')->get();
+
+        return view('loans.run', compact('loans', 'previews', 'date', 'day', 'totals', 'totalCount', 'runsDone'));
+    }
+
+    /** Undo Run Loans steps: one step (run_id), one loan's steps for the date, or every step for the date. */
+    public function runUndo(Request $request, \App\Services\LoanInterestService $interest)
+    {
+        $request->validate([
+            'date'    => 'required|date',
+            'run_id'  => 'nullable|integer',
+            'loan_id' => 'nullable|integer',
+        ]);
+        $runs = \App\Models\LoanRun::with('loan')->where('status', 'applied')
+            ->when($request->run_id, fn ($q) => $q->whereKey($request->run_id))
+            ->when(!$request->run_id, fn ($q) => $q->where('run_date', $request->date))
+            ->when($request->loan_id, fn ($q) => $q->where('loan_id', $request->loan_id))
+            ->get();
+
+        [$done, $errors] = $interest->undoMany($runs);
+
+        return redirect()->route('loans.run', ['date' => $request->date])
+            ->with($errors ? 'error' : 'success', "Undid {$done} run step(s)." . ($errors ? ' Not undone: ' . implode(' | ', $errors) : ' Interest charges, recoveries, savings withdrawals and journals removed; loans restored.'));
+    }
+
+    public function resetForm(Request $request, \App\Services\LoanResetService $reset)
+    {
+        $from  = \Carbon\Carbon::parse($request->from ?: \App\Services\LoanInterestService::TRANSFER_DATE)->addDay()->startOfDay();
+        if ($request->from) {
+            $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+        }
+        $plans = $reset->plan($from, $request->search);
+        return view('loans.reset', compact('plans', 'from'));
+    }
+
+    public function resetExecute(Request $request, \App\Services\LoanResetService $reset)
+    {
+        $request->validate([
+            'from'       => 'required|date',
+            'loan_ids'   => 'required|array|min:1',
+            'loan_ids.*' => 'integer|exists:loans,id',
+            'confirm'    => 'required|in:RESET',
+        ], ['confirm.in' => 'Type RESET (in capitals) to confirm.']);
+        $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+
+        [$done, $skipped] = $reset->execute($from, $request->loan_ids);
+
+        return redirect()->route('loans.reset', ['from' => $from->toDateString()])
+            ->with('reset_results', ['done' => $done, 'skipped' => $skipped])
+            ->with('success', count($done) . ' loan(s) reset from ' . $from->format('d M Y') . '.' . ($skipped ? ' ' . count($skipped) . ' skipped.' : ''));
     }
 
     /** Runs the selected loans for the date: charge day-based interest, recover from savings. */
@@ -145,9 +196,10 @@ class LoanController extends Controller
         $date = \Carbon\Carbon::parse($request->date)->startOfDay();
 
         $results = [];
+        $batch = (string) \Illuminate\Support\Str::uuid();
         foreach (Loan::with('client')->whereIn('id', $request->loan_ids)->get() as $loan) {
             try {
-                $r = $interest->run($loan, $date);
+                $r = $interest->run($loan, $date, $batch);
             } catch (\Throwable $e) {
                 $r = ['loan_id' => $loan->id, 'steps' => [], 'errors' => [$e->getMessage()]];
             }
