@@ -255,8 +255,8 @@ class LoanInterestService
                 'before'  => ['principal' => round($loan->outstanding_principal, 2), 'interest' => round($loan->outstanding_interest, 2)],
             ];
 
-            if ($loan->isLockedUp() || $loan->status !== 'active') {
-                $result['errors'][] = 'Only active loans (not Locked-Up) are run.';
+            if ($loan->isLockedUp() || !in_array($loan->status, ['active', 'defaulted'], true)) {
+                $result['errors'][] = 'Only active or defaulted loans (not Locked-Up) are run.';
                 return $result;
             }
 
@@ -281,6 +281,24 @@ class LoanInterestService
                 $this->record($batch, $loan, $date, $row->due_date, $snapshot, $step);
                 $snapshot = $this->snapshot($loan);
                 $result['steps'][] = $step;
+            }
+
+            // Past the last installment and still owing principal: interest keeps running on the
+            // overdue balance -- charge the days since the last charge onto the final installment.
+            if (!$result['errors'] && $this->isPastLastInstallment($loan) && (float) $loan->outstanding_principal > 0.01
+                && $loan->interest_accrued_to->lt($date)) {
+                if (!FinancialPeriod::isOpen($date->toDateString())) {
+                    $result['errors'][] = 'The financial period for ' . $date->format('M Y') . ' is closed — reopen it to run this loan.';
+                } else {
+                    $step = $this->chargeOverdue($loan, $date);
+                    $loan->refresh();
+                    $step['recovery'] = $this->recover($loan, $date->copy());
+                    $loan->refresh();
+                    $this->record($batch, $loan, $date, $date, $snapshot, $step);
+                    $snapshot = $this->snapshot($loan);
+                    $result['steps'][] = $step;
+                    $due->push(true);   // a charge happened: skip the "recover only" pass below
+                }
             }
 
             // Already-charged installments still unpaid (e.g. savings were short last time).
@@ -377,6 +395,56 @@ class LoanInterestService
     {
         $accounts = SavingsAccount::with('product')->where('client_id', $loan->client_id)->where('status', 'active')->get();
         return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()) - (float) ($a->product->minimum_balance ?? 0))->first();
+    }
+
+    /** Every installment has been charged (the loan is past its last due date). */
+    private function isPastLastInstallment(Loan $loan): bool
+    {
+        return !$loan->schedules()->where('interest_charged', false)->exists() && $loan->schedules()->exists();
+    }
+
+    /**
+     * Overdue interest after the last installment: outstanding principal × rate × days ÷ 365
+     * from the last charge to the run date, added (with any carried interest) to the final
+     * installment so it is part of what is due and recovered.
+     */
+    private function chargeOverdue(Loan $loan, Carbon $date): array
+    {
+        $row     = $loan->schedules()->orderByDesc('installment_no')->first();
+        $from    = $loan->interest_accrued_to->copy()->startOfDay();
+        $to      = $date->copy()->startOfDay();
+        $days    = $from->diffInDays($to);
+        $rate    = (float) $loan->interest_rate;
+        $prin    = round((float) $loan->outstanding_principal, 2);
+        $accrued = round($prin * $rate / 100 * $days / 365, 2);
+        $carriedBefore = round((float) $loan->interest_carried, 2);
+        $add = round($accrued + max(0, $carriedBefore), 2);
+
+        $row->interest_due = round($row->interest_due + $add, 2);
+        $row->total_due    = round($row->principal_due + $row->interest_due, 2);
+        $row->status       = $this->status($row);
+        $row->save();
+
+        $loan->forceFill([
+            'outstanding_interest' => round((float) $loan->outstanding_interest + $accrued, 2),
+            'interest_carried'     => min(0, $carriedBefore),
+            'interest_accrued_to'  => $to->toDateString(),
+        ])->save();
+
+        $charge = $this->previewing ? null : LoanInterestCharge::create([
+            'loan_id' => $loan->id, 'loan_schedule_id' => $row->id,
+            'from_date' => $from->toDateString(), 'to_date' => $to->toDateString(), 'days' => $days,
+            'principal' => $prin, 'rate' => $rate, 'amount' => $accrued,
+            'carried_before' => $carriedBefore, 'carried_after' => min(0, $carriedBefore),
+            'created_by' => auth()->id(),
+        ]);
+
+        return [
+            'charge_id' => $charge?->id, 'schedule_id' => $row->id, 'overdue' => true,
+            'installment_no' => $row->installment_no, 'due_date' => $to->toDateString(),
+            'from' => $from->toDateString(), 'days' => $days, 'principal' => $prin, 'accrued' => $accrued,
+            'carried_before' => $carriedBefore, 'interest_due' => $add, 'principal_due' => 0, 'carried_after' => min(0, $carriedBefore),
+        ];
     }
 
     // ── Run records & undo ──────────────────────────────────────────────────
