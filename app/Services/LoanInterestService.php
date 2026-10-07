@@ -415,8 +415,9 @@ class LoanInterestService
         if (LoanRun::where('loan_id', $run->loan_id)->where('status', 'applied')->where('id', '>', $run->id)->exists()) {
             throw ValidationException::withMessages(['run' => 'A later run exists on this loan — undo that first.']);
         }
-        $expected = collect($run->snapshot['repayment_ids'] ?? [])->push($run->repayment_id)->filter()->sort()->values()->all();
-        $now = LoanRepayment::where('loan_id', $run->loan_id)->orderBy('id')->pluck('id')->sort()->values()->all();
+        // Compare as integers: the production driver returns some ids as strings.
+        $expected = collect($run->snapshot['repayment_ids'] ?? [])->push($run->repayment_id)->filter()->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $now = LoanRepayment::where('loan_id', $run->loan_id)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
         if ($now !== $expected) {
             throw ValidationException::withMessages(['run' => 'Repayments on this loan were added or removed after this run — undo is no longer exact.']);
         }

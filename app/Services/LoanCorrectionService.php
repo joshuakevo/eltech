@@ -303,8 +303,10 @@ class LoanCorrectionService
         if ($later) {
             throw ValidationException::withMessages(['correction' => 'A later correction exists on this loan. Undo that one first.']);
         }
-        $then = $correction->snapshot['repayment_ids'] ?? null;
-        $now  = LoanRepayment::where('loan_id', $correction->loan_id)->orderBy('id')->pluck('id')->all();
+        // Compare as integers: the production driver returns some ids as strings.
+        $then = isset($correction->snapshot['repayment_ids'])
+            ? collect($correction->snapshot['repayment_ids'])->map(fn ($id) => (int) $id)->sort()->values()->all() : null;
+        $now  = LoanRepayment::where('loan_id', $correction->loan_id)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
         if ($then === null ? LoanRepayment::where('loan_id', $correction->loan_id)->where('created_at', '>', $correction->created_at)->exists() : $now !== $then) {
             throw ValidationException::withMessages(['correction' => 'Repayments on this loan have been added or removed since this correction. Undo is only possible while the repayments are exactly as they were — reverse those changes first, or post a new correction instead.']);
         }

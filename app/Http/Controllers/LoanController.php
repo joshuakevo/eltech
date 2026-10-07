@@ -326,7 +326,7 @@ class LoanController extends Controller
 
     public function undoCorrection(Request $request, Loan $loan, \App\Models\LoanCorrection $correction, \App\Services\LoanCorrectionService $corrections)
     {
-        abort_unless($correction->loan_id === $loan->id, 404);
+        abort_unless((int) $correction->loan_id === (int) $loan->id, 404);
         $request->validate(['reversal_date' => ['nullable', 'date', 'before_or_equal:today']]);
         $corrections->undo($correction, true, $request->reversal_date);
 

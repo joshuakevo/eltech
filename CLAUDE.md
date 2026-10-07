@@ -67,6 +67,7 @@ php artisan migrate:fresh --seed  # Full reset
 - Every Run Loans step is recorded in `loan_runs` (interest charge, repayment + journal, savings withdrawal + journal, and a raw-attribute snapshot of loan + schedule from before the step). **Undo** (`LoanInterestService::undo`, buttons on Run Loans: per step / all runs for a date) deletes all of it and restores the snapshot; newest first per loan, blocked if repayments or corrections changed since.
 - **Reset repayments** (`/loans/reset`, `LoanResetService`, permission `correct loans`, typed RESET): from a date, deletes each loan's repayments + journals (+reversals), the savings withdrawals that funded them ("Loan repayment - LN-…") + journals (savings ledgers rebuilt), reversed/orphaned repayment and withdrawal journals, interest charges and run records; then resets the schedule to unpaid, principal = schedule principal, and re-converts day-based interest from the baseline. Loans with repayments before the date are skipped.
 - Snapshots store **raw** attributes (`getAttributes()`): casting dates through JSON shifts them by the timezone.
+- **Compare ids as integers** (`(int) $a === (int) $b`): the production DB driver returns foreign-key columns as strings (only primary keys are cast), so strict `===` on ids passes locally but fails in production.
 
 ## Loan Balance Corrections
 - "Correct Balance" pop-up on the loan page (`loans/_correction.blade.php`, permission `correct loans`), logic in `LoanCorrectionService`.

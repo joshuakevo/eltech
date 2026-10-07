@@ -132,8 +132,15 @@ class LoanResetService
             ? round($loan->outstanding_interest + $g['repayments']->sum('interest_paid'), 2)
             : round($correction ? $correction->interest_at_date : 0, 2);
 
+        // A loan that is merely on day-based interest from its starting point has nothing to reset.
+        $baseline = $loan->disbursement_date ? $loan->disbursement_date->copy()->max(Carbon::parse(LoanInterestService::TRANSFER_DATE)) : null;
+        if ($baseline && $correction && $correction->as_at_date->gte($baseline)) {
+            $baseline = $correction->as_at_date->copy();
+        }
+        $movedOn = $loan->interest_accrued_to && (!$baseline || !$loan->interest_accrued_to->isSameDay($baseline));
+
         $hasWork = $g['repayments']->isNotEmpty() || $g['withdrawals']->isNotEmpty() || $g['loose']->isNotEmpty()
-            || $charges->isNotEmpty() || $runs || $loan->interest_accrued_to !== null || abs($leftover) > 0.01;
+            || $charges->isNotEmpty() || $runs || $movedOn || abs($leftover) > 0.01;
 
         return [
             'loan' => $loan, 'has_work' => $hasWork,
