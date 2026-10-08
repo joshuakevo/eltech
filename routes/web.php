@@ -120,6 +120,14 @@ Route::middleware('auth')->group(function () {
     });
 
     // ── Clients ───────────────────────────────────────────────────────
+    // Bulk member import (before the resource so "import" isn't read as a client id)
+    Route::middleware('permission:create clients')->group(function () {
+        Route::get('clients/import', [\App\Http\Controllers\ClientImportController::class, 'form'])->name('clients.import');
+        Route::get('clients/import/template', [\App\Http\Controllers\ClientImportController::class, 'template'])->name('clients.import.template');
+        Route::post('clients/import/preview', [\App\Http\Controllers\ClientImportController::class, 'preview'])->name('clients.import.preview');
+        Route::post('clients/import/confirm', [\App\Http\Controllers\ClientImportController::class, 'confirm'])->name('clients.import.confirm');
+        Route::post('clients/import/cancel', [\App\Http\Controllers\ClientImportController::class, 'cancel'])->name('clients.import.cancel');
+    });
     Route::resource('clients', ClientController::class)->middleware('permission:view clients');
     Route::patch('clients/{client}/segment', [ClientController::class, 'updateSegment'])
         ->name('clients.segment.update')->middleware('permission:edit clients');

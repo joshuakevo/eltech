@@ -17,6 +17,9 @@
             </ul>
         </div>
         @can('create clients')
+        @can('create clients')
+        <a href="{{ route('clients.import') }}" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i> Import members</a>
+        @endcan
         <a href="{{ route('clients.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Client</a>
         @endcan
     </div>
