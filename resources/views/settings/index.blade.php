@@ -192,6 +192,37 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- FD maturity cash-to-savings correction --}}
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-piggy-bank text-primary"></i>
+        <span>Move FD Maturity Cash to Savings</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            For closed fixed deposits whose maturity payout was posted to <strong>Cash (1001)</strong>: posts DR Cash / CR the client's
+            savings and adds the deposit to the client's savings statement, dated on the original payout.
+            Run <strong>Preview</strong> first — it changes nothing. Safe to run more than once (already-corrected deposits are skipped).
+        </p>
+        <form method="POST" action="{{ route('settings.fd-maturity-to-savings') }}" class="row g-2 align-items-end">
+            @csrf
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold">Deposit numbers (space or comma separated)</label>
+                <input type="text" name="deposits" class="form-control" value="FD-MK00085 FD-BK00028-1" required>
+            </div>
+            <div class="col-md-6 d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="bi bi-search me-2"></i>Preview
+                </button>
+                <button type="submit" name="confirm" value="1" class="btn btn-primary"
+                        onclick="return confirm('Post the correction journals and credit the clients' savings accounts?')">
+                    <i class="bi bi-check2-circle me-2"></i>Post Correction
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {{-- Deployment Maintenance --}}
 <div class="card mt-4 border-danger">
     <div class="card-header d-flex align-items-center gap-2">

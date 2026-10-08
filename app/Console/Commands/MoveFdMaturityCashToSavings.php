@@ -123,7 +123,7 @@ class MoveFdMaturityCashToSavings extends Command
                     'reference'          => $journal->reference,
                     'description'        => $tag,
                     'transaction_id'     => $journal->id,
-                    'created_by'         => null,
+                    'created_by'         => auth()->id(),
                 ]);
 
                 // Back-dated row: rebuild running balances and the account balance.

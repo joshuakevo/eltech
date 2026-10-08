@@ -108,6 +108,25 @@ class SettingsController extends Controller
     ];
 
     /**
+     * Moves maturity payouts of closed FDs that went to Cash into the client's
+     * savings account. Preview unless the "confirm" button was used.
+     */
+    public function fdMaturityToSavings(Request $request)
+    {
+        $request->validate(['deposits' => 'required|string|max:500']);
+
+        $deposits = preg_split('/[\s,]+/', trim($request->deposits), -1, PREG_SPLIT_NO_EMPTY);
+        $args     = ['deposits' => $deposits];
+        if ($request->boolean('confirm')) {
+            $args['--confirm'] = true;
+        }
+
+        Artisan::call('eltech:fd-maturity-cash-to-savings', $args);
+
+        return back()->with('success', Artisan::output());
+    }
+
+    /**
      * Read-only check: compares Locked-Up Loans against the old system's Lock
      * Up Report bundle and reports drift/missing rows without changing anything.
      */
