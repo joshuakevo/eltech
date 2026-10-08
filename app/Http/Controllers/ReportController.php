@@ -437,8 +437,13 @@ class ReportController extends Controller
             'from'       => 'nullable|date',
             'to'         => 'nullable|date',
             'product_id' => 'nullable|integer',
+            'segment_id' => 'nullable|integer',
         ]);
         $productId = $request->integer('product_id') ?: null;
+        $segmentId = $request->integer('segment_id') ?: null;
+        $insightsService->forSegment($segmentId);
+        $segments  = \App\Models\ClientSegment::orderBy('name')->get(['id', 'name']);
+        $segment   = $segmentId ? $segments->firstWhere('id', $segmentId) : null;
 
         [$from, $to, $period] = $insightsService->resolvePeriod($request->period, $request->from, $request->to);
 
@@ -454,7 +459,7 @@ class ReportController extends Controller
 
         if ($request->format === 'excel') {
             $csv   = [];
-            $csv[] = ['Savings report', $from->format('d M Y') . ' – ' . $to->format('d M Y')];
+            $csv[] = ['Savings report', $from->format('d M Y') . ' – ' . $to->format('d M Y'), $segment ? 'Segment: ' . $segment->name : 'All segments'];
             $csv[] = ['Account #', 'Client', 'Product', 'Balance at start', 'Deposits', 'Interest', 'Withdrawals', 'Net saved', 'Current balance', 'Last deposit', 'Trend'];
             foreach ($rows->sortBy('account.account_number') as $r) {
                 $csv[] = [
@@ -468,7 +473,8 @@ class ReportController extends Controller
         }
 
         if ($request->format === 'pdf') {
-            $pdf = Pdf::loadView('pdf.reports.savings-balances', compact('rows', 'flows', 'previous', 'insights', 'from', 'to', 'period'))
+            $product = $productId ? \App\Models\SavingsProduct::find($productId) : null;
+            $pdf = Pdf::loadView('pdf.reports.savings-balances', compact('rows', 'flows', 'previous', 'insights', 'from', 'to', 'period', 'segment', 'product'))
                 ->setPaper('a4', 'landscape');
             return $pdf->download('savings-report-' . now()->format('Y-m-d') . '.pdf');
         }
@@ -481,7 +487,7 @@ class ReportController extends Controller
 
         return view('reports.savings-balances', compact(
             'rows', 'flows', 'previous', 'insights', 'snapshots', 'trend', 'weekdays',
-            'from', 'to', 'period', 'products', 'productId', 'presets'
+            'from', 'to', 'period', 'products', 'productId', 'presets', 'segments', 'segmentId'
         ));
     }
 

@@ -18,7 +18,7 @@
         $up = $pct >= 0; $good = $invert ? !$up : $up;
         return '<span class="sv-chg ' . ($good ? 'up' : 'down') . '"><i class="bi bi-arrow-' . ($up ? 'up' : 'down') . '-right"></i>' . abs($pct) . '% vs previous</span>';
     };
-    $q = fn (array $extra) => route('reports.savings-balances', array_filter(array_merge(['product_id' => $productId], $extra)));
+    $q = fn (array $extra) => route('reports.savings-balances', array_filter(array_merge(['product_id' => $productId, 'segment_id' => $segmentId], $extra)));
     $rangeLabel = $from->equalTo($to) ? $from->format('D, d M Y') : $from->format('d M Y') . ' – ' . $to->format('d M Y');
     $trendMeta = [
         'growing'   => ['Growing',   'bi-graph-up-arrow',   '#059669'],
@@ -34,7 +34,7 @@
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <div>
         <h4 class="fw-bold mb-0">Savings Report</h4>
-        <div class="text-muted small">How members are saving — {{ $rangeLabel }}</div>
+        <div class="text-muted small">How members are saving — {{ $rangeLabel }}@if($segmentId) · <b>{{ $segments->firstWhere('id', $segmentId)?->name }}</b> segment @endif</div>
     </div>
     <div class="dropdown">
         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Export</button>
@@ -92,6 +92,13 @@
                 <select name="product_id" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All products</option>
                     @foreach($products as $p)<option value="{{ $p->id }}" {{ $productId == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>@endforeach
+                </select>
+            </div>
+            <div>
+                <label class="form-label small fw-semibold mb-1">Segment</label>
+                <select name="segment_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All segments</option>
+                    @foreach($segments as $sg)<option value="{{ $sg->id }}" {{ $segmentId == $sg->id ? 'selected' : '' }}>{{ $sg->name }}</option>@endforeach
                 </select>
             </div>
             <button class="btn btn-primary btn-sm sv-custom {{ $period === 'custom' ? '' : 'd-none' }}">Apply</button>

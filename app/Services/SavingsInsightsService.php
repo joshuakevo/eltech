@@ -72,12 +72,23 @@ class SavingsInsightsService
         return [$start, $end, $preset];
     }
 
+    /** Optional member segment filter (clients.segment_id), applied to every figure. */
+    private ?int $segmentId = null;
+
+    public function forSegment(?int $segmentId): static
+    {
+        $this->segmentId = $segmentId;
+        return $this;
+    }
+
     private function base(?int $productId)
     {
         return DB::table('savings_transactions as st')
             ->join('savings_accounts as sa', 'sa.id', '=', 'st.savings_account_id')
             ->whereNull('sa.deleted_at')
-            ->when($productId, fn ($q) => $q->where('sa.product_id', $productId));
+            ->when($productId, fn ($q) => $q->where('sa.product_id', $productId))
+            ->when($this->segmentId, fn ($q) => $q->whereIn('sa.client_id',
+                DB::table('clients')->select('id')->where('segment_id', $this->segmentId)));
     }
 
     /** Deposits / withdrawals / net / savers for a date range. */
@@ -217,6 +228,7 @@ class SavingsInsightsService
         $accounts = SavingsAccount::with('client:id,name', 'product:id,name')
             ->where('status', 'active')
             ->when($productId, fn ($q) => $q->where('product_id', $productId))
+            ->when($this->segmentId, fn ($q) => $q->whereHas('client', fn ($c) => $c->where('segment_id', $this->segmentId)))
             ->get(['id', 'account_number', 'client_id', 'product_id', 'balance', 'status']);
 
         $dormantCutoff = now()->startOfDay()->subDays(self::DORMANT_DAYS);

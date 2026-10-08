@@ -21,6 +21,8 @@
     tbody tr:nth-child(even) td { background:#f9fafb; }
     tfoot td { padding:6px; font-weight:bold; font-size:9px; background:#e5e7eb; border-top:2px solid #0f2444; }
     tfoot td.r { text-align:right; }
+    .pill { display:inline-block; padding:1px 5px; border-radius:7px; font-size:7.5px; font-weight:bold; white-space:nowrap; }
+    .legend td { border:0; padding:2px 6px 2px 0; font-size:8px; }
     .kpi { width:20%; border:1px solid #e5e7eb; padding:6px 8px; vertical-align:top; }
     .kpi .lbl { font-size:7px; text-transform:uppercase; color:#6b7280; font-weight:bold; }
     .kpi .val { font-size:12px; font-weight:bold; margin:2px 0; }
@@ -33,6 +35,7 @@
     <div class="header-right">
         <div>Generated: {{ now()->format('d M Y H:i') }}</div>
         <div>Period: {{ $from->format('d M Y') }} – {{ $to->format('d M Y') }}</div>
+        <div>Segment: {{ $segment->name ?? 'All segments' }} · Product: {{ $product->name ?? 'All products' }}</div>
     </div>
     <h1>@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif — Savings Report</h1>
     <p>Member saving activity and balances</p>
@@ -48,6 +51,27 @@
     </tr>
 </table>
 
+@php
+    // Trend colours: [label, symbol, text colour, background, row bar]
+    $trendStyle = [
+        'growing'   => ['Growing',   '▲', '#047857', '#d1fae5', '#10b981'],
+        'steady'    => ['Steady',    '●', '#4b5563', '#e5e7eb', '#9ca3af'],
+        'declining' => ['Declining', '▼', '#b45309', '#fef3c7', '#f59e0b'],
+        'dormant'   => ['Dormant',   '◐', '#334155', '#cbd5e1', '#64748b'],
+        'overdrawn' => ['Overdrawn', '✖', '#b91c1c', '#fee2e2', '#ef4444'],
+    ];
+    $trendCounts = $rows->countBy('trend');
+@endphp
+<table class="legend" style="margin-bottom:6px; width:auto">
+    <tr>
+        <td style="font-weight:bold; color:#374151">Trend key:</td>
+        @foreach($trendStyle as $key => [$label, $sym, $fg, $bg])
+            <td><span class="pill" style="color:{{ $fg }}; background:{{ $bg }}">{{ $sym }} {{ $label }}</span> <span style="color:#6b7280">{{ $trendCounts[$key] ?? 0 }}</span></td>
+        @endforeach
+        <td><span class="pill" style="color:#6d28d9; background:#ede9fe">★ New</span> <span style="color:#6b7280">{{ $rows->where('is_new', true)->count() }}</span></td>
+    </tr>
+</table>
+
 <table>
     <thead>
         <tr>
@@ -57,16 +81,20 @@
     </thead>
     <tbody>
     @forelse($rows->sortByDesc('net') as $r)
-    <tr>
-        <td style="font-family:monospace;font-size:8px">{{ $r->account->account_number }}</td>
+    @php [$tLabel, $tSym, $tFg, $tBg, $tBar] = $trendStyle[$r->trend] ?? $trendStyle['steady']; @endphp
+    <tr @if($r->trend === 'overdrawn') style="background:#fef2f2" @endif>
+        <td style="font-family:monospace;font-size:8px; border-left:3px solid {{ $tBar }}">{{ $r->account->account_number }}</td>
         <td>{{ $r->account->client?->name }}</td>
         <td class="r">{{ number_format($r->opening, 0) }}</td>
         <td class="r" style="color:#059669">{{ $r->deposits ? number_format($r->deposits, 0) : '—' }}</td>
         <td class="r" style="color:#dc2626">{{ $r->withdrawals ? number_format($r->withdrawals, 0) : '—' }}</td>
-        <td class="r"><strong>{{ number_format($r->net, 0) }}</strong></td>
-        <td class="r" style="font-weight:bold">{{ number_format($r->balance, 0) }}</td>
+        <td class="r"><strong style="color:{{ $r->net > 0 ? '#047857' : ($r->net < 0 ? '#b91c1c' : '#6b7280') }}">{{ $r->net > 0 ? '+' : '' }}{{ number_format($r->net, 0) }}</strong></td>
+        <td class="r" style="font-weight:bold; color:{{ $r->balance < 0 ? '#b91c1c' : '#111827' }}">{{ number_format($r->balance, 0) }}</td>
         <td style="font-size:8px">{{ $r->last_deposit?->format('d M Y') ?? 'Never' }}</td>
-        <td style="font-size:8px">{{ ucfirst($r->trend) }}</td>
+        <td>
+            <span class="pill" style="color:{{ $tFg }}; background:{{ $tBg }}">{{ $tSym }} {{ $tLabel }}</span>
+            @if($r->is_new)<span class="pill" style="color:#6d28d9; background:#ede9fe">★ New</span>@endif
+        </td>
     </tr>
     @empty
     <tr><td colspan="9" style="text-align:center;color:#9ca3af;padding:10px">No savings accounts found.</td></tr>
