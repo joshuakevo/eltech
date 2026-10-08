@@ -285,6 +285,11 @@ Route::middleware('auth')->group(function () {
 
     // ── Savings Accounts ──────────────────────────────────────────────
     // NOTE: savings/create must come before savings/{saving}
+    Route::get('savings/import-opening', [\App\Http\Controllers\SavingsOpeningImportController::class, 'form'])->name('savings.import-opening')->middleware('permission:create savings');
+    Route::get('savings/import-opening/template', [\App\Http\Controllers\SavingsOpeningImportController::class, 'template'])->name('savings.import-opening.template')->middleware('permission:create savings');
+    Route::post('savings/import-opening/preview', [\App\Http\Controllers\SavingsOpeningImportController::class, 'preview'])->name('savings.import-opening.preview')->middleware('permission:create savings');
+    Route::post('savings/import-opening/confirm', [\App\Http\Controllers\SavingsOpeningImportController::class, 'confirm'])->name('savings.import-opening.confirm')->middleware('permission:create savings');
+    Route::post('savings/import-opening/cancel', [\App\Http\Controllers\SavingsOpeningImportController::class, 'cancel'])->name('savings.import-opening.cancel')->middleware('permission:create savings');
     Route::get('savings/create', [SavingsAccountController::class, 'create'])
         ->name('savings.create')->middleware('permission:create savings');
     Route::post('savings', [SavingsAccountController::class, 'store'])

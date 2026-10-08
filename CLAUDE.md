@@ -78,6 +78,10 @@ php artisan migrate:fresh --seed  # Full reset
 - **Installment** (optional, `loan_corrections.installment_amount`, prefilled with the disbursement installment from the loan terms — `termsInstallment()`): every installment is that amount (interest by days, as-at interest first, then principal) and the **last installment takes the rest**; `convert()` uses it as the loan's `installment_amount`, so Run Loans recovers it and keeps charging interest after maturity. Blank = installment fitted to clear by maturity.
 - **Loan Interest Method Check** (Settings → `/settings/loan-interest-methods`): lists running loans set to Flat with flat vs reducing installment; switches ticked loans/products to reducing (method only — no balances or journals; audit-logged).
 
+## Savings Opening Balance Import
+- `SavingsOpeningImportController` (`/savings/import-opening`, permission `create savings`): CSV `client_number, name, balance` → preview → confirm, for a chosen product, as-at date and offset account (default **3004** Opening Balance Equity).
+- Per member: opens the product account (or uses their existing active one), posts one `savings` journal — positive DR offset / CR product liability, negative the reverse (account starts overdrawn) — and a `savings_transactions` row described **"Opening balance"** with `transaction_id`, so reversing the journal unwinds the statement. Accounts that already have an "Opening balance" row are skipped (safe to re-run).
+
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 
 When a manual journal entry line has a `client_id` attached (`transaction_lines.client_id`), the system **must also update the corresponding sub-ledger record** for that client. GL posting alone is not sufficient — the member's individual account balance and transaction history must stay in sync.
