@@ -213,6 +213,7 @@ class LoanInterestService
         $rows = $loan->schedules()->orderBy('installment_no')->get();
         $uncharged = $rows->filter(fn ($r) => !$r->interest_charged)->values();
         if ($uncharged->isEmpty()) {
+            $this->chargedBalances($rows);
             return;
         }
 
@@ -236,6 +237,24 @@ class LoanInterestService
             $row->status        = $this->status($row);
             $row->save();
             $prev = $row->due_date->copy()->startOfDay();
+        }
+
+        $this->chargedBalances($rows);
+    }
+
+    /**
+     * Balance after each charged installment: a charge fixes the installment's principal, so
+     * its stored projection is stale. Uncharged rows are set by rebalance() and agree with this.
+     */
+    private function chargedBalances(Collection $rows): void
+    {
+        $running = round($rows->sum('principal_due'), 2);
+        foreach ($rows as $row) {
+            $running = round($running - $row->principal_due, 2);
+            if ($row->interest_charged && abs((float) $row->balance_after - max(0, $running)) > 0.005) {
+                $row->balance_after = max(0, $running);
+                $row->save();
+            }
         }
     }
 
