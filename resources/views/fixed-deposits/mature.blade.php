@@ -17,18 +17,18 @@
         </div>
     </div>
     <div class="col-md-8">
-        @if($fixedDeposit->savingsAccount)
+        @if($payoutAccount)
         <div class="alert alert-success h-100 mb-0">
             <i class="bi bi-piggy-bank me-1"></i>
             Maturity amount of <strong>{{ number_format($fixedDeposit->maturity_amount, $dp) }}</strong> will be credited to savings account
-            <strong>{{ $fixedDeposit->savingsAccount->account_number }}</strong>
-            (current balance: {{ number_format($fixedDeposit->savingsAccount->balance, $dp) }}
-            → new balance: {{ number_format($fixedDeposit->savingsAccount->balance + $fixedDeposit->maturity_amount, $dp) }})
+            <strong>{{ $payoutAccount->account_number }}</strong>
+            (current balance: {{ number_format($payoutAccount->balance, $dp) }}
+            → new balance: {{ number_format($payoutAccount->balance + $fixedDeposit->maturity_amount, $dp) }})
         </div>
         @else
-        <div class="alert alert-secondary small h-100 mb-0">
-            <i class="bi bi-cash me-1"></i>
-            Maturity amount will be paid out in <strong>cash</strong>.
+        <div class="alert alert-danger small h-100 mb-0">
+            <i class="bi bi-exclamation-octagon me-1"></i>
+            The client has no active savings account to receive the maturity amount. Open a savings account for the client first.
         </div>
         @endif
     </div>
@@ -53,7 +53,7 @@
                 This will post the maturity journal entries and close the fixed deposit. This action cannot be undone.
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-success">Confirm Payout</button>
+                <button class="btn btn-success" @disabled(!$payoutAccount)>Confirm Payout</button>
                 <a href="{{ route('fixed-deposits.show', $fixedDeposit) }}" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </form>

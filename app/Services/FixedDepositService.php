@@ -203,85 +203,54 @@ class FixedDepositService
             $principal      = $deposit->principal;
             $interest       = $deposit->interest_amount;
             $total          = $deposit->maturity_amount;
-            $savingsAccount = $deposit->savingsAccount;
+            $savingsAccount = $this->requirePayoutSavingsAccount($deposit);
 
-            if ($savingsAccount) {
-                // Credit maturity amount back to savings: DR FD Liability + Interest Payable, CR Savings Liability
-                $savingsProduct = $savingsAccount->product;
-                $balBefore      = $savingsAccount->balance;
+            // Credit maturity amount to the client's savings: DR FD Liability + Interest Payable, CR Savings Liability
+            $savingsProduct = $savingsAccount->product;
+            $balBefore      = $savingsAccount->balance;
 
-                $maturityJournal = $this->accounting->post(
-                    $date,
-                    "Fixed deposit maturity to savings - {$deposit->deposit_number}",
+            $maturityJournal = $this->accounting->post(
+                $date,
+                "Fixed deposit maturity to savings - {$deposit->deposit_number}",
+                [
                     [
-                        [
-                            'account_id'  => $product->deposit_liability_account_id,
-                            'debit'       => $principal,
-                            'credit'      => 0,
-                            'description' => "FD principal returned - {$deposit->deposit_number}",
-                        ],
-                        [
-                            'account_id'  => $this->getInterestPayableAccount(),
-                            'debit'       => $interest,
-                            'credit'      => 0,
-                            'description' => "FD interest payout - {$deposit->deposit_number}",
-                        ],
-                        [
-                            'account_id'  => $savingsProduct->savings_liability_account_id,
-                            'debit'       => 0,
-                            'credit'      => $total,
-                            'description' => "FD maturity credited to {$savingsAccount->account_number}",
-                        ],
+                        'account_id'  => $product->deposit_liability_account_id,
+                        'debit'       => $principal,
+                        'credit'      => 0,
+                        'description' => "FD principal returned - {$deposit->deposit_number}",
                     ],
-                    'fixed_deposit',
-                    $deposit->id,
-                    $reference
-                );
-
-                $savingsAccount->update(['balance' => $balBefore + $total]);
-
-                SavingsTransaction::create([
-                    'savings_account_id' => $savingsAccount->id,
-                    'transaction_type'   => 'deposit',
-                    'amount'             => $total,
-                    'balance_before'     => $balBefore,
-                    'balance_after'      => $balBefore + $total,
-                    'transaction_date'   => $date,
-                    'reference'          => $maturityJournal->reference,
-                    'description'        => "Fixed deposit maturity - {$deposit->deposit_number}",
-                    'transaction_id'     => $maturityJournal->id,
-                    'created_by'         => auth()->id(),
-                ]);
-            } else {
-                // Cash payout: DR FD Liability, DR Interest Payable, CR Cash
-                $this->accounting->post(
-                    $date,
-                    "Fixed deposit maturity payout - {$deposit->deposit_number}",
                     [
-                        [
-                            'account_id'  => $product->deposit_liability_account_id,
-                            'debit'       => $principal,
-                            'credit'      => 0,
-                            'description' => "FD principal repayment - {$deposit->deposit_number}",
-                        ],
-                        [
-                            'account_id'  => $this->getInterestPayableAccount(),
-                            'debit'       => $interest,
-                            'credit'      => 0,
-                            'description' => "FD interest payout - {$deposit->deposit_number}",
-                        ],
-                        [
-                            'account_id'  => $this->getCashAccount(),
-                            'debit'       => 0,
-                            'credit'      => $total,
-                            'description' => "FD maturity payout - {$deposit->deposit_number}",
-                        ],
+                        'account_id'  => $this->getInterestPayableAccount(),
+                        'debit'       => $interest,
+                        'credit'      => 0,
+                        'description' => "FD interest payout - {$deposit->deposit_number}",
                     ],
-                    'fixed_deposit',
-                    $deposit->id,
-                    $reference
-                );
-            }
+                    [
+                        'account_id'  => $savingsProduct->savings_liability_account_id,
+                        'debit'       => 0,
+                        'credit'      => $total,
+                        'description' => "FD maturity credited to {$savingsAccount->account_number}",
+                    ],
+                ],
+                'fixed_deposit',
+                $deposit->id,
+                $reference
+            );
+
+            $savingsAccount->update(['balance' => $balBefore + $total]);
+
+            SavingsTransaction::create([
+                'savings_account_id' => $savingsAccount->id,
+                'transaction_type'   => 'deposit',
+                'amount'             => $total,
+                'balance_before'     => $balBefore,
+                'balance_after'      => $balBefore + $total,
+                'transaction_date'   => $date,
+                'reference'          => $maturityJournal->reference,
+                'description'        => "Fixed deposit maturity - {$deposit->deposit_number}",
+                'transaction_id'     => $maturityJournal->id,
+                'created_by'         => auth()->id(),
+            ]);
 
             $deposit->update([
                 'status'      => 'closed',
@@ -311,7 +280,7 @@ class FixedDepositService
             $product        = $deposit->product;
             $principal      = $deposit->principal;
             $accrued        = $deposit->accrued_interest;
-            $savingsAccount = $deposit->savingsAccount;
+            $savingsAccount = $this->requirePayoutSavingsAccount($deposit);
 
             // Reverse any accrued interest that was posted to GL
             if ($accrued > 0) {
@@ -337,70 +306,46 @@ class FixedDepositService
                 );
             }
 
-            // Return principal only (no interest)
-            if ($savingsAccount) {
-                $savingsProduct = $savingsAccount->product;
-                $balBefore      = $savingsAccount->balance;
+            // Return principal only (no interest) to the client's savings
+            $savingsProduct = $savingsAccount->product;
+            $balBefore      = $savingsAccount->balance;
 
-                $breakJournal = $this->accounting->post(
-                    $breakDate,
-                    "FD early break - principal return to savings - {$deposit->deposit_number}",
+            $breakJournal = $this->accounting->post(
+                $breakDate,
+                "FD early break - principal return to savings - {$deposit->deposit_number}",
+                [
                     [
-                        [
-                            'account_id'  => $product->deposit_liability_account_id,
-                            'debit'       => $principal,
-                            'credit'      => 0,
-                            'description' => "FD principal return - {$deposit->deposit_number}",
-                        ],
-                        [
-                            'account_id'  => $savingsProduct->savings_liability_account_id,
-                            'debit'       => 0,
-                            'credit'      => $principal,
-                            'description' => "FD break - principal to {$savingsAccount->account_number}",
-                        ],
+                        'account_id'  => $product->deposit_liability_account_id,
+                        'debit'       => $principal,
+                        'credit'      => 0,
+                        'description' => "FD principal return - {$deposit->deposit_number}",
                     ],
-                    'fixed_deposit',
-                    $deposit->id,
-                    $reference
-                );
-
-                $savingsAccount->update(['balance' => $balBefore + $principal]);
-
-                SavingsTransaction::create([
-                    'savings_account_id' => $savingsAccount->id,
-                    'transaction_type'   => 'deposit',
-                    'amount'             => $principal,
-                    'balance_before'     => $balBefore,
-                    'balance_after'      => $balBefore + $principal,
-                    'transaction_date'   => $breakDate,
-                    'reference'          => $breakJournal->reference,
-                    'description'        => "Fixed deposit early break - principal returned - {$deposit->deposit_number}",
-                    'transaction_id'     => $breakJournal->id,
-                    'created_by'         => auth()->id(),
-                ]);
-            } else {
-                $this->accounting->post(
-                    $breakDate,
-                    "FD early break - principal cash payout - {$deposit->deposit_number}",
                     [
-                        [
-                            'account_id'  => $product->deposit_liability_account_id,
-                            'debit'       => $principal,
-                            'credit'      => 0,
-                            'description' => "FD principal return - {$deposit->deposit_number}",
-                        ],
-                        [
-                            'account_id'  => $this->getCashAccount(),
-                            'debit'       => 0,
-                            'credit'      => $principal,
-                            'description' => "FD break cash payout - {$deposit->deposit_number}",
-                        ],
+                        'account_id'  => $savingsProduct->savings_liability_account_id,
+                        'debit'       => 0,
+                        'credit'      => $principal,
+                        'description' => "FD break - principal to {$savingsAccount->account_number}",
                     ],
-                    'fixed_deposit',
-                    $deposit->id,
-                    $reference
-                );
-            }
+                ],
+                'fixed_deposit',
+                $deposit->id,
+                $reference
+            );
+
+            $savingsAccount->update(['balance' => $balBefore + $principal]);
+
+            SavingsTransaction::create([
+                'savings_account_id' => $savingsAccount->id,
+                'transaction_type'   => 'deposit',
+                'amount'             => $principal,
+                'balance_before'     => $balBefore,
+                'balance_after'      => $balBefore + $principal,
+                'transaction_date'   => $breakDate,
+                'reference'          => $breakJournal->reference,
+                'description'        => "Fixed deposit early break - principal returned - {$deposit->deposit_number}",
+                'transaction_id'     => $breakJournal->id,
+                'created_by'         => auth()->id(),
+            ]);
 
             $deposit->update([
                 'status'           => 'broken',
@@ -410,6 +355,35 @@ class FixedDepositService
 
             return $deposit->fresh();
         });
+    }
+
+    /**
+     * Savings account that receives a maturity / break payout: the FD's linked
+     * account if still active, otherwise the client's oldest active savings account.
+     */
+    public function payoutSavingsAccount(FixedDeposit $deposit): ?SavingsAccount
+    {
+        $linked = $deposit->savingsAccount;
+        if ($linked && $linked->status === 'active') {
+            return $linked;
+        }
+
+        return SavingsAccount::where('client_id', $deposit->client_id)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->first();
+    }
+
+    protected function requirePayoutSavingsAccount(FixedDeposit $deposit): SavingsAccount
+    {
+        $account = $this->payoutSavingsAccount($deposit);
+        if (!$account) {
+            throw new \InvalidArgumentException(
+                'The client has no active savings account to receive the payout. Open a savings account for the client first.'
+            );
+        }
+
+        return $account;
     }
 
     protected function getCashAccount(): int

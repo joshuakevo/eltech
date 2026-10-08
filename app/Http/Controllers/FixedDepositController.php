@@ -117,7 +117,8 @@ class FixedDepositController extends Controller
             return back()->with('error', 'This deposit is already closed.');
         }
         $fixedDeposit->load('savingsAccount');
-        return view('fixed-deposits.mature', compact('fixedDeposit'));
+        $payoutAccount = $this->fdService->payoutSavingsAccount($fixedDeposit);
+        return view('fixed-deposits.mature', compact('fixedDeposit', 'payoutAccount'));
     }
 
     public function mature(Request $request, FixedDeposit $fixedDeposit)
@@ -141,7 +142,8 @@ class FixedDepositController extends Controller
             return back()->with('error', 'Only active deposits can be broken early.');
         }
         $fixedDeposit->load('client', 'product', 'savingsAccount');
-        return view('fixed-deposits.break', compact('fixedDeposit'));
+        $payoutAccount = $this->fdService->payoutSavingsAccount($fixedDeposit);
+        return view('fixed-deposits.break', compact('fixedDeposit', 'payoutAccount'));
     }
 
     public function breakDeposit(Request $request, FixedDeposit $fixedDeposit)

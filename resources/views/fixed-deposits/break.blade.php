@@ -33,10 +33,10 @@
                     <tr><td class="text-muted">Maturity Date</td><td class="text-warning fw-semibold">{{ $fixedDeposit->maturity_date->format('d M Y') }}</td></tr>
                     <tr><td class="text-muted">Interest Forfeited</td><td class="text-danger fw-semibold">{{ number_format($fixedDeposit->interest_amount, $dp) }}</td></tr>
                     <tr><td class="text-muted">Amount Returned</td><td class="text-success fw-bold">{{ number_format($fixedDeposit->principal, $dp) }}</td></tr>
-                    @if($fixedDeposit->savingsAccount)
-                    <tr><td class="text-muted">Return To</td><td>Savings — {{ $fixedDeposit->savingsAccount->account_number }}</td></tr>
+                    @if($payoutAccount)
+                    <tr><td class="text-muted">Return To</td><td>Savings — {{ $payoutAccount->account_number }}</td></tr>
                     @else
-                    <tr><td class="text-muted">Return To</td><td>Cash</td></tr>
+                    <tr><td class="text-muted">Return To</td><td class="text-danger">No active savings account — open one for the client first</td></tr>
                     @endif
                 </table>
             </div>
