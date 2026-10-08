@@ -9,42 +9,6 @@
 @section('content')
 <h4 class="fw-bold mb-4">Dashboard</h4>
 
-@can('view fixed-deposits')
-@php
-    $dashFdDue = \App\Models\FixedDeposit::with('client:id,name')->where('status', 'active')->whereDate('maturity_date', '<=', today())->orderBy('maturity_date')->get();
-@endphp
-@if($dashFdDue->count())
-<div class="card mb-4 border-danger">
-    <div class="card-header d-flex justify-content-between align-items-center bg-danger bg-opacity-10">
-        <span class="fw-semibold text-danger"><i class="bi bi-bell-fill me-1"></i>{{ $dashFdDue->count() }} fixed {{ \Illuminate\Support\Str::plural('deposit', $dashFdDue->count()) }} past maturity — {{ number_format($dashFdDue->sum(fn ($f) => $f->maturity_amount ?: $f->principal), 0) }} due to members</span>
-        <a href="{{ route('fixed-deposits.index', ['status' => 'due']) }}" class="btn btn-sm btn-outline-danger">View all</a>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0 align-middle small">
-            <thead><tr><th class="ps-3">Deposit</th><th>Member</th><th class="text-end">Principal</th><th class="text-end">Due at maturity</th><th>Matured</th><th class="pe-3"></th></tr></thead>
-            <tbody>
-            @foreach($dashFdDue->take(8) as $fd)
-                <tr>
-                    <td class="ps-3 font-monospace"><a href="{{ route('fixed-deposits.show', $fd) }}">{{ $fd->deposit_number }}</a></td>
-                    <td>{{ $fd->client->name ?? '—' }}</td>
-                    <td class="text-end">{{ number_format($fd->principal, 0) }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($fd->maturity_amount ?: $fd->principal, 0) }}</td>
-                    <td><span class="badge {{ $fd->maturity_date->isToday() ? 'bg-warning text-dark' : 'bg-danger' }}">{{ $fd->maturity_date->format('d M Y') }}{{ $fd->maturity_date->isToday() ? ' · today' : ' · ' . $fd->maturity_date->diffInDays(today()) . 'd ago' }}</span></td>
-                    <td class="pe-3 text-end">
-                        @can('mature fixed-deposits')
-                            <a href="{{ route('fixed-deposits.mature-form', $fd) }}" class="btn btn-sm btn-success py-0">Mature</a>
-                        @endcan
-                    </td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    </div>
-    @if($dashFdDue->count() > 8)<div class="card-footer small text-muted text-center">and {{ $dashFdDue->count() - 8 }} more — <a href="{{ route('fixed-deposits.index', ['status' => 'due']) }}">view all</a></div>@endif
-</div>
-@endif
-@endcan
-
 {{-- ── Stat Cards ─────────────────────────────────────────────────────────── --}}
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
