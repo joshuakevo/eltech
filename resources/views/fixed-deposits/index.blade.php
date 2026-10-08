@@ -84,6 +84,7 @@
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
+                    <option value="due" @selected(request('status')=='due')>Due — past maturity</option>
                     <option value="active" @selected(request('status')=='active')>Active</option>
                     <option value="matured" @selected(request('status')=='matured')>Matured</option>
                     <option value="closed" @selected(request('status')=='closed')>Closed</option>

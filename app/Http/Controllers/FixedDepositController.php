@@ -17,7 +17,9 @@ class FixedDepositController extends Controller
     public function index(Request $request)
     {
         $filtered = FixedDeposit::query()
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            // "due" = still active but past its maturity date (awaiting maturity / payout)
+            ->when($request->status === 'due', fn($q) => $q->where('status', 'active')->whereDate('maturity_date', '<=', today()))
+            ->when($request->status && $request->status !== 'due', fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where('deposit_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
 
