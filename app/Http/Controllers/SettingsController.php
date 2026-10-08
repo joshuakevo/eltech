@@ -117,7 +117,7 @@ class SettingsController extends Controller
 
         $deposits = preg_split('/[\s,]+/', trim($request->deposits), -1, PREG_SPLIT_NO_EMPTY);
         $args     = ['deposits' => $deposits];
-        if ($request->boolean('confirm')) {
+        if ($request->boolean('post')) {
             $args['--confirm'] = true;
         }
 

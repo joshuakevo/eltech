@@ -214,8 +214,8 @@ $groupIcons = [
                 <button type="submit" class="btn btn-outline-primary">
                     <i class="bi bi-search me-2"></i>Preview
                 </button>
-                <button type="submit" name="confirm" value="1" class="btn btn-primary"
-                        onclick="return confirm('Post the correction journals and credit the clients' savings accounts?')">
+                <button type="submit" name="post" value="1" class="btn btn-primary"
+                        onclick="return window.confirm('Post the correction journals and credit the client savings accounts?')">
                     <i class="bi bi-check2-circle me-2"></i>Post Correction
                 </button>
             </div>
