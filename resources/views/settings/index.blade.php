@@ -154,6 +154,23 @@ $groupIcons = [
     </div>
 </div>
 
+{{-- Loan interest method check --}}
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-percent text-primary"></i>
+        <span>Loan Interest Method Check</span>
+    </div>
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <p class="text-muted small mb-0 flex-grow-1" style="max-width:720px">
+            Lists running loans set to <strong>Flat</strong> interest, with the installment each method gives, so loans that are
+            really <strong>reducing balance</strong> can be switched. Only the method changes — no balances move and no journals are posted.
+        </p>
+        <a href="{{ route('settings.loan-interest-methods') }}" class="btn btn-outline-primary">
+            <i class="bi bi-search me-2"></i>Check Loans
+        </a>
+    </div>
+</div>
+
 {{-- Locked-Up Loans Data Check --}}
 <div class="card mt-4 border-warning">
     <div class="card-header d-flex align-items-center gap-2">

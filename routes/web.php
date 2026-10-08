@@ -452,6 +452,8 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo');
         Route::delete('settings/logo', [SettingsController::class, 'removeLogo'])->name('settings.logo.remove');
         Route::post('settings/reconcile', [SettingsController::class, 'reconcile'])->name('settings.reconcile');
+        Route::get('settings/loan-interest-methods', [SettingsController::class, 'loanInterestMethods'])->name('settings.loan-interest-methods');
+        Route::post('settings/loan-interest-methods', [SettingsController::class, 'applyLoanInterestMethods'])->name('settings.loan-interest-methods.apply');
         Route::post('settings/fd-maturity-to-savings', [SettingsController::class, 'fdMaturityToSavings'])->name('settings.fd-maturity-to-savings');
         Route::post('settings/locked-up-loans/verify', [SettingsController::class, 'verifyLockedUpLoans'])->name('settings.locked-up-loans.verify');
         Route::post('settings/locked-up-loans/fix', [SettingsController::class, 'fixLockedUpLoans'])->name('settings.locked-up-loans.fix');

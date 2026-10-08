@@ -5,6 +5,7 @@
     $lcLatestApplied = $corrections->firstWhere('status', 'applied');
     // Interest field starts at today's figure rolled back to the as-at date (current + interest repaid since),
     // so correcting only the principal never changes interest by accident.
+    $lcTermsInstallment = app(\App\Services\LoanCorrectionService::class)->termsInstallment($loan);
     $lcInterestDefault = round($loan->outstanding_interest + $loan->repayments->filter(fn ($r) => $r->payment_date->gt(\Carbon\Carbon::parse($lcDefaultAsAt)))->sum('interest_paid'), 2);
 @endphp
 
@@ -14,7 +15,7 @@
     <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle small">
             <thead><tr>
-                <th class="ps-3">As at</th><th class="text-end">Principal</th><th class="text-end">Interest</th>
+                <th class="ps-3">As at</th><th class="text-end">Principal</th><th class="text-end">Interest</th><th class="text-end">Installment</th>
                 <th>Journal</th><th>Reason</th><th>By</th><th class="pe-3"></th>
             </tr></thead>
             <tbody>
@@ -25,6 +26,7 @@
                     </td>
                     <td class="text-end">{{ number_format($c->old_principal, $dp) }} → <b>{{ number_format($c->new_principal, $dp) }}</b></td>
                     <td class="text-end">{{ number_format($c->old_interest, $dp) }} → <b>{{ number_format($c->new_interest, $dp) }}</b></td>
+                    <td class="text-end">{{ $c->installment_amount ? number_format($c->installment_amount, $dp) : 'fitted' }}</td>
                     <td class="font-monospace">
                         @if($c->transaction)
                             @can('view transactions')<a href="{{ route('transactions.show', $c->transaction) }}">{{ $c->transaction->reference }}</a>@else{{ $c->transaction->reference }}@endcan
@@ -84,6 +86,17 @@
                             <div class="form-text">Starts at the interest currently on the system. Interest above the loan's normal amount is treated as arrears, due on the first installment.
                                 <span id="lcCalcWrap" class="d-none"><br>Loan terms ({{ $loan->interest_rate }}% {{ $loan->interest_method }}) give <b id="lcCalcVal"></b> — <a href="#" id="lcUseCalc">use this</a></span></div>
                         </div>
+                        @unless($loan->isLockedUp())
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold mb-1">Installment</label>
+                            <input type="number" name="installment" step="any" min="0" class="form-control form-control-sm lc-in" value="{{ old('installment', $lcTermsInstallment) }}" placeholder="Blank = fit the balance to maturity">
+                            <div class="form-text">
+                                @if($lcTermsInstallment)Starts at the installment from disbursement ({{ number_format($loan->principal, 0) }} at {{ $loan->interest_rate }}% {{ $loan->interest_method }} over {{ $loan->term_months }} months).@endif
+                                Run Loans recovers this each due date; the last installment ({{ $loan->maturity_date?->format('d M Y') }}) takes whatever is left.
+                                Clear it to work out an installment that clears the balance by maturity.
+                            </div>
+                        </div>
+                        @endunless
 
                         <div class="lc-step mt-3"><span>2</span> Accounting</div>
                         <div class="row g-2 mb-2">
@@ -254,7 +267,8 @@
             `<div class="small border-bottom py-1 d-flex justify-content-between"><span>${fmtDate(r.date)} <span class="font-monospace text-muted">${esc(r.reference || '')}</span></span><span>principal ${n(r.principal)} · interest ${n(r.interest)}</span></div>`).join('');
 
         const rows = d.installments || [];
-        document.getElementById('lcSchedNote').textContent = rows.length ? rows.length + ' installment' + (rows.length === 1 ? '' : 's') + ' to maturity' : '';
+        document.getElementById('lcSchedNote').textContent = rows.length ? rows.length + ' installment' + (rows.length === 1 ? '' : 's') + ' to maturity'
+            + (d.installment ? ' · ' + n(d.installment) + ' each, last takes the rest' : ' · fitted to maturity') : '';
         document.getElementById('lcSchedule').innerHTML = rows.length ? rows.map(r => `
             <tr><td>${r.installment_no}</td><td class="text-nowrap">${fmtDate(r.due_date)}</td>
                 <td class="text-end">${n(r.principal_due)}</td><td class="text-end">${n(r.interest_due)}</td><td class="text-end fw-semibold">${n(r.total_due)}</td>

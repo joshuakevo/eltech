@@ -299,11 +299,12 @@ class LoanController extends Controller
             'as_at_date'        => 'required|date',
             'principal'         => 'required|numeric|min:0',
             'interest'          => 'nullable|numeric|min:0',
+            'installment'       => 'nullable|numeric|min:0',
             'journal_date'      => 'nullable|date',
             'offset_account_id' => 'nullable|integer',
             'no_journal'        => 'nullable|boolean',
         ]);
-        return $request->only(['as_at_date', 'principal', 'interest', 'journal_date', 'offset_account_id', 'no_journal']);
+        return $request->only(['as_at_date', 'principal', 'interest', 'installment', 'journal_date', 'offset_account_id', 'no_journal']);
     }
 
     /** JSON preview of a correction (nothing is saved). */

@@ -105,6 +105,8 @@ class LoanInterestService
         $unattached = $this->unattachedPrincipal($loan, $rows);
         if ($uncharged->isEmpty()) {
             $installment = 0;
+        } elseif ($fromCorrection && $correction->installment_amount > 0) {
+            $installment = (float) $correction->installment_amount;   // chosen on the correction
         } elseif (!$fromCorrection && $uncharged->count() > 1) {
             $installment = (float) $uncharged->first()->total_due;   // keep the installment members know
         } else {

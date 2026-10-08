@@ -108,6 +108,68 @@ class SettingsController extends Controller
     ];
 
     /**
+     * Read-only list of running loans set to Flat interest, with the installment each method
+     * gives, so loans that are really reducing balance can be switched.
+     */
+    public function loanInterestMethods()
+    {
+        $corrections = app(\App\Services\LoanCorrectionService::class);
+        $loans = \App\Models\Loan::with('client', 'product')
+            ->whereIn('status', ['active', 'defaulted'])
+            ->where('interest_method', 'flat')
+            ->whereHas('product', fn ($q) => $q->where('name', '!=', 'Locked-Up Loans'))
+            ->orderBy('loan_product_id')->orderBy('loan_number')
+            ->get()
+            ->each(function ($loan) use ($corrections) {
+                $loan->flat_installment = $corrections->termsInstallment($loan);
+                $reducing = clone $loan;
+                $reducing->interest_method = 'reducing';
+                $loan->reducing_installment = $corrections->termsInstallment($reducing);
+            });
+        $products = \App\Models\LoanProduct::where('name', '!=', 'Locked-Up Loans')->orderBy('name')->get();
+
+        return view('settings.loan-interest-methods', compact('loans', 'products'));
+    }
+
+    /**
+     * Switches the ticked loans (and optionally products) from Flat to Reducing. Only the method
+     * changes: balances and journals are untouched (Run Loans already charges interest on the
+     * reducing balance); it drives the loan terms shown and how a balance correction rebuilds.
+     */
+    public function applyLoanInterestMethods(Request $request)
+    {
+        $request->validate([
+            'loan_ids'      => 'array',
+            'loan_ids.*'    => 'integer',
+            'product_ids'   => 'array',
+            'product_ids.*' => 'integer',
+        ]);
+
+        $loans = \App\Models\Loan::whereIn('id', $request->input('loan_ids', []))
+            ->where('interest_method', 'flat')->get();
+        $products = \App\Models\LoanProduct::whereIn('id', $request->input('product_ids', []))
+            ->where('interest_method', 'flat')->where('name', '!=', 'Locked-Up Loans')->get();
+
+        if ($loans->isEmpty() && $products->isEmpty()) {
+            return back()->with('error', 'Tick at least one loan or product to switch.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($loans, $products) {
+            foreach ($loans as $loan) {
+                $loan->update(['interest_method' => 'reducing']);
+                \App\Models\AuditLog::record('loan_interest_method', "Changed {$loan->loan_number} interest method from flat to reducing", 'loans');
+            }
+            foreach ($products as $product) {
+                $product->update(['interest_method' => 'reducing']);
+                \App\Models\AuditLog::record('loan_product_interest_method', "Changed loan product {$product->name} interest method from flat to reducing", 'loans');
+            }
+        });
+
+        return redirect()->route('settings.loan-interest-methods')->with('success',
+            $loans->count() . ' loan(s)' . ($products->isNotEmpty() ? ' and ' . $products->count() . ' product(s)' : '') . ' switched to reducing balance.');
+    }
+
+    /**
      * Moves maturity payouts of closed FDs that went to Cash into the client's
      * savings account. Preview unless the "confirm" button was used.
      */

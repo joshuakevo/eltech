@@ -75,6 +75,8 @@ php artisan migrate:fresh --seed  # Full reset
 - Rebuilds installments from the as-at date to the **existing maturity** on the loan's due-day pattern, rate and method; interest above the natural curve is arrears on installment 1. **Repayments after the as-at date are replayed** onto the new schedule (repayment records unchanged).
 - Principal difference posts DR/CR the product receivable (fallback 1101) vs **3004 Opening Balance Equity** (or 3002), module `loan_correction`. Interest needs no journal (interest is recognised when received).
 - Each correction stores a snapshot (loan figures, schedule, repayment ids) so Undo / journal reversal restores exactly.
+- **Installment** (optional, `loan_corrections.installment_amount`, prefilled with the disbursement installment from the loan terms — `termsInstallment()`): every installment is that amount (interest by days, as-at interest first, then principal) and the **last installment takes the rest**; `convert()` uses it as the loan's `installment_amount`, so Run Loans recovers it and keeps charging interest after maturity. Blank = installment fitted to clear by maturity.
+- **Loan Interest Method Check** (Settings → `/settings/loan-interest-methods`): lists running loans set to Flat with flat vs reducing installment; switches ticked loans/products to reducing (method only — no balances or journals; audit-logged).
 
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 

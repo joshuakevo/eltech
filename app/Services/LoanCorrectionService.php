@@ -30,6 +30,11 @@ use Illuminate\Validation\ValidationException;
  *     only when received, so an interest correction needs no journal.
  *  4. The previous loan figures + schedule are snapshotted so the correction can be
  *     undone exactly (also when its journal is reversed or deleted).
+ *
+ * With an installment amount, every installment is that amount (interest -- arrears first --
+ * then principal) and the last one takes whatever is left; Run Loans recovers that amount and
+ * keeps charging interest on anything unpaid after maturity. Without one, the installment is
+ * worked out so the corrected balance clears by maturity.
  */
 class LoanCorrectionService
 {
@@ -46,7 +51,7 @@ class LoanCorrectionService
     /**
      * Works out the full correction without writing anything.
      *
-     * @param array{as_at_date:string, principal:float|string, interest:float|string|null, journal_date?:string, offset_account_id?:int, no_journal?:bool} $in
+     * @param array{as_at_date:string, principal:float|string, interest:float|string|null, installment?:float|string|null, journal_date?:string, offset_account_id?:int, no_journal?:bool} $in
      *
      * no_journal: loan figures only — for when the GL already shows the right balance and only the
      * loan record drifted (e.g. a repayment journal was reversed without unwinding the loan).
@@ -61,6 +66,7 @@ class LoanCorrectionService
         $asAt      = Carbon::parse($in['as_at_date'])->startOfDay();
         $principal = round((float) $in['principal'], 2);
         $interestIn = ($in['interest'] ?? '') === '' || $in['interest'] === null ? null : round((float) $in['interest'], 2);
+        $installment = ($in['installment'] ?? '') === '' || $in['installment'] === null ? null : round((float) $in['installment'], 2);
 
         if ($loan->status === 'pending' || !$loan->disbursement_date) {
             $errors[] = 'This loan has not been disbursed yet.';
@@ -74,6 +80,9 @@ class LoanCorrectionService
         if ($principal < 0 || ($interestIn !== null && $interestIn < 0)) {
             $errors[] = 'Principal and interest cannot be negative.';
         }
+        if ($installment !== null && $installment <= 0) {
+            $errors[] = 'The installment must be more than zero (or leave it blank to fit the balance to maturity).';
+        }
 
         // ── 1. New installments ─────────────────────────────────────────────
         $lockedUp = $loan->isLockedUp();
@@ -83,7 +92,18 @@ class LoanCorrectionService
             [$rows, $naturalInterest] = $this->amortize($loan, $asAt, $principal);
         }
         $interest = $interestIn ?? round($naturalInterest, 2);
-        if ($rows) {
+        if ($rows && $installment !== null && $installment > 0) {
+            $this->fixedInstallment($loan, $rows, $asAt, $principal, $interest, $installment);
+            $last = end($rows);
+            if (count($rows) > 1 && $rows[0]['principal_due'] < 0.01) {
+                $warnings[] = 'An installment of ' . number_format($installment, 0) . ' does not cover the interest, so no principal is repaid until the last installment.';
+            }
+            if ($last['total_due'] - $installment > 0.5) {
+                $warnings[] = 'The last installment (' . Carbon::parse($last['due_date'])->format('d M Y') . ') is ' . number_format($last['total_due'], 0)
+                    . ': it takes the balance the installment leaves. Anything unpaid then stays overdue and keeps being charged interest.';
+            }
+        } elseif ($rows) {
+            $installment = null;
             $this->spreadInterest($rows, $interest, $naturalInterest);
         }
 
@@ -175,6 +195,8 @@ class LoanCorrectionService
             'principal_at_date' => $principal,
             'interest_at_date'  => $interest,
             'natural_interest'  => round($naturalInterest, 2),
+            'installment'       => $installment,
+            'terms_installment' => $this->termsInstallment($loan),
             'installments'      => $rows,
             'replayed'          => $later->map(fn ($r) => [
                 'date' => Carbon::parse($r->payment_date)->toDateString(), 'reference' => $r->reference,
@@ -213,6 +235,7 @@ class LoanCorrectionService
                 'old_interest'         => $plan['old']['interest'],
                 'principal_at_date'    => $plan['principal_at_date'],
                 'interest_at_date'     => $plan['interest_at_date'],
+                'installment_amount'   => $plan['installment'],
                 'new_principal'        => $plan['new']['principal'],
                 'new_interest'         => $plan['new']['interest'],
                 'principal_adjustment' => $plan['principal_adjustment'],
@@ -287,6 +310,7 @@ class LoanCorrectionService
             $this->audit('loan_correction', "Corrected {$loan->loan_number} as at {$plan['as_at']}: principal "
                 . number_format($plan['old']['principal'], 2) . ' → ' . number_format($plan['new']['principal'], 2)
                 . ', interest ' . number_format($plan['old']['interest'], 2) . ' → ' . number_format($plan['new']['interest'], 2)
+                . ($plan['installment'] !== null ? ', installment ' . number_format($plan['installment'], 2) : '')
                 . ". Reason: {$reason}");
 
             return $correction;
@@ -356,6 +380,23 @@ class LoanCorrectionService
             $correction->update(['status' => 'reversed', 'reversed_at' => now(), 'reversed_by' => auth()->id()]);
             $this->audit('loan_correction_undone', "Undid balance correction #{$correction->id} on {$loan->loan_number}");
         });
+    }
+
+    /** The installment the loan's own terms give at disbursement (principal, rate, method, term). */
+    public function termsInstallment(Loan $loan): ?float
+    {
+        $step    = ($loan->repayment_frequency ?? 'monthly') === 'quarterly' ? 3 : 1;
+        $periods = intdiv((int) $loan->term_months, $step);
+        $amount  = (float) $loan->principal;
+        if ($periods < 1 || $amount <= 0) {
+            return null;
+        }
+        $r = (float) $loan->interest_rate / 100 * $step / 12;
+
+        if ($loan->interest_method === 'flat') {
+            return round($amount / $periods + $amount * $r, 2);
+        }
+        return round($r == 0 ? $amount / $periods : $amount * $r / (1 - pow(1 + $r, -$periods)), 2);
     }
 
     // ── Internals ───────────────────────────────────────────────────────────
@@ -429,6 +470,44 @@ class LoanCorrectionService
         unset($row);
 
         return [$rows, $natural];
+    }
+
+    /**
+     * Fixed installment, as Run Loans will charge and recover it: interest by days on the
+     * reducing balance (after the interest owing at the as-at date) is paid first, the rest of
+     * the installment is principal, and the last installment takes everything left.
+     */
+    private function fixedInstallment(Loan $loan, array &$rows, Carbon $asAt, float $principal, float $interest, float $installment): void
+    {
+        $rate    = (float) $loan->interest_rate / 100;
+        $n       = count($rows);
+        $balance = $principal;
+        $pool    = $interest;
+        $prev    = $asAt->copy();
+
+        foreach ($rows as $i => &$row) {
+            $due   = Carbon::parse($row['due_date'])->startOfDay();
+            $pool += $balance * $rate * max(0, $prev->diffInDays($due, false)) / 365;
+            $prev  = $due;
+            if ($i === $n - 1) {
+                $iDue = $pool;
+                $p    = $balance;
+            } else {
+                $iDue = min($pool, $installment);
+                $p    = min($balance, max(0, $installment - $iDue));
+            }
+            $iDue    = round($iDue, 2);
+            $p       = round($p, 2);
+            $pool   -= $iDue;
+            $balance = round($balance - $p, 2);
+
+            $row['principal_due'] = $p;
+            $row['interest_due']  = $iDue;
+            $row['total_due']     = round($p + $iDue, 2);
+            $row['balance_after'] = max(0, $balance);
+            unset($row['natural_interest']);
+        }
+        unset($row);
     }
 
     /**
