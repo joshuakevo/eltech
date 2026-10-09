@@ -31,15 +31,23 @@ class LoanController extends Controller
             ->when($type === 'closed', fn($q) => $q->where('status', 'closed'))
             ->when($type !== 'closed' && !$request->status, fn($q) => $q->where('status', '!=', 'closed'))
             ->when($type !== 'closed' && $request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->search, fn($q) => $q->where('loan_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
+            ->when($request->search, fn($q) => $q->where(fn($q1) => $q1->where('loan_number', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%"))))
+            ->when($request->segment_id, fn($q) => $q->whereHas('client', fn($q2) => $q2->where('segment_id', $request->segment_id)))
+            ->when($request->relationship_manager_id, fn($q) => $q->whereHas('client', fn($q2) => $q2->where('relationship_manager_id', $request->relationship_manager_id)));
+
+        // Date of the latest repayment / recovery on each loan
+        $withLastPaid = fn($q) => $q->withMax(['repayments as last_paid_date' => fn($r) => $r->reorder()], 'payment_date');
+        $sorted = fn($q) => $request->sort === 'last_paid'
+            ? $q->orderByRaw('last_paid_date IS NOT NULL')->orderBy('last_paid_date')->orderBy('loan_number')
+            : $q->orderByDesc('disbursement_date');
 
         $totalOutstanding = (clone $filtered)->sum('outstanding_principal');
         $totalInterest    = (clone $filtered)->sum('outstanding_interest');
         $totalCount       = (clone $filtered)->count();
 
         if ($request->format === 'pdf') {
-            $all = (clone $filtered)->with('client', 'product')->orderByDesc('disbursement_date')->get();
+            $all = $sorted($withLastPaid((clone $filtered)->with('client', 'product')))->get();
             $pdf = Pdf::loadView('pdf.loans', [
                 'loans'            => $all,
                 'totalOutstanding' => $totalOutstanding,
@@ -51,34 +59,38 @@ class LoanController extends Controller
         }
 
         if ($request->format === 'excel') {
-            $all = (clone $filtered)->with('client', 'product')->orderByDesc('disbursement_date')->get();
+            $all = $sorted($withLastPaid((clone $filtered)->with('client.segment', 'client.relationshipManager', 'product')))->get();
             $header = $type === 'locked-up'
-                ? ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Interest', 'Disbursed', 'Status']
-                : ['Loan #', 'Client', 'Client #', 'Product', 'Principal', 'Outstanding', 'Disbursed', 'Status'];
+                ? ['Loan #', 'Client', 'Client #', 'Segment', 'Relationship Manager', 'Product', 'Principal', 'Interest', 'Disbursed', 'Last Recovery', 'Status']
+                : ['Loan #', 'Client', 'Client #', 'Segment', 'Relationship Manager', 'Product', 'Principal', 'Outstanding', 'Disbursed', 'Last Repayment', 'Status'];
             $rows = [$header];
             foreach ($all as $loan) {
                 $rows[] = [
                     $loan->loan_number,
                     $loan->client->name ?? '',
                     $loan->client->client_number ?? '',
+                    $loan->client->segment->name ?? '',
+                    $loan->client->relationshipManager->name ?? '',
                     $loan->product->name ?? '',
                     $loan->principal,
                     $type === 'locked-up' ? $loan->outstanding_interest : $loan->outstanding_principal,
                     $loan->disbursement_date ? $loan->disbursement_date->format('Y-m-d') : '',
+                    $loan->last_paid_date ? \Carbon\Carbon::parse($loan->last_paid_date)->format('Y-m-d') : '',
                     ucfirst($loan->status),
                 ];
             }
             $rows[] = $type === 'locked-up'
-                ? ['', '', '', 'TOTAL', $totalOutstanding, $totalInterest, '', $totalCount . ' loans']
-                : ['', '', '', 'TOTAL', '', $totalOutstanding, '', $totalCount . ' loans'];
+                ? ['', '', '', '', '', 'TOTAL', $totalOutstanding, $totalInterest, '', '', $totalCount . ' loans']
+                : ['', '', '', '', '', 'TOTAL', '', $totalOutstanding, '', '', $totalCount . ' loans'];
             return $this->csvDownload($rows, 'loans-' . now()->format('Y-m-d'));
         }
 
-        $loans = $filtered->with('client', 'product')
-            ->orderByDesc('disbursement_date')
+        $loans = $sorted($withLastPaid($filtered->with('client.segment', 'client.relationshipManager', 'product')))
             ->paginate(20);
+        $segments = \App\Models\ClientSegment::orderBy('name')->get(['id', 'name']);
+        $managers = \App\Models\User::where('is_relationship_manager', true)->orderBy('name')->get(['id', 'name']);
 
-        return view('loans.index', compact('loans', 'totalOutstanding', 'totalInterest', 'totalCount', 'type'));
+        return view('loans.index', compact('loans', 'totalOutstanding', 'totalInterest', 'totalCount', 'type', 'segments', 'managers'));
     }
 
     public function create(Request $request)

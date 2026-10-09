@@ -65,6 +65,7 @@
                 <th class="r">Outstanding</th>
             @endif
             <th>Disbursed</th>
+            <th>{{ $isLockedUp ? 'Last Recovery' : 'Last Repayment' }}</th>
             <th>Status</th>
         </tr>
     </thead>
@@ -83,6 +84,7 @@
             <td class="r">{{ number_format($loan->outstanding_principal, 0) }}</td>
         @endif
         <td class="text-muted">{{ $loan->disbursement_date ? $loan->disbursement_date->format('d M Y') : '—' }}</td>
+        <td class="text-muted">{{ $loan->last_paid_date ? \Carbon\Carbon::parse($loan->last_paid_date)->format('d M Y') : 'Never' }}</td>
         <td class="{{ $loan->status === 'active' ? 'badge-active' : 'badge-other' }}">{{ ucfirst($loan->status) }}</td>
     </tr>
     @endforeach
@@ -96,11 +98,13 @@
             <td class="r">{{ number_format($totalOutstanding + ($totalInterest ?? 0), 0) }}</td>
             <td></td>
             <td></td>
+            <td></td>
         </tr>
         @else
         <tr>
             <td colspan="4">TOTAL ({{ number_format($totalCount) }} loans)</td>
             <td class="r">{{ number_format($totalOutstanding, 0) }}</td>
+            <td></td>
             <td></td>
             <td></td>
         </tr>

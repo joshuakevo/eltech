@@ -60,11 +60,33 @@
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">
             <input type="hidden" name="type" value="{{ $type }}">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <input type="text" name="search" class="form-control" placeholder="Search loan # or client name..." value="{{ request('search') }}">
             </div>
+            <div class="col-md-2">
+                <select name="segment_id" class="form-select">
+                    <option value="">All Segments</option>
+                    @foreach($segments as $segment)
+                    <option value="{{ $segment->id }}" @selected((string)request('segment_id')===(string)$segment->id)>{{ $segment->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="relationship_manager_id" class="form-select">
+                    <option value="">All Relationship Managers</option>
+                    @foreach($managers as $rm)
+                    <option value="{{ $rm->id }}" @selected((string)request('relationship_manager_id')===(string)$rm->id)>{{ $rm->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="sort" class="form-select">
+                    <option value="">Newest disbursed first</option>
+                    <option value="last_paid" @selected(request('sort')==='last_paid')>Longest since {{ $type === 'locked-up' ? 'recovery' : 'repayment' }}</option>
+                </select>
+            </div>
             @if($type !== 'closed')
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
                     <option value="pending" @selected(request('status')=='pending')>Pending</option>
@@ -88,6 +110,7 @@
                     <th class="text-end">Outstanding</th>
                 @endif
                 <th>Disbursed</th>
+                <th>{{ $type === 'locked-up' ? 'Last Recovery' : 'Last Repayment' }}</th>
                 <th>Status</th><th class="pe-3">Actions</th>
             </tr></thead>
             <tbody>
@@ -113,6 +136,15 @@
                         </td>
                     @endif
                     <td class="small text-muted">{{ $loan->disbursement_date ? $loan->disbursement_date->format('d M Y') : '—' }}</td>
+                    <td class="small">
+                        @if($loan->last_paid_date)
+                            @php $lp = \Carbon\Carbon::parse($loan->last_paid_date); $ago = $lp->diffInDays(today()); @endphp
+                            <span class="{{ $ago > 90 ? 'text-danger' : ($ago > 30 ? 'text-warning' : 'text-success') }}">{{ $lp->format('d M Y') }}</span>
+                            <div class="text-muted" style="font-size:.72rem">{{ $ago }}d ago</div>
+                        @else
+                            <span class="text-muted">Never</span>
+                        @endif
+                    </td>
                     <td>
                         <span class="badge badge-status-{{ $loan->status }}">{{ ucfirst($loan->status) }}</span>
                         @if($loan->status === 'active' && $loan->maturity_date && $loan->maturity_date->isPast())
@@ -129,7 +161,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="text-center text-muted py-4">No loans found.</td></tr>
+                <tr><td colspan="9" class="text-center text-muted py-4">No loans found.</td></tr>
             @endforelse
             </tbody>
         </table>
