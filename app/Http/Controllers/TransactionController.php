@@ -790,8 +790,15 @@ class TransactionController extends Controller
             'manual'        => $this->reverseManualSubLedgers($transaction),
             'loan_provision' => $this->reverseLoanProvisionImpact($transaction),
             'loan_correction' => $this->reverseLoanCorrectionImpact($transaction),
+            'loan_transfer' => $this->reverseLoanTransferImpact($transaction),
             default         => null,
         };
+    }
+
+    /** Locked-Up loan transfer (import) journals: remove the transferred loan (no recoveries — checked beforehand). */
+    private function reverseLoanTransferImpact(Transaction $transaction): void
+    {
+        Loan::where('id', $transaction->module_id)->first()?->delete();
     }
 
     /**
@@ -833,6 +840,14 @@ class TransactionController extends Controller
                     throw ValidationException::withMessages(['reversal_reason' => $msg]);
                 }
             }
+        }
+
+        if ($transaction->module === 'loan_transfer' && LoanRepayment::where('loan_id', $transaction->module_id)->exists()) {
+            $msg = 'Cannot reverse this loan transfer because the loan has recoveries. Reverse those first.';
+            if ($isDestroy) {
+                throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+            }
+            throw ValidationException::withMessages(['reversal_reason' => $msg]);
         }
 
         if ($transaction->module === 'loan' && str_contains($desc, 'loan disbursement')) {

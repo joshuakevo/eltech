@@ -17,6 +17,9 @@
             </ul>
         </div>
         @can('create loans')
+        @if($type === 'locked-up')
+        <a href="{{ route('loans.import-locked-up') }}" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i> Import Locked-Up loans</a>
+        @endif
         <a href="{{ route('loans.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New Loan</a>
         @endcan
     </div>

@@ -82,6 +82,10 @@ php artisan migrate:fresh --seed  # Full reset
 - `SavingsOpeningImportController` (`/savings/import-opening`, permission `create savings`): CSV `client_number, name, balance` → preview → confirm, for a chosen product, as-at date and offset account (default **3004** Opening Balance Equity).
 - Per member: opens the product account (or uses their existing active one), posts one `savings` journal — positive DR offset / CR product liability, negative the reverse (account starts overdrawn) — and a `savings_transactions` row described **"Opening balance"** with `transaction_id`, so reversing the journal unwinds the statement. Accounts that already have an "Opening balance" row are skipped (safe to re-run).
 
+## Locked-Up Loan Import
+- `LockedUpLoanImportController` (`/loans/import-locked-up`, permission `create loans`, button on the Locked-Up tab): CSV `client_number, principal, interest` (+ optional `name`, `loan_number`, default `LU-<member code>`) → preview → confirm, for an as-at date and offset account (default **3004**).
+- Creates each loan like the existing Locked-Up book (product "Locked-Up Loans", status `defaulted`, rate 0, no schedule). Principal posts DR product receivable (**1104**) / CR offset, module **`loan_transfer`** (`reverseLoanTransferImpact` deletes the loan; blocked once it has recoveries). Interest is recorded on the loan with no journal. A member already holding a Locked-Up loan dated the as-at date is skipped (safe to re-run).
+
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 
 When a manual journal entry line has a `client_id` attached (`transaction_lines.client_id`), the system **must also update the corresponding sub-ledger record** for that client. GL posting alone is not sufficient — the member's individual account balance and transaction history must stay in sync.

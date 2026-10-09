@@ -239,6 +239,11 @@ Route::middleware('auth')->group(function () {
         ->name('loans.reset')->middleware('permission:correct loans');
     Route::post('loans/reset', [LoanController::class, 'resetExecute'])
         ->name('loans.reset.execute')->middleware('permission:correct loans');
+    Route::get('loans/import-locked-up', [\App\Http\Controllers\LockedUpLoanImportController::class, 'form'])->name('loans.import-locked-up')->middleware('permission:create loans');
+    Route::get('loans/import-locked-up/template', [\App\Http\Controllers\LockedUpLoanImportController::class, 'template'])->name('loans.import-locked-up.template')->middleware('permission:create loans');
+    Route::post('loans/import-locked-up/preview', [\App\Http\Controllers\LockedUpLoanImportController::class, 'preview'])->name('loans.import-locked-up.preview')->middleware('permission:create loans');
+    Route::post('loans/import-locked-up/confirm', [\App\Http\Controllers\LockedUpLoanImportController::class, 'confirm'])->name('loans.import-locked-up.confirm')->middleware('permission:create loans');
+    Route::post('loans/import-locked-up/cancel', [\App\Http\Controllers\LockedUpLoanImportController::class, 'cancel'])->name('loans.import-locked-up.cancel')->middleware('permission:create loans');
     Route::get('loans/{loan}', [LoanController::class, 'show'])
         ->name('loans.show')->middleware('permission:view loans');
     Route::get('loans/{loan}/schedule', [LoanController::class, 'schedule'])
