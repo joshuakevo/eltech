@@ -1,5 +1,5 @@
 {{-- "Install app" pop-up: QR code to open the system on a phone + install on this device. Open with data-bs-target="#installAppModal". --}}
-@php $appUrl = url('/'); $appName = \App\Models\SystemSetting::get('org_name', 'ElTech Finance'); @endphp
+@php $appUrl = route('app.install'); $appName = \App\Models\SystemSetting::get('org_name', 'ElTech Finance'); @endphp
 <div class="modal fade" id="installAppModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius:14px;overflow:hidden">
@@ -17,12 +17,12 @@
                 <div class="row g-3 align-items-center">
                     <div class="col-sm-5 text-center">
                         <div id="installQr" class="d-inline-block p-2 bg-white border rounded"></div>
-                        <div class="text-muted mt-1" style="font-size:.72rem">Scan with your phone camera</div>
+                        <div class="text-muted mt-1" style="font-size:.72rem">Scan with your phone camera to install</div>
                     </div>
                     <div class="col-sm-7" style="font-size:.82rem">
                         <button type="button" id="installNowBtn" class="btn btn-primary w-100 mb-2 d-none"><i class="bi bi-download me-1"></i>Install on this device</button>
                         <div id="installDone" class="alert alert-success py-2 small d-none mb-2"><i class="bi bi-check-circle me-1"></i>Installed — open it from your home screen or apps.</div>
-                        <div class="fw-semibold mb-1">After scanning:</div>
+                        <div class="fw-semibold mb-1">Scanning opens the install page. Or install from the browser:</div>
                         <div class="mb-1"><i class="bi bi-android2 text-success me-1"></i><b>Android (Chrome)</b>: menu <i class="bi bi-three-dots-vertical"></i> → <i>Install app</i> / <i>Add to Home screen</i></div>
                         <div class="mb-1"><i class="bi bi-apple me-1"></i><b>iPhone (Safari)</b>: Share <i class="bi bi-box-arrow-up"></i> → <i>Add to Home Screen</i></div>
                         <div><i class="bi bi-pc-display text-primary me-1"></i><b>Computer (Chrome / Edge)</b>: the install icon <i class="bi bi-window-plus"></i> at the right of the address bar</div>

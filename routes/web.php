@@ -45,6 +45,7 @@ use Illuminate\Support\Facades\Route;
 
 // ── Authentication (public) ───────────────────────────────────────
 Route::get('login', [LoginController::class, 'showLogin'])->name('login');
+Route::view('install', 'auth.install')->name('app.install');
 Route::get('manifest.webmanifest', [\App\Http\Controllers\AppInstallController::class, 'manifest'])->name('app.manifest');
 Route::get('app-icon/{size}.png', [\App\Http\Controllers\AppInstallController::class, 'icon'])->whereNumber('size')->name('app.icon');
 Route::post('login', [LoginController::class, 'login']);
