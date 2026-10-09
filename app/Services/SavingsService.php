@@ -89,10 +89,12 @@ class SavingsService
     /**
      * Withdraw funds from a savings account.
      */
-    public function withdraw(SavingsAccount $account, float $amount, string $date, string $description = 'Withdrawal', ?string $reference = null, ?float $fee = null, ?int $paymentSourceAccountId = null, ?float $institutionCharge = null, bool $allowOverdraft = false): SavingsTransaction
+    public function withdraw(SavingsAccount $account, float $amount, string $date, string $description = 'Withdrawal', ?string $reference = null, ?float $fee = null, ?int $paymentSourceAccountId = null, ?float $institutionCharge = null, bool $allowOverdraft = false, bool $loanRecovery = false): SavingsTransaction
     {
         $product           = $account->product;
-        $minBalance        = $product->minimum_balance ?? 0;
+        // Loan recoveries may use the whole balance (down to 0, never below); the
+        // product minimum balance only applies to ordinary withdrawals.
+        $minBalance        = $loanRecovery ? 0 : ($product->minimum_balance ?? 0);
         $fee               = $fee ?? $this->resolveWithdrawalCharge($product, $paymentSourceAccountId);
         $institutionCharge = $institutionCharge ?? $this->resolveInstitutionCharge($paymentSourceAccountId);
         $total             = $amount + $fee;

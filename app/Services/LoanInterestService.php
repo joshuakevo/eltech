@@ -380,7 +380,8 @@ class LoanInterestService
             $out['note'] = 'No active savings account';
             return $out;
         }
-        $available = max(0, round($this->savings->balanceAsOf($account, $date->toDateString()) - (float) ($account->product->minimum_balance ?? 0), 2));
+        // Recoveries may use the whole balance (minimum balance applies to ordinary withdrawals only)
+        $available = max(0, round($this->savings->balanceAsOf($account, $date->toDateString()), 2));
         $out['available'] = $available;
         $out['account']   = $account->account_number;
 
@@ -391,7 +392,7 @@ class LoanInterestService
             return $out;
         }
 
-        $withdrawal = $this->savings->withdraw($account, $amount, $date->toDateString(), "Loan repayment - {$loan->loan_number}", null, 0.0);
+        $withdrawal = $this->savings->withdraw($account, $amount, $date->toDateString(), "Loan repayment - {$loan->loan_number}", null, 0.0, loanRecovery: true);
         $repayment = $this->loans->processRepayment($loan->fresh(), [
             'amount'         => $amount,
             'payment_date'   => $date->toDateString(),
@@ -415,7 +416,7 @@ class LoanInterestService
     public function savingsAccountFor(Loan $loan, Carbon $date): ?SavingsAccount
     {
         $accounts = SavingsAccount::with('product')->where('client_id', $loan->client_id)->where('status', 'active')->get();
-        return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()) - (float) ($a->product->minimum_balance ?? 0))->first();
+        return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()))->first();
     }
 
     /** Every installment has been charged (the loan is past its last due date). */

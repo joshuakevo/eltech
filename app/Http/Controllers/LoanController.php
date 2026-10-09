@@ -506,7 +506,8 @@ class LoanController extends Controller
                     $request->payment_date,
                     "Loan repayment - {$loan->loan_number}",
                     null,  // let accounting auto-generate; user's reference is reserved for the loan repayment journal
-                    0.0   // no withdrawal fee on loan recoveries
+                    0.0,   // no withdrawal fee on loan recoveries
+                    loanRecovery: true   // may use the whole balance, down to 0
                 );
             } catch (\InvalidArgumentException $e) {
                 return back()->with('error', 'Savings withdrawal failed: ' . $e->getMessage())->withInput();
