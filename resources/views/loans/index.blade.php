@@ -60,7 +60,7 @@
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">
             <input type="hidden" name="type" value="{{ $type }}">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <input type="text" name="search" class="form-control" placeholder="Search loan # or client name..." value="{{ request('search') }}">
             </div>
             <div class="col-md-2">
@@ -77,12 +77,6 @@
                     @foreach($managers as $rm)
                     <option value="{{ $rm->id }}" @selected((string)request('relationship_manager_id')===(string)$rm->id)>{{ $rm->name }}</option>
                     @endforeach
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select name="sort" class="form-select">
-                    <option value="">Newest disbursed first</option>
-                    <option value="last_paid" @selected(request('sort')==='last_paid')>Longest since {{ $type === 'locked-up' ? 'recovery' : 'repayment' }}</option>
                 </select>
             </div>
             @if($type !== 'closed')
