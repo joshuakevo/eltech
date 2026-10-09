@@ -9,7 +9,13 @@
     <style>
         :root { --primary:#0f2444; --accent:#2563eb; }
         html, body { height: 100%; margin: 0; padding: 0; }
-        body { background: linear-gradient(135deg, var(--primary) 0%, #1a3a6e 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { min-height: 100vh; display: flex; font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; }
+        .login-side { flex: 1 1 50%; background: linear-gradient(135deg, var(--primary) 0%, #1a3a6e 100%); display: flex; align-items: center; justify-content: center; }
+        .brand-side { flex: 1 1 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; }
+        .brand-name { font-size: 2rem; font-weight: 700; letter-spacing: .02em; color: #2b2f36; margin-top: 1.1rem; line-height: 1; }
+        .brand-tag { font-size: .9rem; font-weight: 700; letter-spacing: .14em; color: #1565c0; margin-top: .6rem; }
+        .brand-foot { color: #9ca3af; font-size: .72rem; margin-top: 2.5rem; }
+        @media (max-width: 991.98px) { body { flex-direction: column; } .brand-side { flex: 0 0 auto; padding: 1.5rem; order: -1; } .brand-name { font-size: 1.4rem; } .brand-side svg { width: 70px; height: auto; } .login-side { flex: 1 0 auto; padding: 2rem 0; } .brand-foot { display: none; } }
         .login-wrap { width: 100%; max-width: 420px; padding: 1rem; }
         .login-card { border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow: hidden; }
         .login-header { background: var(--primary); padding: 1.25rem 2rem; text-align: center; }
@@ -29,6 +35,7 @@
     </style>
 </head>
 <body>
+<div class="login-side">
 <div class="login-wrap">
 <div class="login-card">
     <div class="login-header">
@@ -75,6 +82,19 @@
 
     </div>
 </div>
+</div>
+</div>
+<div class="brand-side">
+    {{-- ElTech Systems mark --}}
+    <svg width="120" height="96" viewBox="0 0 120 96" xmlns="http://www.w3.org/2000/svg" aria-label="ElTech Systems">
+        <path d="M86 10 C52 2 10 10 6 34 C3 52 22 62 40 63 C22 56 16 44 24 32 C34 18 62 12 86 10 Z" fill="#111"/>
+        <path d="M41 64 C70 66 100 60 116 50 C100 62 70 70 40 68 Z" fill="#111"/>
+        <path d="M44 22 L84 22 L80 32 L52 32 L50 38 L76 38 L73 46 L47 46 Z" fill="#1748c9"/>
+        <path d="M36 56 L72 56 L68 72 L94 72 L88 86 L22 86 Z" fill="#111"/>
+    </svg>
+    <div class="brand-name">ELTECH SYSTEMS</div>
+    <div class="brand-tag">ENGINEERED FOR IMPACT</div>
+    <div class="brand-foot">Financial management for SACCOs &amp; microfinance</div>
 </div>
 <script>
 document.addEventListener('submit', function (e) {
