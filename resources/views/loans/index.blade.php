@@ -60,7 +60,7 @@
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">
             <input type="hidden" name="type" value="{{ $type }}">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <input type="text" name="search" class="form-control" placeholder="Search loan # or client name..." value="{{ request('search') }}">
             </div>
             <div class="col-md-2">
@@ -71,7 +71,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <select name="relationship_manager_id" class="form-select">
                     <option value="">All Relationship Managers</option>
                     @foreach($managers as $rm)
