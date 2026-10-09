@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') — {{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</title>
+    @include('partials.pwa-head')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
@@ -644,6 +645,7 @@
                 <li><span class="dropdown-item-text text-muted small">{{ auth()->user()?->role_name }}</span></li>
                 <li><hr class="dropdown-divider my-1"></li>
                 <li><a class="dropdown-item" href="{{ route('settings.index') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#installAppModal"><i class="bi bi-phone me-2"></i>Install app / QR code</a></li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}" data-no-block="1">
                         @csrf
@@ -738,5 +740,6 @@ function initTomSelect(el) {
     if (el && !el.tomselect) new TomSelect(el, { allowEmptyOption: true, maxOptions: null });
 }
 </script>
+@include('partials.install-app')
 </body>
 </html>
