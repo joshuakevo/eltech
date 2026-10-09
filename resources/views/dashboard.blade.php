@@ -9,7 +9,8 @@
 @section('content')
 @php
     $loanBook  = $standardPrincipal + $lockedUp['principal'];
-    $parColor  = $par30 <= 5 ? 'success' : ($par30 <= 15 ? 'warning' : 'danger');
+    $parColor  = $par['par30'] <= 5 ? 'success' : ($par['par30'] <= 15 ? 'warning' : 'danger');
+    $statusStyle = ['Healthy' => 'success', 'Watch' => 'warning', 'Needs attention' => 'danger'];
     $ltdColor  = $loanToDeposit <= 80 ? 'success' : ($loanToDeposit <= 100 ? 'warning' : 'danger');
     $netFlow   = $month['deposits'] - $month['withdrawals'];
 @endphp
@@ -166,8 +167,8 @@
                     <div class="col-4">
                         <div class="mini-stat">
                             <div class="l">PAR 30</div>
-                            <div class="v text-{{ $parColor }}">{{ $par30 }}%</div>
-                            <div style="font-size:.68rem;color:#6b7280">{{ number_format($par30Amount, 0) }}</div>
+                            <div class="v text-{{ $parColor }}">{{ $par['par30'] }}%</div>
+                            <div style="font-size:.68rem;color:#6b7280">{{ number_format($par['par30_amount'], 0) }}</div>
                         </div>
                     </div>
                     <div class="col-4">
@@ -194,8 +195,110 @@
     </div>
 </div>
 
-{{-- ── This month + trend ──────────────────────────────────────────────── --}}
+{{-- ── Segment performance ────────────────────────────────────────────── --}}
 <div class="row g-3 mb-3">
+    <div class="col-lg-12">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-diagram-3 me-2 text-primary"></i>Segment Performance</span>
+                <span class="text-muted" style="font-size:.72rem">Savings flow &amp; recoveries: last 30 days</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size:.8rem">
+                    <thead class="table-light"><tr>
+                        <th class="ps-3">Segment</th><th class="text-end">Members</th><th class="text-end">Deposits</th>
+                        <th class="text-end">Loan book</th><th class="text-end">PAR30</th><th class="text-end">Savings flow</th>
+                        <th class="text-end">Recovered</th><th class="pe-3">Status</th>
+                    </tr></thead>
+                    <tbody>
+                    @forelse($segments as $s)
+                        <tr>
+                            <td class="ps-3 fw-semibold text-nowrap">
+                                @if($s['segment_id'])<a href="{{ route('loans.index', ['segment_id' => $s['segment_id']]) }}" class="text-decoration-none" style="color:#0f2444">{{ $s['name'] }}</a>@else<span class="text-muted">{{ $s['name'] }}</span>@endif
+                            </td>
+                            <td class="text-end">{{ number_format($s['members']) }}</td>
+                            <td class="text-end">{{ number_format($s['deposits'], 0) }}@if($s['overdrawn'] < 0)<div class="text-danger text-nowrap" style="font-size:.68rem">overdrawn {{ number_format($s['overdrawn'], 0) }}</div>@endif</td>
+                            <td class="text-end">{{ number_format($s['standard'] + $s['locked_up'], 0) }}@if($s['locked_up'] > 0)<div class="text-muted text-nowrap" style="font-size:.68rem">Locked-Up {{ number_format($s['locked_up'], 0) }}</div>@endif</td>
+                            <td class="text-end fw-semibold {{ $s['par30'] > 10 ? 'text-danger' : ($s['par30'] > 5 ? 'text-warning' : 'text-success') }}">{{ $s['standard'] > 0 ? $s['par30'] . '%' : '—' }}</td>
+                            <td class="text-end {{ $s['flow'] < 0 ? 'text-danger' : ($s['flow'] > 0 ? 'text-success' : 'text-muted') }}">{{ $s['flow'] > 0 ? '+' : '' }}{{ number_format($s['flow'], 0) }}</td>
+                            <td class="text-end">{{ number_format($s['recovered'], 0) }}</td>
+                            <td class="pe-3">
+                                <span class="badge bg-{{ $statusStyle[$s['status']] }}{{ $s['status'] === 'Watch' ? ' text-dark' : '' }}">{{ $s['status'] }}</span>
+                                @if($s['reasons'])<div class="text-muted" style="font-size:.7rem">{{ implode(' · ', $s['reasons']) }}</div>@endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="8" class="text-center text-muted py-3">No segments yet.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ── Portfolio at risk + recommendations ────────────────────────────── --}}
+<div class="row g-3 mb-3">
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-activity me-2 text-danger"></i>Portfolio at Risk</span>
+                <span class="text-muted" style="font-size:.72rem">Standard loans</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 text-center mb-3">
+                    @foreach([['PAR 1', $par['par1']], ['PAR 30', $par['par30']], ['PAR 90', $par['par90']]] as [$l, $v])
+                        @php $c = $v <= 5 ? 'success' : ($v <= 15 ? 'warning' : 'danger'); @endphp
+                        <div class="col-4"><div class="mini-stat"><div class="l">{{ $l }}</div><div class="v fs-5 text-{{ $c }}">{{ $v }}%</div></div></div>
+                    @endforeach
+                </div>
+                <div class="d-flex rounded overflow-hidden mb-2" style="height:10px;background:#eef1f5">
+                    <span style="width:{{ $par['current_pct'] }}%;background:#16a34a" title="Current"></span>
+                    @foreach($par['buckets'] as $b)<span style="width:{{ $b['pct'] }}%;background:{{ $b['color'] }}" title="{{ $b['label'] }}"></span>@endforeach
+                </div>
+                <div class="d-flex justify-content-between small py-1 border-bottom">
+                    <span><span class="mix-dot d-inline-block me-1" style="background:#16a34a"></span>Current</span>
+                    <span class="fw-semibold">{{ number_format($par['current'], 0) }} <span class="text-muted fw-normal" style="font-size:.7rem">{{ $par['current_pct'] }}%</span></span>
+                </div>
+                @foreach($par['buckets'] as $b)
+                <div class="d-flex justify-content-between small py-1 border-bottom">
+                    <span><span class="mix-dot d-inline-block me-1" style="background:{{ $b['color'] }}"></span>{{ $b['label'] }} <span class="text-muted" style="font-size:.7rem">({{ $b['count'] }})</span></span>
+                    <span class="fw-semibold">{{ number_format($b['amount'], 0) }} <span class="text-muted fw-normal" style="font-size:.7rem">{{ $b['pct'] }}%</span></span>
+                </div>
+                @endforeach
+                <div class="mt-3 p-2 rounded" style="background:#fef2f2">
+                    <div class="d-flex justify-content-between small"><span class="fw-semibold" style="color:#b91c1c"><i class="bi bi-lock me-1"></i>Locked-Up recoveries</span><span class="fw-semibold">{{ number_format($luRecovery['recovered_30'], 0) }}</span></div>
+                    <div class="text-muted" style="font-size:.72rem">Last 30 days · {{ $luRecovery['paying_30'] ?? 0 }} of {{ $luRecovery['count'] }} loans paying · {{ $luRecovery['stalled'] }} with nothing in 90 days</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header bg-white"><span class="panel-title"><i class="bi bi-lightbulb me-2 text-warning"></i>Recommendations</span></div>
+            <div class="card-body">
+                @foreach($recommendations as [$type, $icon, $text])
+                <div class="d-flex gap-2 mb-2 p-2 rounded bg-{{ $type }} bg-opacity-10" style="border-left:3px solid var(--bs-{{ $type }})">
+                    <i class="bi {{ $icon }} text-{{ $type }} flex-shrink-0" style="margin-top:.1rem"></i>
+                    <span style="font-size:.8rem">{{ $text }}</span>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ── Activity trend + this month ────────────────────────────────────── --}}
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-graph-up me-2 text-primary"></i>Activity — last 6 months</span>
+                <span class="text-muted" style="font-size:.72rem">Opening balances from previous systems excluded</span>
+            </div>
+            <div class="card-body"><canvas id="activityChart" height="110"></canvas></div>
+        </div>
+    </div>
     <div class="col-lg-4">
         <div class="card h-100">
             <div class="card-header bg-white"><span class="panel-title"><i class="bi bi-calendar3 me-2 text-info"></i>{{ now()->format('F Y') }}</span></div>
@@ -212,18 +315,9 @@
             </div>
         </div>
     </div>
-    <div class="col-lg-8">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center bg-white">
-                <span class="panel-title"><i class="bi bi-graph-up me-2 text-primary"></i>Activity — last 6 months</span>
-                <span class="text-muted" style="font-size:.72rem">Opening balances from previous systems excluded</span>
-            </div>
-            <div class="card-body"><canvas id="activityChart" height="120"></canvas></div>
-        </div>
-    </div>
 </div>
 
-{{-- ── Other + FD maturities ───────────────────────────────────────────── --}}
+{{-- ── Other + FD maturities ──────────────────────────────────────────── --}}
 <div class="row g-3">
     <div class="col-lg-5">
         <div class="card h-100">

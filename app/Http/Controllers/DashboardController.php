@@ -19,7 +19,7 @@ class DashboardController extends Controller
     /** Opening balances brought over from the previous systems — not real activity. */
     private const OPENING_DESC = 'Opening balance%';
 
-    public function index()
+    public function index(\App\Services\DashboardInsightsService $insights)
     {
         session(['active_portal' => 'staff']);
         if (auth()->user()->hasRole('group_leader')) {
@@ -80,8 +80,6 @@ class DashboardController extends Controller
             ->where('due_date', '<', now()->subDays($days)->toDateString())
             ->whereIn('status', ['pending', 'partial', 'overdue']));
         $overdueCount = $overdueQ(0)->count();
-        $par30Amount  = (float) $overdueQ(30)->sum('outstanding_principal');
-        $par30        = $standardPrincipal > 0 ? round($par30Amount / $standardPrincipal * 100, 1) : 0;
         $maturedCount = $standardQ()->whereDate('maturity_date', '<', today())->where('outstanding_principal', '>', 0)->count();
         $pendingLoans = Loan::where('status', 'pending')->count();
 
@@ -137,11 +135,25 @@ class DashboardController extends Controller
             ->where('maturity_date', '<=', now()->addDays(30)->toDateString())
             ->orderBy('maturity_date')->take(6)->get();
 
+        // ── Risk, segments, recommendations ──
+        $par        = $insights->par($standardPrincipal);
+        $luRecovery = $insights->lockedUpRecovery();
+        $segments   = $insights->segments();
+        $fdDueQ     = FixedDeposit::where('status', 'active')->whereDate('maturity_date', '<=', today());
+        $recommendations = $insights->recommendations([
+            'par' => $par, 'matured' => $maturedCount, 'lockedUp' => $luRecovery, 'segments' => $segments,
+            'fdDue' => (clone $fdDueQ)->count(), 'fdDueAmount' => (float) (clone $fdDueQ)->sum('principal'),
+            'overdrawnCount' => $other['overdrawn_count'], 'overdrawnAmount' => $other['overdrawn_amount'],
+            'loanToDeposit' => $loanToDeposit, 'netFlow' => $month['deposits'] - $month['withdrawals'],
+            'feesUnpaid' => $other['fees_unpaid'],
+        ]);
+
         return view('dashboard', compact(
             'deposits', 'totalDeposits', 'standard', 'lockedUp', 'standardPrincipal',
-            'overdueCount', 'par30', 'par30Amount', 'maturedCount', 'pendingLoans',
+            'overdueCount', 'maturedCount', 'pendingLoans',
             'loanToDeposit', 'activeMembers', 'borrowers', 'savers',
-            'month', 'trend', 'other', 'upcomingMaturities'
+            'month', 'trend', 'other', 'upcomingMaturities',
+            'par', 'luRecovery', 'segments', 'recommendations'
         ));
     }
 }
