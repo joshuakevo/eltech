@@ -646,6 +646,7 @@
                 <li><hr class="dropdown-divider my-1"></li>
                 <li><a class="dropdown-item" href="{{ route('settings.index') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
                 <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#installAppModal"><i class="bi bi-phone me-2"></i>Install app / QR code</a></li>
+                <li><a class="dropdown-item" href="{{ route('fingerprint.index') }}"><i class="bi bi-fingerprint me-2"></i>Fingerprint sign-in</a></li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}" data-no-block="1">
                         @csrf
@@ -683,6 +684,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+@include('partials.fingerprint-prompt')
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
 function toggleSidebar(){

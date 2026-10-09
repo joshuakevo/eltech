@@ -50,6 +50,8 @@ Route::get('manifest.webmanifest', [\App\Http\Controllers\AppInstallController::
 Route::get('app-icon/{size}.png', [\App\Http\Controllers\AppInstallController::class, 'icon'])->whereNumber('size')->name('app.icon');
 Route::post('login', [LoginController::class, 'login']);
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
+Route::post('login/fingerprint/options', [LoginController::class, 'fingerprintOptions'])->middleware('throttle:20,1')->name('login.fingerprint.options');
+Route::post('login/fingerprint', [LoginController::class, 'fingerprintLogin'])->middleware('throttle:10,1')->name('login.fingerprint');
 
 // ── Password reset ────────────────────────────────────────────────
 Route::get('password/reset', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
@@ -71,6 +73,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/choose-portal', fn() => view('auth.choose-portal'))->name('choose-portal');
+
+    // Fingerprint sign-in (passkeys) — every user manages their own devices
+    Route::get('security/fingerprint', [\App\Http\Controllers\WebAuthnController::class, 'index'])->name('fingerprint.index');
+    Route::post('security/fingerprint/options', [\App\Http\Controllers\WebAuthnController::class, 'options'])->name('fingerprint.options');
+    Route::post('security/fingerprint', [\App\Http\Controllers\WebAuthnController::class, 'store'])->name('fingerprint.store');
+    Route::delete('security/fingerprint/{credential}', [\App\Http\Controllers\WebAuthnController::class, 'destroy'])->name('fingerprint.destroy');
 
     // ── Client portal ─────────────────────────────────────────────────
     Route::prefix('client-portal')->name('client-portal.')->middleware('role:client|group_member|group_leader')->group(function () {

@@ -86,6 +86,10 @@ php artisan migrate:fresh --seed  # Full reset
 - `LockedUpLoanImportController` (`/loans/import-locked-up`, permission `create loans`, button on the Locked-Up tab): CSV `client_number, principal, interest` (+ optional `name`, `loan_number`, default `LU-<member code>`) → preview → confirm, for an as-at date and offset account (default **3004**).
 - Creates each loan like the existing Locked-Up book (product "Locked-Up Loans", status `defaulted`, rate 0, no schedule). Principal posts DR product receivable (**1104**) / CR offset, module **`loan_transfer`** (`reverseLoanTransferImpact` deletes the loan; blocked once it has recoveries). Interest is recorded on the loan with no journal. A member already holding a Locked-Up loan dated the as-at date is skipped (safe to re-run).
 
+## Installable App & Fingerprint Sign-in
+- PWA: `AppInstallController` (`/manifest.webmanifest`, `/app-icon/{size}.png` — org logo from Settings centred on navy, initials fallback), `public/sw.js` (pass-through, **no caching**), head tags in `partials/pwa-head`. `/install` (QR target) = one-tap install page; "Install app / QR code" pop-up `partials/install-app`.
+- Fingerprint sign-in = passkeys (WebAuthn) **without external packages** (vendor is uploaded by hand): `WebAuthnService` + `CborDecoder`, table `webauthn_credentials` (PEM public key, COSE alg ES256/RS256, sign counter). Checks: one-time session challenge, origin/RP ID = request host (https), UP+UV flags, OpenSSL signature, counter. Users manage devices at `/security/fingerprint`; login button shows on devices enrolled (localStorage `fp_enrolled`); phones/installed app get an "Enable fingerprint" prompt after login (`partials/fingerprint-prompt`).
+
 ## Journal Entry — Client Sub-Ledger Rule (CRITICAL)
 
 When a manual journal entry line has a `client_id` attached (`transaction_lines.client_id`), the system **must also update the corresponding sub-ledger record** for that client. GL posting alone is not sufficient — the member's individual account balance and transaction history must stay in sync.

@@ -106,6 +106,14 @@
             </button>
         </form>
 
+        <div id="fpLoginWrap" class="d-none">
+            <div class="d-flex align-items-center my-3"><hr class="flex-grow-1 my-0"><span class="px-2 text-muted" style="font-size:.72rem">OR</span><hr class="flex-grow-1 my-0"></div>
+            <button type="button" id="fpLoginBtn" class="btn btn-outline-primary w-100 fw-semibold" style="border-radius:8px;padding:.6rem 1rem">
+                <i class="bi bi-fingerprint me-2 fs-5 align-middle"></i>Sign in with fingerprint
+            </button>
+            <div id="fpLoginMsg" class="small text-danger text-center mt-2"></div>
+        </div>
+
     </div>
 </div>
 </div>
@@ -121,6 +129,25 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @include('partials.install-app')
+@include('partials.webauthn-js')
+<script>
+(async function () {
+    // Fingerprint sign-in: shown on devices where it has been enabled
+    if (!Fingerprint.enrolledHere() || !(await Fingerprint.supported())) return;
+    const wrap = document.getElementById('fpLoginWrap'), btn = document.getElementById('fpLoginBtn'), msg = document.getElementById('fpLoginMsg');
+    wrap.classList.remove('d-none');
+    btn.onclick = async () => {
+        msg.textContent = ''; btn.disabled = true;
+        try {
+            const res = await Fingerprint.signIn();
+            document.getElementById('loaderSub').textContent = 'Fingerprint confirmed';
+            document.getElementById('signinLoader').classList.add('show');
+            window.location.href = res.redirect;
+        } catch (e) { msg.textContent = e.message; btn.disabled = false; }
+    };
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) btn.click();   // installed app: ask straight away
+})();
+</script>
 <script>
 (function () {
     var loader = document.getElementById('signinLoader'), sub = document.getElementById('loaderSub'), timers = [];
