@@ -79,13 +79,13 @@
                     @endforeach
                 </select>
             </div>
-            @if($type !== 'closed')
+            @if($type !== 'locked-up')
             <div class="col-md-2">
-                <select name="status" class="form-select">
-                    <option value="">All Statuses</option>
-                    <option value="pending" @selected(request('status')=='pending')>Pending</option>
-                    <option value="active" @selected(request('status')=='active')>Active</option>
-                    <option value="defaulted" @selected(request('status')=='defaulted')>Defaulted</option>
+                <select name="loan_product_id" class="form-select">
+                    <option value="">All Loan Products</option>
+                    @foreach($products as $product)
+                    <option value="{{ $product->id }}" @selected((string)request('loan_product_id')===(string)$product->id)>{{ $product->name }}</option>
+                    @endforeach
                 </select>
             </div>
             @endif
@@ -110,7 +110,7 @@
             <tbody>
             @forelse($loans as $loan)
                 <tr>
-                    <td class="ps-3 font-monospace">{{ $loan->loan_number }}</td>
+                    <td class="ps-3 font-monospace text-nowrap">{{ $loan->loan_number }}</td>
                     <td>
                         @if($loan->client)
                             <a href="{{ route('clients.show', $loan->client) }}" class="text-decoration-none">{{ $loan->client->name }}</a>
@@ -145,7 +145,7 @@
                             <span class="badge bg-danger" title="Matured {{ $loan->maturity_date->format('d M Y') }}">Overdue</span>
                         @endif
                     </td>
-                    <td class="pe-3">
+                    <td class="pe-3 text-nowrap">
                         <a href="{{ route('loans.show', $loan) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
                         @can('repay loans')
                         @if($loan->status === 'active' || ($loan->isLockedUp() && $loan->status === 'defaulted'))

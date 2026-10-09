@@ -33,6 +33,7 @@ class LoanController extends Controller
             ->when($type !== 'closed' && $request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where(fn($q1) => $q1->where('loan_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%"))))
+            ->when($request->loan_product_id, fn($q) => $q->where('loan_product_id', $request->loan_product_id))
             ->when($request->segment_id, fn($q) => $q->whereHas('client', fn($q2) => $q2->where('segment_id', $request->segment_id)))
             ->when($request->relationship_manager_id, fn($q) => $q->whereHas('client', fn($q2) => $q2->where('relationship_manager_id', $request->relationship_manager_id)));
 
@@ -89,8 +90,9 @@ class LoanController extends Controller
             ->paginate(20);
         $segments = \App\Models\ClientSegment::orderBy('name')->get(['id', 'name']);
         $managers = \App\Models\User::where('is_relationship_manager', true)->orderBy('name')->get(['id', 'name']);
+        $products = LoanProduct::when($lockedUpProductId, fn($q) => $q->where('id', '!=', $lockedUpProductId))->orderBy('name')->get(['id', 'name']);
 
-        return view('loans.index', compact('loans', 'totalOutstanding', 'totalInterest', 'totalCount', 'type', 'segments', 'managers'));
+        return view('loans.index', compact('loans', 'totalOutstanding', 'totalInterest', 'totalCount', 'type', 'segments', 'managers', 'products'));
     }
 
     public function create(Request $request)
