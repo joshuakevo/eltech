@@ -36,9 +36,31 @@
         .btn-login { background: var(--accent); border: none; border-radius: 8px; padding: .65rem 1rem; font-weight: 600; font-size: .875rem; width: 100%; transition: background .15s; }
         .btn-login:hover { background: #1d4ed8; }
         .hint-text { color: #9ca3af; font-size: .73rem; text-align: center; }
+        /* sign-in loader */
+        .signin-loader { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(15,36,68,.82); backdrop-filter: blur(4px); opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; }
+        .signin-loader.show { opacity: 1; visibility: visible; }
+        .loader-ring { position: relative; width: 108px; height: 108px; }
+        .loader-ring::before, .loader-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; }
+        .loader-ring::before { border-top-color: #60a5fa; border-right-color: #60a5fa; animation: spin 1s linear infinite; }
+        .loader-ring::after { inset: 10px; border-bottom-color: rgba(255,255,255,.55); border-left-color: rgba(255,255,255,.55); animation: spin 1.6s linear infinite reverse; }
+        .loader-ring .core { position: absolute; inset: 22px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; animation: pulse 1.6s ease-in-out infinite; }
+        .loader-ring .core img { width: 70%; height: auto; }
+        .loader-text { color: #fff; font-weight: 600; margin-top: 1.4rem; letter-spacing: .02em; }
+        .loader-sub { color: rgba(255,255,255,.6); font-size: .8rem; margin-top: .25rem; min-height: 1.2em; }
+        .loader-dots span { animation: blink 1.4s infinite both; }
+        .loader-dots span:nth-child(2) { animation-delay: .2s; } .loader-dots span:nth-child(3) { animation-delay: .4s; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(.93); } }
+        @keyframes blink { 0%,80%,100% { opacity: 0; } 40% { opacity: 1; } }
     </style>
 </head>
 <body>
+<div class="signin-loader" id="signinLoader" role="status" aria-live="polite">
+    <div class="loader-ring"><div class="core"><img src="{{ asset('images/eltech-mark.png') }}" alt=""></div></div>
+    <div class="loader-text">Signing you in<span class="loader-dots"><span>.</span><span>.</span><span>.</span></span></div>
+    <div class="loader-sub" id="loaderSub">Checking your details</div>
+</div>
 <div class="login-side">
 <div class="login-wrap">
 <div class="login-card">
@@ -100,15 +122,27 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @include('partials.install-app')
 <script>
-document.addEventListener('submit', function (e) {
-    var form = e.target;
-    form.querySelectorAll('button:not([type="button"]):not([type="reset"]), input[type="submit"]').forEach(function (btn) {
-        btn.disabled = true;
-        if (btn.tagName === 'BUTTON') {
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Signing in…';
-        }
+(function () {
+    var loader = document.getElementById('signinLoader'), sub = document.getElementById('loaderSub'), timers = [];
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        form.querySelectorAll('button:not([type="button"]):not([type="reset"]), input[type="submit"]').forEach(function (btn) {
+            btn.disabled = true;
+            if (btn.tagName === 'BUTTON') {
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Signing in…';
+            }
+        });
+        loader.classList.add('show');
+        timers.push(setTimeout(function () { sub.textContent = 'Loading your dashboard'; }, 2500));
+        timers.push(setTimeout(function () { sub.textContent = 'Almost there — the connection is a little slow'; }, 7000));
     });
-});
+    // Coming back with the browser Back button: clear the loader and re-enable the form
+    window.addEventListener('pageshow', function (e) {
+        if (!e.persisted) return;
+        loader.classList.remove('show'); timers.forEach(clearTimeout); timers = [];
+        document.querySelectorAll('form button[disabled]').forEach(function (b) { b.disabled = false; b.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Sign In'; });
+    });
+})();
 </script>
 </body>
 </html>
