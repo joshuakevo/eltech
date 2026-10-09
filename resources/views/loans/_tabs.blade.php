@@ -1,34 +1,30 @@
 {{-- Shared Loans tab bar. $activeTab: normal | locked-up | closed | general-provisions | specific-provisions --}}
-<ul class="nav nav-pills mb-4 gap-2">
-    @can('view loans')
-    <li class="nav-item">
-        <a class="nav-link {{ $activeTab === 'normal' ? 'active' : '' }}" href="{{ route('loans.index', ['type' => 'normal']) }}">Normal Loans</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link border border-danger {{ $activeTab === 'locked-up' ? 'active bg-danger text-white' : 'text-danger' }}"
-           href="{{ route('loans.index', ['type' => 'locked-up']) }}">
-            <i class="bi bi-lock-fill me-1"></i>Locked-Up Loans
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link border border-secondary {{ $activeTab === 'closed' ? 'active bg-secondary text-white' : 'text-secondary' }}"
-           href="{{ route('loans.index', ['type' => 'closed']) }}">
-            <i class="bi bi-check-circle-fill me-1"></i>Closed Loans
-        </a>
-    </li>
-    @endcan
-    @can('view loan provisions')
-    <li class="nav-item">
-        <a class="nav-link border border-success {{ $activeTab === 'general-provisions' ? 'active bg-success text-white' : 'text-success' }}"
-           href="{{ route('loan-provisions.index', ['type' => 'general']) }}">
-            <i class="bi bi-shield-check me-1"></i>General Provisions
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link border border-warning {{ $activeTab === 'specific-provisions' ? 'active bg-warning text-dark' : 'text-warning-emphasis' }}"
-           href="{{ route('loan-provisions.index', ['type' => 'specific']) }}">
-            <i class="bi bi-shield-exclamation me-1"></i>Specific Provisions
-        </a>
-    </li>
-    @endcan
+@php
+    $loanTabs = [];
+    if (auth()->user()->can('view loans')) {
+        $loanTabs[] = ['normal', route('loans.index', ['type' => 'normal']), 'bi-cash-stack', 'Normal Loans'];
+        $loanTabs[] = ['locked-up', route('loans.index', ['type' => 'locked-up']), 'bi-lock', 'Locked-Up Loans'];
+        $loanTabs[] = ['closed', route('loans.index', ['type' => 'closed']), 'bi-check2-circle', 'Closed Loans'];
+    }
+    if (auth()->user()->can('view loan provisions')) {
+        $loanTabs[] = ['general-provisions', route('loan-provisions.index', ['type' => 'general']), 'bi-shield-check', 'General Provisions'];
+        $loanTabs[] = ['specific-provisions', route('loan-provisions.index', ['type' => 'specific']), 'bi-shield-exclamation', 'Specific Provisions'];
+    }
+@endphp
+<style>
+    .loan-tabs { border-bottom: 1px solid #e2e6ec; gap: .25rem; }
+    .loan-tabs .nav-link { color: #5b6573; font-weight: 500; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: .6rem .95rem; margin-bottom: -1px; background: none; }
+    .loan-tabs .nav-link i { color: #9aa3af; }
+    .loan-tabs .nav-link:hover { color: #0f2444; border-bottom-color: #c9d1dc; }
+    .loan-tabs .nav-link.active { color: #0f2444; font-weight: 600; border-bottom-color: #0f2444; }
+    .loan-tabs .nav-link.active i { color: #0f2444; }
+    .loan-tabs .tab-sep { width: 1px; background: #e2e6ec; margin: .55rem .5rem; }
+</style>
+<ul class="nav loan-tabs mb-4">
+    @foreach($loanTabs as $i => [$key, $url, $icon, $label])
+        @if($i > 0 && $key === 'general-provisions' && $loanTabs[0][0] === 'normal')<li class="tab-sep" aria-hidden="true"></li>@endif
+        <li class="nav-item">
+            <a class="nav-link text-nowrap {{ $activeTab === $key ? 'active' : '' }}" href="{{ $url }}"><i class="bi {{ $icon }} me-1"></i>{{ $label }}</a>
+        </li>
+    @endforeach
 </ul>
