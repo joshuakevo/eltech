@@ -4,18 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\FixedDeposit;
+use App\Models\Group;
 use App\Models\Loan;
+use App\Models\LoanProduct;
 use App\Models\LoanRepayment;
+use App\Models\MemberShare;
 use App\Models\SavingsAccount;
+use App\Models\SavingsProduct;
 use App\Models\SavingsTransaction;
-use App\Models\Transaction;
-use App\Models\TransactionLine;
-use App\Models\Account;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    /** Opening balances brought over from the previous systems — not real activity. */
+    private const OPENING_DESC = 'Opening balance%';
+
     public function index()
     {
         session(['active_portal' => 'staff']);
@@ -26,190 +29,119 @@ class DashboardController extends Controller
             return redirect()->route('group-portal.member');
         }
 
-        // ── Core stats ──────────────────────────────────────────────────────
-        $totalSavings      = SavingsAccount::where('status', 'active')->sum('balance');
-        $totalOutstanding  = Loan::where('status', 'active')->sum('outstanding_principal');
-        $totalFdPrincipal  = FixedDeposit::where('status', 'active')->sum('principal');
-        $totalClients      = Client::count();
+        // ── Member deposits: each savings product, fixed deposits, group deposits ──
+        $palette = ['#2563eb', '#0d9488', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569'];
+        $deposits = collect();
+        foreach (SavingsProduct::orderBy('name')->get(['id', 'name']) as $i => $product) {
+            $q = SavingsAccount::where('product_id', $product->id)->where('status', 'active');
+            $deposits->push([
+                'label' => $product->name, 'icon' => 'bi-piggy-bank', 'color' => $palette[$i % count($palette)],
+                'amount' => (float) (clone $q)->sum('balance'), 'count' => (clone $q)->count(),
+                'overdrawn' => (float) (clone $q)->where('balance', '<', 0)->sum('balance'),
+                'url' => route('reports.savings-balances', ['product_id' => $product->id]),
+            ]);
+        }
+        $fd = FixedDeposit::where('status', 'active');
+        $deposits->push([
+            'label' => 'Fixed Deposits', 'icon' => 'bi-safe', 'color' => '#b45309',
+            'amount' => (float) (clone $fd)->sum('principal'), 'count' => (clone $fd)->count(), 'overdrawn' => 0,
+            'url' => route('fixed-deposits.index', ['status' => 'active']),
+        ]);
+        $groups = Group::where('status', 'active')->get();
+        $deposits->push([
+            'label' => 'Group Deposits', 'icon' => 'bi-people', 'color' => '#be123c',
+            'amount' => (float) $groups->sum(fn ($g) => $g->isPooled() ? (float) $g->pool_balance : $g->total_balance),
+            'count' => $groups->count(), 'count_label' => 'groups', 'overdrawn' => 0,
+            'url' => route('groups.index'),
+        ]);
+        $deposits = $deposits->filter(fn ($d) => $d['count'] > 0 || $d['amount'] != 0)->values();
+        $totalDeposits = $deposits->sum('amount');
 
-        $stats = [
-            'total_loans_issued'    => Loan::whereIn('status', ['active', 'closed'])->count(),
-            'total_outstanding'     => $totalOutstanding,
-            'total_interest_earned' => LoanRepayment::sum('interest_paid'),
-            'overdue_loans'         => Loan::where('status', 'active')
-                ->whereHas('schedules', fn($q) => $q
-                    ->where('due_date', '<', now()->toDateString())
-                    ->whereIn('status', ['pending', 'partial', 'overdue'])
-                )->count(),
-            'total_savings_balance' => $totalSavings,
-            'total_fd_principal'    => $totalFdPrincipal,
-            'active_clients'        => Client::where('status', 'active')->count(),
-            'active_savings'        => SavingsAccount::where('status', 'active')->count(),
-            'active_fds'            => FixedDeposit::where('status', 'active')->count(),
-            'pending_loans'         => Loan::where('status', 'pending')->count(),
+        // ── Loan portfolio: standard loans by product, Locked-Up loans separately ──
+        $lockedUpId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
+        $running = fn () => Loan::whereIn('status', ['active', 'defaulted']);
+        $standard = collect();
+        foreach (LoanProduct::when($lockedUpId, fn ($q) => $q->where('id', '!=', $lockedUpId))->orderBy('name')->get(['id', 'name']) as $product) {
+            $q = $running()->where('loan_product_id', $product->id);
+            $row = ['label' => $product->name, 'count' => (clone $q)->count(),
+                'principal' => (float) (clone $q)->sum('outstanding_principal'), 'interest' => (float) (clone $q)->sum('outstanding_interest')];
+            if ($row['count']) {
+                $standard->push($row);
+            }
+        }
+        $lockedQ = $lockedUpId ? Loan::where('loan_product_id', $lockedUpId)->where('status', '!=', 'closed') : Loan::whereRaw('0 = 1');
+        $lockedUp = ['count' => (clone $lockedQ)->count(), 'principal' => (float) (clone $lockedQ)->sum('outstanding_principal'),
+            'interest' => (float) (clone $lockedQ)->sum('outstanding_interest')];
+        $standardQ = fn () => $running()->when($lockedUpId, fn ($q) => $q->where('loan_product_id', '!=', $lockedUpId));
+        $standardPrincipal = (float) $standard->sum('principal');
+
+        // Arrears on standard loans (Locked-Up loans have no schedule)
+        $overdueQ = fn (int $days) => $standardQ()->whereHas('schedules', fn ($q) => $q
+            ->where('due_date', '<', now()->subDays($days)->toDateString())
+            ->whereIn('status', ['pending', 'partial', 'overdue']));
+        $overdueCount = $overdueQ(0)->count();
+        $par30Amount  = (float) $overdueQ(30)->sum('outstanding_principal');
+        $par30        = $standardPrincipal > 0 ? round($par30Amount / $standardPrincipal * 100, 1) : 0;
+        $maturedCount = $standardQ()->whereDate('maturity_date', '<', today())->where('outstanding_principal', '>', 0)->count();
+        $pendingLoans = Loan::where('status', 'pending')->count();
+
+        // ── Headline ratios / members ──
+        $loanToDeposit = $totalDeposits > 0 ? round(($standardPrincipal + $lockedUp['principal']) / $totalDeposits * 100, 1) : 0;
+        $activeMembers = Client::where('status', 'active')->count();
+        $borrowers     = $running()->distinct('client_id')->count('client_id');
+        $savers        = SavingsAccount::where('status', 'active')->where('balance', '>', 0)->distinct('client_id')->count('client_id');
+
+        // ── This month ──
+        $monthStart = now()->startOfMonth()->toDateString();
+        $realTx = fn ($type) => SavingsTransaction::where('transaction_type', $type)
+            ->where(fn ($q) => $q->whereNull('description')->orWhere('description', 'not like', self::OPENING_DESC));
+        $month = [
+            'deposits'    => (float) $realTx('deposit')->where('transaction_date', '>=', $monthStart)->sum('amount'),
+            'withdrawals' => (float) $realTx('withdrawal')->where('transaction_date', '>=', $monthStart)->sum('amount'),
+            'disbursed'   => (float) Loan::whereIn('status', ['active', 'defaulted', 'closed'])
+                ->when($lockedUpId, fn ($q) => $q->where('loan_product_id', '!=', $lockedUpId))
+                ->where('disbursement_date', '>=', $monthStart)->sum('principal'),
+            'recovered'   => (float) LoanRepayment::where('payment_date', '>=', $monthStart)->sum('amount'),
+            'new_accounts' => SavingsAccount::where('opened_date', '>=', $monthStart)
+                ->whereDoesntHave('transactions', fn ($q) => $q->where('description', 'like', self::OPENING_DESC))->count(),
+            'new_members' => Client::where('created_at', '>=', $monthStart)->count(),
         ];
 
-        // ── Upcoming FD Maturities ───────────────────────────────────────────
-        $upcomingMaturities = FixedDeposit::with('client', 'product')
-            ->where('status', 'active')
+        // ── 6-month activity trend (opening balances excluded) ──
+        $months = collect(range(5, 0))->map(fn ($i) => now()->startOfMonth()->subMonths($i));
+        $trend = [
+            'labels'      => $months->map(fn ($m) => $m->format('M Y')),
+            'deposits'    => $months->map(fn ($m) => (float) $realTx('deposit')->whereBetween('transaction_date', [$m->toDateString(), $m->copy()->endOfMonth()->toDateString()])->sum('amount')),
+            'withdrawals' => $months->map(fn ($m) => (float) $realTx('withdrawal')->whereBetween('transaction_date', [$m->toDateString(), $m->copy()->endOfMonth()->toDateString()])->sum('amount')),
+            'disbursed'   => $months->map(fn ($m) => (float) Loan::whereIn('status', ['active', 'defaulted', 'closed'])
+                ->when($lockedUpId, fn ($q) => $q->where('loan_product_id', '!=', $lockedUpId))
+                ->where('disbursement_date', '>', Carbon::parse('2026-07-31'))
+                ->whereBetween('disbursement_date', [$m->toDateString(), $m->copy()->endOfMonth()->toDateString()])->sum('principal')),
+            'recovered'   => $months->map(fn ($m) => (float) LoanRepayment::whereBetween('payment_date', [$m->toDateString(), $m->copy()->endOfMonth()->toDateString()])->sum('amount')),
+        ];
+
+        // ── Other ──
+        $shareCapital = (float) MemberShare::where('status', '!=', 'liquidated')->sum('amount_paid');
+        $shareholders = MemberShare::where('status', '!=', 'liquidated')->distinct('client_id')->count('client_id');
+        $dormant = SavingsAccount::where('status', 'active')
+            ->whereDoesntHave('transactions', fn ($q) => $q->where('transaction_date', '>=', now()->subMonths(6)->toDateString()))->count();
+        $overdrawn = SavingsAccount::where('status', 'active')->where('balance', '<', 0);
+        $other = [
+            'share_capital' => $shareCapital, 'shareholders' => $shareholders,
+            'groups' => $groups->count(), 'group_members' => \App\Models\GroupMember::where('status', 'active')->count(),
+            'dormant' => $dormant, 'overdrawn_count' => (clone $overdrawn)->count(), 'overdrawn_amount' => (float) (clone $overdrawn)->sum('balance'),
+            'fees_unpaid' => Client::where('status', 'active')->where('membership_fee_status', '!=', 'paid')->count(),
+        ];
+
+        $upcomingMaturities = FixedDeposit::with('client')->where('status', 'active')
             ->where('maturity_date', '<=', now()->addDays(30)->toDateString())
-            ->orderBy('maturity_date')
-            ->take(5)
-            ->get();
-
-        // ── Monthly Trends (last 6 months) ───────────────────────────────────
-        $months      = collect();
-        $monthLabels = collect();
-        for ($i = 5; $i >= 0; $i--) {
-            $m = now()->startOfMonth()->subMonths($i);
-            $months->push($m);
-            $monthLabels->push($m->format('M Y'));
-        }
-
-        // Income vs Expenses (from GL accounts)
-        $incomeAccountIds  = Account::where('account_type', 'revenue')->pluck('id');
-        $expenseAccountIds = Account::where('account_type', 'expense')->pluck('id');
-
-        $monthlyIncome = $months->map(function ($m) use ($incomeAccountIds) {
-            return (float) TransactionLine::whereIn('account_id', $incomeAccountIds)
-                ->whereHas('transaction', fn($q) => $q
-                    ->whereYear('date', $m->year)
-                    ->whereMonth('date', $m->month))
-                ->sum('credit');
-        });
-
-        $monthlyExpenses = $months->map(function ($m) use ($expenseAccountIds) {
-            return (float) TransactionLine::whereIn('account_id', $expenseAccountIds)
-                ->whereHas('transaction', fn($q) => $q
-                    ->whereYear('date', $m->year)
-                    ->whereMonth('date', $m->month))
-                ->sum('debit');
-        });
-
-        $monthlyProfit = $monthlyIncome->zip($monthlyExpenses)->map(fn($pair) => round($pair[0] - $pair[1], 2));
-
-        // Cumulative savings & loans
-        $monthlySavingsDeposits = $months->map(function ($m) {
-            return (float) SavingsTransaction::where('transaction_type', 'deposit')
-                ->whereYear('transaction_date', $m->year)
-                ->whereMonth('transaction_date', $m->month)
-                ->sum('amount');
-        });
-
-        // Loans disbursed on/before the system's 31/07/2026 opening date are shown
-        // as a single lump under July -- the opening loan portfolio, same treatment
-        // as savings' opening balance -- rather than scattered across their real
-        // historical disbursement dates. Only genuinely new loans disbursed after
-        // that date are attributed to their real month.
-        $openingDate  = Carbon::parse('2026-07-31');
-        $openingTotal = (float) Loan::where('disbursement_date', '<=', $openingDate)
-            ->whereIn('status', ['active', 'closed'])
-            ->sum('principal');
-
-        $monthlyLoanDisbursements = $months->map(function ($m) use ($openingDate, $openingTotal) {
-            if ($m->year === $openingDate->year && $m->month === $openingDate->month) {
-                return $openingTotal;
-            }
-            return (float) Loan::whereYear('disbursement_date', $m->year)
-                ->whereMonth('disbursement_date', $m->month)
-                ->where('disbursement_date', '>', $openingDate)
-                ->whereIn('status', ['active', 'closed'])
-                ->sum('principal');
-        });
-
-        // ── Liquidity & Risk ─────────────────────────────────────────────────
-        $loanToSavingsRatio = $totalSavings > 0 ? round($totalOutstanding / $totalSavings, 2) : 0;
-
-        $parLoans = Loan::where('status', 'active')
-            ->whereHas('schedules', fn($q) => $q
-                ->where('due_date', '<', now()->subDays(30)->toDateString())
-                ->whereIn('status', ['pending', 'partial', 'overdue'])
-            )->sum('outstanding_principal');
-        $par30 = $totalOutstanding > 0 ? round(($parLoans / $totalOutstanding) * 100, 1) : 0;
-
-        // ── Client Activity ──────────────────────────────────────────────────
-        $activeBorrowers = Loan::where('status', 'active')->distinct('client_id')->count('client_id');
-        $activeSavers    = SavingsAccount::where('status', 'active')->where('balance', '>', 0)->distinct('client_id')->count('client_id');
-
-        $dormantAccounts = SavingsAccount::where('status', 'active')
-            ->whereDoesntHave('transactions', fn($q) => $q
-                ->where('transaction_date', '>=', now()->subMonths(6)->toDateString())
-            )->count();
-
-        // ── Savings Insights ─────────────────────────────────────────────────
-        $newSavingsThisMonth = SavingsAccount::whereYear('opened_date', now()->year)
-            ->whereMonth('opened_date', now()->month)
-            ->count();
-
-        $depositsThisMonth = SavingsTransaction::where('transaction_type', 'deposit')
-            ->whereYear('transaction_date', now()->year)
-            ->whereMonth('transaction_date', now()->month)
-            ->sum('amount');
-
-        $withdrawalsThisMonth = SavingsTransaction::where('transaction_type', 'withdrawal')
-            ->whereYear('transaction_date', now()->year)
-            ->whereMonth('transaction_date', now()->month)
-            ->sum('amount');
-
-        $netCashFlow = $depositsThisMonth - $withdrawalsThisMonth;
-
-        // ── Portfolio Insights ────────────────────────────────────────────────
-        $lastMonthSavings = SavingsTransaction::where('transaction_type', 'deposit')
-            ->whereYear('transaction_date', now()->subMonth()->year)
-            ->whereMonth('transaction_date', now()->subMonth()->month)
-            ->sum('amount');
-
-        // Reuses $monthlyLoanDisbursements (already bucketed by disbursement_date, with
-        // the July opening-lump treatment) instead of re-querying by created_at, which
-        // would compare disbursement-date-based "this month" against a created_at-based
-        // "last month" -- an apples-to-oranges mismatch.
-        $lastMonthLoans = $monthlyLoanDisbursements->count() >= 2
-            ? $monthlyLoanDisbursements[$monthlyLoanDisbursements->count() - 2]
-            : 0;
-
-        $savingsGrowth = $lastMonthSavings > 0
-            ? round((($depositsThisMonth - $lastMonthSavings) / $lastMonthSavings) * 100, 1)
-            : 0;
-
-        $thisMonthLoans = $monthlyLoanDisbursements->last() ?? 0;
-        $loanGrowth = $lastMonthLoans > 0
-            ? round((($thisMonthLoans - $lastMonthLoans) / $lastMonthLoans) * 100, 1)
-            : 0;
-
-        // ── Strategic Recommendations ─────────────────────────────────────────
-        $recommendations = [];
-        if ($loanToSavingsRatio > 1) {
-            $recommendations[] = ['type' => 'danger', 'icon' => 'bi-exclamation-triangle-fill',
-                'text' => 'High Risk: Loan portfolio exceeds savings balance. Focus on increasing member savings and consider loan restructuring.'];
-        }
-        if ($savingsGrowth > 0) {
-            $recommendations[] = ['type' => 'success', 'icon' => 'bi-check-circle-fill',
-                'text' => 'Positive Growth: Savings balance growing steadily. Maintain current savings mobilisation strategies.'];
-        }
-        if ($par30 == 0) {
-            $recommendations[] = ['type' => 'success', 'icon' => 'bi-shield-fill-check',
-                'text' => 'Clean Portfolio: No loans past due 30+ days. Excellent credit risk management.'];
-        } elseif ($par30 > 10) {
-            $recommendations[] = ['type' => 'danger', 'icon' => 'bi-exclamation-triangle-fill',
-                'text' => "High PAR30 ({$par30}%): Over 10% of loan portfolio is at risk. Intensify collections and review lending criteria."];
-        }
-        if ($loanGrowth == 0 && $savingsGrowth > 0) {
-            $recommendations[] = ['type' => 'info', 'icon' => 'bi-lightbulb-fill',
-                'text' => 'Savings Focus: Strong savings growth with controlled lending. Consider expanding loan products to balance portfolio.'];
-        }
-        if (empty($recommendations)) {
-            $recommendations[] = ['type' => 'secondary', 'icon' => 'bi-info-circle-fill',
-                'text' => 'Stable Portfolio: Loan portfolio is stable with good balance between growth and risk management.'];
-        }
+            ->orderBy('maturity_date')->take(6)->get();
 
         return view('dashboard', compact(
-            'stats', 'upcomingMaturities',
-            'monthLabels', 'monthlyIncome', 'monthlyExpenses', 'monthlyProfit',
-            'monthlySavingsDeposits', 'monthlyLoanDisbursements',
-            'loanToSavingsRatio', 'par30',
-            'activeBorrowers', 'activeSavers', 'dormantAccounts', 'totalClients',
-            'newSavingsThisMonth', 'depositsThisMonth', 'withdrawalsThisMonth', 'netCashFlow',
-            'savingsGrowth', 'loanGrowth', 'recommendations'
+            'deposits', 'totalDeposits', 'standard', 'lockedUp', 'standardPrincipal',
+            'overdueCount', 'par30', 'par30Amount', 'maturedCount', 'pendingLoans',
+            'loanToDeposit', 'activeMembers', 'borrowers', 'savers',
+            'month', 'trend', 'other', 'upcomingMaturities'
         ));
     }
 }

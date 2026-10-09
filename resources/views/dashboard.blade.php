@@ -7,394 +7,257 @@
 @endsection
 
 @section('content')
-<h4 class="fw-bold mb-4">Dashboard</h4>
+@php
+    $loanBook  = $standardPrincipal + $lockedUp['principal'];
+    $parColor  = $par30 <= 5 ? 'success' : ($par30 <= 15 ? 'warning' : 'danger');
+    $ltdColor  = $loanToDeposit <= 80 ? 'success' : ($loanToDeposit <= 100 ? 'warning' : 'danger');
+    $netFlow   = $month['deposits'] - $month['withdrawals'];
+@endphp
+<style>
+    .kpi { background:#fff; border:1px solid #e8ecf1; border-radius:.75rem; padding:1rem 1.1rem; height:100%; position:relative; overflow:hidden; }
+    .kpi::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--accent); }
+    .kpi .kpi-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; font-weight:600; }
+    .kpi .kpi-value { font-size:1.45rem; font-weight:700; color:#0f2444; line-height:1.2; margin-top:.2rem; }
+    .kpi .kpi-sub { font-size:.75rem; color:#6b7280; margin-top:.15rem; }
+    .kpi .kpi-icon { position:absolute; right:1rem; top:1rem; font-size:1.4rem; color:var(--accent); opacity:.85; }
+    .panel-title { font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:#0f2444; }
+    .mix-row { display:flex; align-items:center; gap:.65rem; padding:.55rem 0; border-bottom:1px solid #f1f3f6; text-decoration:none; color:inherit; }
+    .mix-row:last-child { border-bottom:0; }
+    .mix-row:hover { background:#fafbfc; }
+    .mix-dot { width:.7rem; height:.7rem; border-radius:50%; flex-shrink:0; }
+    .mix-bar { height:4px; background:#eef1f5; border-radius:2px; overflow:hidden; margin-top:.3rem; }
+    .mix-bar > span { display:block; height:100%; }
+    .loan-block { border:1px solid #e8ecf1; border-radius:.6rem; padding:.85rem 1rem; }
+    .loan-block.std { border-left:4px solid #2563eb; }
+    .loan-block.lu { border-left:4px solid #b91c1c; }
+    .mini-stat { background:#f8fafc; border-radius:.5rem; padding:.6rem .75rem; height:100%; }
+    .mini-stat .l { font-size:.7rem; color:#6b7280; text-transform:uppercase; letter-spacing:.03em; }
+    .mini-stat .v { font-weight:700; color:#0f2444; }
+</style>
 
-{{-- ── Stat Cards ─────────────────────────────────────────────────────────── --}}
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        @can('view loan reports')
-        <a href="{{ route('reports.loan-portfolio') }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-cash-stack"></i></div>
-                <div>
-                    <div class="text-muted small">Total Loans Issued</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['total_loans_issued']) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view loan reports')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view loan reports')
-        <a href="{{ route('reports.loan-portfolio', ['status' => 'active']) }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-hourglass-split"></i></div>
-                <div>
-                    <div class="text-muted small">Outstanding Principal</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['total_outstanding'], $dp) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view loan reports')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view reports')
-        <a href="{{ route('reports.interest-income', ['from_date' => '2000-01-01']) }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-graph-up-arrow"></i></div>
-                <div>
-                    <div class="text-muted small">Total Interest Earned</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['total_interest_earned'], $dp) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view reports')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view loan reports')
-        <a href="{{ route('reports.loan-aging') }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-circle"></i></div>
-                <div>
-                    <div class="text-muted small">Overdue Loans</div>
-                    <div class="fw-bold fs-5 {{ $stats['overdue_loans'] > 0 ? 'text-danger' : '' }}">{{ number_format($stats['overdue_loans']) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view loan reports')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view savings reports')
-        <a href="{{ route('reports.savings-balances') }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-piggy-bank"></i></div>
-                <div>
-                    <div class="text-muted small">Total Savings Balance</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['total_savings_balance'], $dp) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view savings reports')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view fixed-deposits')
-        <a href="{{ route('fixed-deposits.index', ['status' => 'active']) }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-safe"></i></div>
-                <div>
-                    <div class="text-muted small">FD Principal</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['total_fd_principal'], $dp) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view fixed-deposits')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view clients')
-        <a href="{{ route('clients.index', ['status' => 'active']) }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people"></i></div>
-                <div>
-                    <div class="text-muted small">Active Clients</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['active_clients']) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view clients')
-        </a>
-        @endcan
-    </div>
-    <div class="col-6 col-md-3">
-        @can('view loans')
-        <a href="{{ route('loans.index', ['status' => 'pending']) }}" class="text-decoration-none text-reset d-block">
-        @endcan
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3">
-                <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-clock-history"></i></div>
-                <div>
-                    <div class="text-muted small">Pending Loans</div>
-                    <div class="fw-bold fs-5">{{ number_format($stats['pending_loans']) }}</div>
-                </div>
-            </div>
-        </div>
-        @can('view loans')
-        </a>
-        @endcan
+<div class="d-flex justify-content-between align-items-end mb-3">
+    <div>
+        <h4 class="fw-bold mb-0">Dashboard</h4>
+        <div class="text-muted small">Position as at {{ now()->format('d M Y') }}</div>
     </div>
 </div>
 
-{{-- ── Row 1: Profitability + Monthly Trends ──────────────────────────────── --}}
+{{-- ── Headline ─────────────────────────────────────────────────────────── --}}
 <div class="row g-3 mb-3">
-    {{-- Profitability Analysis --}}
-    <div class="col-md-7">
-        <div class="card h-100">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <span class="fw-semibold"><i class="bi bi-bar-chart-line-fill text-primary me-2"></i>Profitability Analysis</span>
-                <span class="text-muted small">Last 6 months</span>
-            </div>
-            <div class="card-body">
-                @php
-                    $totalIncome   = $monthlyIncome->sum();
-                    $totalExpenses = $monthlyExpenses->sum();
-                    $totalProfit   = $totalIncome - $totalExpenses;
-                @endphp
-                <div class="row g-3 mb-3">
-                    <div class="col-4 text-center">
-                        <div class="text-muted small mb-1">Total Income</div>
-                        <div class="fw-bold text-success">{{ number_format($totalIncome, $dp) }}</div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="text-muted small mb-1">Total Expenses</div>
-                        <div class="fw-bold text-danger">{{ number_format($totalExpenses, $dp) }}</div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="text-muted small mb-1">Net Profit</div>
-                        <div class="fw-bold {{ $totalProfit >= 0 ? 'text-success' : 'text-danger' }}">{{ number_format($totalProfit, $dp) }}</div>
-                    </div>
-                </div>
-                <canvas id="profitabilityChart" height="180"></canvas>
-            </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi" style="--accent:#0d9488">
+            <i class="bi bi-wallet2 kpi-icon"></i>
+            <div class="kpi-label">Member Deposits</div>
+            <div class="kpi-value">{{ number_format($totalDeposits, 0) }}</div>
+            <div class="kpi-sub">Savings, fixed &amp; group deposits</div>
         </div>
     </div>
-
-    {{-- Liquidity & Risk Metrics --}}
-    <div class="col-md-5">
-        <div class="card h-100">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-shield-check text-info me-2"></i>Liquidity &amp; Risk Metrics
-            </div>
-            <div class="card-body">
-                {{-- Loan-to-Savings Ratio --}}
-                @php
-                    $ltsColor = $loanToSavingsRatio <= 0.7 ? 'success' : ($loanToSavingsRatio <= 1 ? 'warning' : 'danger');
-                    $ltsLabel = $loanToSavingsRatio <= 0.7 ? 'Excellent Liquidity' : ($loanToSavingsRatio <= 1 ? 'Moderate' : 'High Risk');
-                    $parColor = $par30 == 0 ? 'success' : ($par30 <= 5 ? 'warning' : 'danger');
-                    $parLabel = $par30 == 0 ? 'Low Risk' : ($par30 <= 5 ? 'Moderate' : 'High Risk');
-                @endphp
-                <div class="mb-3 p-3 rounded border border-{{ $ltsColor }} bg-{{ $ltsColor }} bg-opacity-10">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <div>
-                            <div class="small text-muted">Loan-to-Savings Ratio</div>
-                            <div class="fw-bold fs-4 text-{{ $ltsColor }}">{{ $loanToSavingsRatio }}</div>
-                        </div>
-                        <span class="badge bg-{{ $ltsColor }}">{{ $ltsLabel }}</span>
-                    </div>
-                    <div class="progress" style="height:6px">
-                        <div class="progress-bar bg-{{ $ltsColor }}" style="width: {{ min(100, $loanToSavingsRatio * 100) }}%"></div>
-                    </div>
-                </div>
-                <div class="p-3 rounded border border-{{ $parColor }} bg-{{ $parColor }} bg-opacity-10">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <div>
-                            <div class="small text-muted">Portfolio at Risk (PAR30)</div>
-                            <div class="fw-bold fs-4 text-{{ $parColor }}">{{ $par30 }}%</div>
-                        </div>
-                        <span class="badge bg-{{ $parColor }}">{{ $parLabel }}</span>
-                    </div>
-                    <div class="progress" style="height:6px">
-                        <div class="progress-bar bg-{{ $parColor }}" style="width: {{ min(100, $par30 * 5) }}%"></div>
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <canvas id="riskDonutChart" height="140"></canvas>
-                </div>
-            </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi" style="--accent:#2563eb">
+            <i class="bi bi-bank kpi-icon"></i>
+            <div class="kpi-label">Loan Book (Principal)</div>
+            <div class="kpi-value">{{ number_format($loanBook, 0) }}</div>
+            <div class="kpi-sub">Standard {{ number_format($standardPrincipal, 0) }} · Locked-Up {{ number_format($lockedUp['principal'], 0) }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi" style="--accent:var(--bs-{{ $ltdColor }})">
+            <i class="bi bi-speedometer2 kpi-icon"></i>
+            <div class="kpi-label">Loans to Deposits</div>
+            <div class="kpi-value text-{{ $ltdColor }}">{{ $loanToDeposit }}%</div>
+            <div class="kpi-sub">Loan book as a share of member deposits</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi" style="--accent:#7c3aed">
+            <i class="bi bi-people kpi-icon"></i>
+            <div class="kpi-label">Active Members</div>
+            <div class="kpi-value">{{ number_format($activeMembers) }}</div>
+            <div class="kpi-sub">{{ number_format($savers) }} saving · {{ number_format($borrowers) }} borrowing</div>
         </div>
     </div>
 </div>
 
-{{-- ── Row 2: Client Activity + Savings Insights ──────────────────────────── --}}
+{{-- ── Deposits mix + Loan portfolio ────────────────────────────────────── --}}
 <div class="row g-3 mb-3">
-    {{-- Client Activity --}}
-    <div class="col-md-4">
+    <div class="col-lg-6">
         <div class="card h-100">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-people-fill text-primary me-2"></i>Client Activity
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-piggy-bank me-2 text-success"></i>Member Deposits</span>
+                @can('view savings reports')<a href="{{ route('reports.savings-balances') }}" class="small text-decoration-none">Savings report <i class="bi bi-arrow-right"></i></a>@endcan
             </div>
             <div class="card-body">
-                @php $totalClientsCount = $totalClients ?: 1; @endphp
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="small">Active Borrowers</span>
-                        <span class="small fw-semibold">{{ $activeBorrowers }}</span>
-                    </div>
-                    <div class="progress" style="height:8px">
-                        <div class="progress-bar bg-primary" style="width: {{ min(100, round($activeBorrowers / $totalClientsCount * 100)) }}%"></div>
-                    </div>
-                    <div class="text-muted" style="font-size:.72rem">{{ round($activeBorrowers / $totalClientsCount * 100, 1) }}% of total clients</div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="small">Active Savers</span>
-                        <span class="small fw-semibold">{{ $activeSavers }}</span>
-                    </div>
-                    <div class="progress" style="height:8px">
-                        <div class="progress-bar bg-success" style="width: {{ min(100, round($activeSavers / $totalClientsCount * 100)) }}%"></div>
-                    </div>
-                    <div class="text-muted" style="font-size:.72rem">{{ round($activeSavers / $totalClientsCount * 100, 1) }}% of total clients</div>
-                </div>
-                <hr class="my-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="small text-muted">Dormant Accounts <span style="font-size:.7rem">(6+ months)</span></span>
-                    <span class="badge {{ $dormantAccounts > 0 ? 'bg-warning text-dark' : 'bg-success' }}">{{ $dormantAccounts }}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <span class="small text-muted">Total Clients</span>
-                    <span class="badge bg-secondary">{{ $totalClients }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Savings Insights --}}
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-piggy-bank-fill text-success me-2"></i>Savings Insights
-                <span class="text-muted fw-normal small ms-1">— This month</span>
-            </div>
-            <div class="card-body">
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <div class="p-2 rounded bg-success bg-opacity-10 text-center">
-                            <div class="text-muted small">New Accounts</div>
-                            <div class="fw-bold fs-5 text-success">{{ $newSavingsThisMonth }}</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="p-2 rounded bg-primary bg-opacity-10 text-center">
-                            <div class="text-muted small">Net Cash Flow</div>
-                            <div class="fw-bold text-{{ $netCashFlow >= 0 ? 'success' : 'danger' }}" style="font-size:.95rem">
-                                {{ $netCashFlow >= 0 ? '+' : '' }}{{ number_format($netCashFlow, $dp) }}
+                <div class="row g-3 align-items-center">
+                    <div class="col-sm-5 text-center">
+                        <div style="position:relative;max-width:210px;margin:auto">
+                            <canvas id="depositMixChart"></canvas>
+                            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+                                <div class="text-muted" style="font-size:.7rem">TOTAL</div>
+                                <div class="fw-bold" style="color:#0f2444;font-size:.95rem">{{ number_format($totalDeposits / 1e6, 1) }}M</div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="mb-2">
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span class="text-muted">Deposits</span>
-                        <span class="fw-semibold text-success">{{ number_format($depositsThisMonth, $dp) }}</span>
+                    <div class="col-sm-7">
+                        @foreach($deposits as $d)
+                            @php $share = $totalDeposits > 0 ? max(0, $d['amount']) / $totalDeposits * 100 : 0; @endphp
+                            <a href="{{ $d['url'] }}" class="mix-row">
+                                <span class="mix-dot" style="background:{{ $d['color'] }}"></span>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="small fw-semibold">{{ $d['label'] }}</span>
+                                        <span class="small fw-bold">{{ number_format($d['amount'], 0) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between" style="font-size:.7rem;color:#6b7280">
+                                        <span>{{ number_format($d['count']) }} {{ $d['count_label'] ?? 'accounts' }}@if($d['overdrawn'] < 0) · <span class="text-danger">overdrawn {{ number_format($d['overdrawn'], 0) }}</span>@endif</span>
+                                        <span>{{ number_format($share, 1) }}%</span>
+                                    </div>
+                                    <div class="mix-bar"><span style="width:{{ $share }}%;background:{{ $d['color'] }}"></span></div>
+                                </div>
+                            </a>
+                        @endforeach
                     </div>
-                    <div class="d-flex justify-content-between small">
-                        <span class="text-muted">Withdrawals</span>
-                        <span class="fw-semibold text-danger">{{ number_format($withdrawalsThisMonth, $dp) }}</span>
-                    </div>
                 </div>
-                <hr class="my-2">
-                <canvas id="savingsTrendChart" height="100"></canvas>
             </div>
         </div>
     </div>
 
-    {{-- Portfolio Insights --}}
-    <div class="col-md-4">
+    <div class="col-lg-6">
         <div class="card h-100">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-briefcase-fill text-warning me-2"></i>Portfolio Insights
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-cash-stack me-2 text-primary"></i>Loan Portfolio</span>
+                @can('view loans')<a href="{{ route('loans.index') }}" class="small text-decoration-none">All loans <i class="bi bi-arrow-right"></i></a>@endcan
             </div>
             <div class="card-body">
-                <div class="mb-3">
-                    @php
-                        $portfolioStatus = $loanToSavingsRatio > 1 ? ['label'=>'Attention Needed','color'=>'danger']
-                            : ($loanToSavingsRatio > 0.7 ? ['label'=>'Moderate','color'=>'warning']
-                            : ['label'=>'Healthy','color'=>'success']);
-                    @endphp
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="small fw-semibold">Portfolio Health</span>
-                        <span class="badge bg-{{ $portfolioStatus['color'] }}">{{ $portfolioStatus['label'] }}</span>
+                <a href="{{ route('loans.index', ['type' => 'normal']) }}" class="loan-block std d-block text-decoration-none text-reset mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small fw-bold" style="color:#2563eb">Standard Loans</div>
+                            <div class="text-muted" style="font-size:.72rem">{{ number_format($standard->sum('count')) }} running loans</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold fs-5" style="color:#0f2444">{{ number_format($standardPrincipal, 0) }}</div>
+                            <div class="text-muted" style="font-size:.72rem">+ interest owed {{ number_format($standard->sum('interest'), 0) }}</div>
+                        </div>
                     </div>
-                    <div class="text-muted small">Ratio: {{ $loanToSavingsRatio }}</div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="small fw-semibold">Savings Growth</span>
-                        <span class="badge {{ $savingsGrowth >= 0 ? 'bg-success' : 'bg-danger' }}">
-                            {{ $savingsGrowth >= 0 ? '+' : '' }}{{ $savingsGrowth }}%
-                        </span>
+                    @if($standard->count() > 1)
+                    <div class="mt-2 pt-2 border-top">
+                        @foreach($standard as $s)
+                            <div class="d-flex justify-content-between" style="font-size:.75rem">
+                                <span class="text-muted">{{ $s['label'] }} <span style="font-size:.68rem">({{ $s['count'] }})</span></span>
+                                <span>{{ number_format($s['principal'], 0) }}</span>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="text-muted small">vs last month deposits</div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="small fw-semibold">Loan Growth</span>
-                        <span class="badge {{ $loanGrowth >= 0 ? 'bg-primary' : 'bg-secondary' }}">
-                            {{ $loanGrowth >= 0 ? '+' : '' }}{{ $loanGrowth }}%
-                        </span>
+                    @endif
+                </a>
+                <a href="{{ route('loans.index', ['type' => 'locked-up']) }}" class="loan-block lu d-block text-decoration-none text-reset mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="small fw-bold" style="color:#b91c1c"><i class="bi bi-lock me-1"></i>Locked-Up Loans</div>
+                            <div class="text-muted" style="font-size:.72rem">{{ number_format($lockedUp['count']) }} loans under recovery</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold fs-5" style="color:#0f2444">{{ number_format($lockedUp['principal'], 0) }}</div>
+                            <div class="text-muted" style="font-size:.72rem">+ interest owed {{ number_format($lockedUp['interest'], 0) }}</div>
+                        </div>
                     </div>
-                    <div class="text-muted small">vs last month disbursements</div>
+                </a>
+                <div class="row g-2">
+                    <div class="col-4">
+                        <div class="mini-stat">
+                            <div class="l">PAR 30</div>
+                            <div class="v text-{{ $parColor }}">{{ $par30 }}%</div>
+                            <div style="font-size:.68rem;color:#6b7280">{{ number_format($par30Amount, 0) }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <a href="{{ route('reports.loan-aging') }}" class="text-decoration-none text-reset">
+                        <div class="mini-stat">
+                            <div class="l">In arrears</div>
+                            <div class="v {{ $overdueCount ? 'text-danger' : '' }}">{{ number_format($overdueCount) }}</div>
+                            <div style="font-size:.68rem;color:#6b7280">{{ number_format($maturedCount) }} past maturity</div>
+                        </div>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="{{ route('loans.index', ['status' => 'pending']) }}" class="text-decoration-none text-reset">
+                        <div class="mini-stat">
+                            <div class="l">Pending</div>
+                            <div class="v">{{ number_format($pendingLoans) }}</div>
+                            <div style="font-size:.68rem;color:#6b7280">awaiting disbursement</div>
+                        </div>
+                        </a>
+                    </div>
                 </div>
-                <hr class="my-2">
-                <div class="small fw-semibold mb-2">Strategic Recommendations</div>
-                @foreach($recommendations as $rec)
-                <div class="d-flex gap-2 mb-2 p-2 rounded bg-{{ $rec['type'] }} bg-opacity-10">
-                    <i class="bi {{ $rec['icon'] }} text-{{ $rec['type'] }} mt-1 flex-shrink-0"></i>
-                    <span style="font-size:.75rem">{{ $rec['text'] }}</span>
-                </div>
-                @endforeach
             </div>
         </div>
     </div>
 </div>
 
-{{-- ── Row 3: Cumulative Trends + FD Maturities ───────────────────────────── --}}
-<div class="row g-3">
-    <div class="col-md-7">
-        <div class="card">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-graph-up text-success me-2"></i>Monthly Trends — Savings &amp; Loan Disbursements
-            </div>
+{{-- ── This month + trend ──────────────────────────────────────────────── --}}
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-white"><span class="panel-title"><i class="bi bi-calendar3 me-2 text-info"></i>{{ now()->format('F Y') }}</span></div>
             <div class="card-body">
-                <canvas id="trendsChart" height="180"></canvas>
+                <div class="row g-2">
+                    <div class="col-6"><div class="mini-stat"><div class="l">Deposits</div><div class="v text-success">{{ number_format($month['deposits'], 0) }}</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">Withdrawals</div><div class="v text-danger">{{ number_format($month['withdrawals'], 0) }}</div></div></div>
+                    <div class="col-12"><div class="mini-stat d-flex justify-content-between align-items-center"><div class="l mb-0">Net savings flow</div><div class="v {{ $netFlow >= 0 ? 'text-success' : 'text-danger' }}">{{ $netFlow >= 0 ? '+' : '' }}{{ number_format($netFlow, 0) }}</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">Loans disbursed</div><div class="v">{{ number_format($month['disbursed'], 0) }}</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">Loan recoveries</div><div class="v">{{ number_format($month['recovered'], 0) }}</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">New members</div><div class="v">{{ number_format($month['new_members']) }}</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">New accounts</div><div class="v">{{ number_format($month['new_accounts']) }}</div></div></div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-5">
+    <div class="col-lg-8">
         <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold"><i class="bi bi-calendar-event text-warning me-2"></i>Upcoming FD Maturities</span>
-                <span class="text-muted small">Next 30 days</span>
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-graph-up me-2 text-primary"></i>Activity — last 6 months</span>
+                <span class="text-muted" style="font-size:.72rem">Opening balances from previous systems excluded</span>
+            </div>
+            <div class="card-body"><canvas id="activityChart" height="120"></canvas></div>
+        </div>
+    </div>
+</div>
+
+{{-- ── Other + FD maturities ───────────────────────────────────────────── --}}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header bg-white"><span class="panel-title"><i class="bi bi-grid me-2 text-secondary"></i>Other</span></div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-6"><div class="mini-stat"><div class="l">Share capital</div><div class="v">{{ number_format($other['share_capital'], 0) }}</div><div style="font-size:.68rem;color:#6b7280">{{ number_format($other['shareholders']) }} shareholders</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">Savings groups</div><div class="v">{{ number_format($other['groups']) }}</div><div style="font-size:.68rem;color:#6b7280">{{ number_format($other['group_members']) }} group members</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">Overdrawn accounts</div><div class="v {{ $other['overdrawn_count'] ? 'text-danger' : '' }}">{{ number_format($other['overdrawn_count']) }}</div><div style="font-size:.68rem;color:#6b7280">{{ number_format($other['overdrawn_amount'], 0) }}</div></div></div>
+                    <div class="col-6"><div class="mini-stat"><div class="l">Dormant accounts</div><div class="v {{ $other['dormant'] ? 'text-warning' : '' }}">{{ number_format($other['dormant']) }}</div><div style="font-size:.68rem;color:#6b7280">no activity in 6 months</div></div></div>
+                    <div class="col-12"><div class="mini-stat d-flex justify-content-between align-items-center"><div class="l mb-0">Members with unpaid membership fee</div><div class="v">{{ number_format($other['fees_unpaid']) }}</div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <span class="panel-title"><i class="bi bi-calendar-event me-2 text-warning"></i>Fixed deposits maturing</span>
+                <span class="text-muted small">Due or within 30 days</span>
             </div>
             <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead><tr>
-                        <th class="ps-3">Deposit</th><th>Client</th><th>Maturity</th><th class="text-end pe-3">Amount</th>
-                    </tr></thead>
+                <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light"><tr><th class="ps-3">Deposit</th><th>Member</th><th>Maturity</th><th class="text-end pe-3">Amount</th></tr></thead>
                     <tbody>
                     @forelse($upcomingMaturities as $fd)
                         <tr>
-                            <td class="ps-3"><a href="{{ route('fixed-deposits.show', $fd) }}" class="text-decoration-none">{{ $fd->deposit_number }}</a></td>
-                            <td class="small">{{ $fd->client->name }}</td>
-                            <td class="small text-warning">{{ $fd->maturity_date->format('d M Y') }}</td>
-                            <td class="text-end pe-3 small">{{ number_format($fd->maturity_amount, $dp) }}</td>
+                            <td class="ps-3 font-monospace small"><a href="{{ route('fixed-deposits.show', $fd) }}" class="text-decoration-none">{{ $fd->deposit_number }}</a></td>
+                            <td class="small">{{ $fd->client->name ?? '—' }}</td>
+                            <td class="small {{ $fd->maturity_date->lte(today()) ? 'text-danger fw-semibold' : 'text-warning' }}">{{ $fd->maturity_date->format('d M Y') }}</td>
+                            <td class="text-end pe-3 small">{{ number_format($fd->maturity_amount ?: $fd->principal, 0) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center text-muted py-3 small">No upcoming maturities.</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted py-3 small">No fixed deposits maturing in the next 30 days.</td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -406,95 +269,38 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const labels  = @json($monthLabels);
-const income   = @json($monthlyIncome->values());
-const expenses = @json($monthlyExpenses->values());
-const profit   = @json($monthlyProfit->values());
-const deposits = @json($monthlySavingsDeposits->values());
-const loans    = @json($monthlyLoanDisbursements->values());
-
-const gridColor = 'rgba(0,0,0,.05)';
 const font = { family: "'Segoe UI', system-ui, sans-serif", size: 11 };
+const short = v => Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : Math.abs(v) >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
 
-// ── Profitability Chart ──────────────────────────────────────────────────────
-new Chart(document.getElementById('profitabilityChart'), {
-    type: 'bar',
-    data: {
-        labels,
-        datasets: [
-            { label: 'Income',   data: income,   backgroundColor: 'rgba(34,197,94,.7)',  borderRadius: 4 },
-            { label: 'Expenses', data: expenses, backgroundColor: 'rgba(239,68,68,.7)',  borderRadius: 4 },
-            { label: 'Profit',   data: profit,   backgroundColor: 'rgba(59,130,246,.7)', borderRadius: 4, type: 'line',
-              borderColor: 'rgba(59,130,246,.9)', tension: 0.4, fill: false, pointRadius: 3 },
-        ]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: { legend: { labels: { font } } },
-        scales: {
-            x: { grid: { color: gridColor }, ticks: { font } },
-            y: { grid: { color: gridColor }, ticks: { font, callback: v => v.toLocaleString() } }
-        }
-    }
-});
-
-// ── Risk Donut ───────────────────────────────────────────────────────────────
-new Chart(document.getElementById('riskDonutChart'), {
+new Chart(document.getElementById('depositMixChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Performing Loans', 'At Risk (PAR30)'],
-        datasets: [{
-            data: [Math.max(0, 100 - {{ $par30 }}), {{ $par30 }}],
-            backgroundColor: ['rgba(34,197,94,.8)', 'rgba(239,68,68,.8)'],
-            borderWidth: 0
-        }]
+        labels: @json($deposits->pluck('label')),
+        datasets: [{ data: @json($deposits->map(fn ($d) => max(0, $d['amount']))), backgroundColor: @json($deposits->pluck('color')), borderWidth: 2, borderColor: '#fff' }]
     },
     options: {
-        responsive: true, cutout: '70%',
-        plugins: {
-            legend: { position: 'bottom', labels: { font, boxWidth: 12 } },
-            tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + '%' } }
-        }
+        cutout: '72%',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.label + ': ' + c.raw.toLocaleString() } } }
     }
 });
 
-// ── Savings Trend Mini Chart ─────────────────────────────────────────────────
-new Chart(document.getElementById('savingsTrendChart'), {
-    type: 'line',
-    data: {
-        labels,
-        datasets: [{
-            label: 'Deposits', data: deposits,
-            borderColor: 'rgba(34,197,94,.9)', backgroundColor: 'rgba(34,197,94,.1)',
-            tension: 0.4, fill: true, pointRadius: 2
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { display: false }, ticks: { font } },
-            y: { grid: { color: gridColor }, ticks: { font, callback: v => v >= 1000 ? (v/1000)+'k' : v } }
-        }
-    }
-});
-
-// ── Trends Chart ─────────────────────────────────────────────────────────────
-new Chart(document.getElementById('trendsChart'), {
+new Chart(document.getElementById('activityChart'), {
     type: 'bar',
     data: {
-        labels,
+        labels: @json($trend['labels']),
         datasets: [
-            { label: 'Savings Deposits',     data: deposits, backgroundColor: 'rgba(34,197,94,.7)',  borderRadius: 4 },
-            { label: 'Loan Disbursements',   data: loans,    backgroundColor: 'rgba(245,158,11,.7)', borderRadius: 4 },
+            { label: 'Savings deposits',    data: @json($trend['deposits']),    backgroundColor: '#0d9488', borderRadius: 3 },
+            { label: 'Savings withdrawals', data: @json($trend['withdrawals']), backgroundColor: '#f87171', borderRadius: 3 },
+            { label: 'Loans disbursed',     data: @json($trend['disbursed']),   backgroundColor: '#2563eb', borderRadius: 3 },
+            { label: 'Loan recoveries',     data: @json($trend['recovered']),   backgroundColor: '#f59e0b', borderRadius: 3 },
         ]
     },
     options: {
         responsive: true,
-        plugins: { legend: { labels: { font } } },
+        plugins: { legend: { position: 'bottom', labels: { font, boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw.toLocaleString() } } },
         scales: {
-            x: { grid: { color: gridColor }, ticks: { font } },
-            y: { grid: { color: gridColor }, ticks: { font, callback: v => v.toLocaleString() } }
+            x: { grid: { display: false }, ticks: { font } },
+            y: { grid: { color: 'rgba(0,0,0,.05)' }, ticks: { font, callback: short } }
         }
     }
 });
