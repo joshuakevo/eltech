@@ -12,7 +12,7 @@
         html, body { height: 100%; margin: 0; padding: 0; }
         body { min-height: 100vh; display: flex; font-family: 'Segoe UI', system-ui, sans-serif; background: #fff; }
         .login-side { flex: 1 1 50%; background: linear-gradient(135deg, var(--primary) 0%, #1a3a6e 100%); display: flex; align-items: center; justify-content: center; }
-        .brand-side { flex: 1 1 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; }
+        .brand-side { order: -1; flex: 1 1 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; }
         .brand-name { font-size: 2rem; font-weight: 700; letter-spacing: .02em; color: #2b2f36; margin-top: 1.1rem; line-height: 1; }
         .brand-tag { font-size: .9rem; font-weight: 700; letter-spacing: .14em; color: #1565c0; margin-top: .6rem; }
         .brand-mark { width: 130px; height: auto; }
