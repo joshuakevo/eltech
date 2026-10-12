@@ -489,6 +489,8 @@ class LoanController extends Controller
 
         return response()->json([
             'penalty' => $this->loanService->calculatePenaltyPublic($loan, $request->payment_date),
+            'early_settlement' => $loan->status === 'active' || $loan->isLockedUp()
+                ? $this->loanService->calculateEarlySettlement($loan, \Carbon\Carbon::parse($request->payment_date)->toDateString()) : null,
         ]);
     }
 
@@ -514,9 +516,19 @@ class LoanController extends Controller
             return back()->with('error', 'Only active loans can accept repayments.');
         }
 
-        $total = $loan->outstanding_principal + $loan->outstanding_interest + $loan->outstanding_penalty;
-        if ($request->amount > $total + 0.01) {
-            return back()->withErrors(['amount' => 'Repayment cannot exceed total outstanding balance.'])->withInput();
+        $settle = $request->boolean('early_settlement') && !$loan->isLockedUp();
+        if ($settle) {
+            // Early settlement: interest by days to the payment date
+            $quote = $this->loanService->calculateEarlySettlement($loan, $request->payment_date);
+            if (abs($request->amount - $quote['total']) > 1) {
+                return back()->withErrors(['amount' => 'Early settlement on ' . \Carbon\Carbon::parse($request->payment_date)->format('d M Y') . ' is ' . number_format($quote['total'], 2) . ' — the amount was changed. Choose Early Settlement again or enter a normal repayment.'])->withInput();
+            }
+            $request->merge(['amount' => $quote['total'], 'settle' => true, 'notes' => trim(($request->notes ? $request->notes . ' — ' : '') . "Early settlement: interest {$quote['days']} days from " . \Carbon\Carbon::parse($quote['from'])->format('d M Y'))]);
+        } else {
+            $total = $loan->outstanding_principal + $loan->outstanding_interest + $loan->outstanding_penalty;
+            if ($request->amount > $total + 0.01) {
+                return back()->withErrors(['amount' => 'Repayment cannot exceed total outstanding balance.'])->withInput();
+            }
         }
 
         // Deduct from savings account if payment method is savings

@@ -148,6 +148,73 @@ class LoanInterestService
 
     // ── Charging ────────────────────────────────────────────────────────────
 
+    /**
+     * Early settlement as at $date: interest already charged and unpaid (incl. carried) plus
+     * outstanding principal × rate × days since the last charge ÷ 365 — the same formula Run Loans
+     * uses. Loans not yet on day-based interest are converted inside a rolled-back transaction.
+     */
+    public function settlementQuote(Loan $loan, Carbon $date): array
+    {
+        DB::beginTransaction();
+        $this->previewing = true;
+        try {
+            $loan = Loan::find($loan->id);
+            if (!$loan->isDayBasedInterest()) {
+                $this->convert($loan, $date);
+                $loan->refresh();
+            }
+            $from = $loan->interest_accrued_to ? $loan->interest_accrued_to->copy()->startOfDay() : $date->copy()->startOfDay();
+            $to   = $date->copy()->startOfDay();
+            $days = $to->gt($from) ? $from->diffInDays($to) : 0;
+            $prin = round((float) $loan->outstanding_principal, 2);
+            $accrued = round($prin * (float) $loan->interest_rate / 100 * $days / 365, 2);
+            $owed = round(max(0, (float) $loan->outstanding_interest), 2);
+
+            return ['principal' => $prin, 'interest_owed' => $owed, 'accrued' => $accrued, 'days' => $days,
+                'from' => $from->toDateString(), 'rate' => (float) $loan->interest_rate, 'interest' => round($owed + $accrued, 2)];
+        } finally {
+            DB::rollBack();
+            $this->previewing = false;
+        }
+    }
+
+    /**
+     * Early settlement: charge interest from the last charge to the settlement date (days) as
+     * carried interest, so the settlement repayment clears it. Logged in loan_interest_charges.
+     */
+    public function chargeForSettlement(Loan $loan, Carbon $date): ?array
+    {
+        $from = $loan->interest_accrued_to?->copy()->startOfDay();
+        $to   = $date->copy()->startOfDay();
+        if (!$from || !$to->gt($from)) {
+            return null;
+        }
+        $days    = $from->diffInDays($to);
+        $rate    = (float) $loan->interest_rate;
+        $prin    = round((float) $loan->outstanding_principal, 2);
+        $accrued = round($prin * $rate / 100 * $days / 365, 2);
+        $row     = $loan->schedules()->where('interest_charged', false)->orderBy('installment_no')->first()
+            ?? $loan->schedules()->orderByDesc('installment_no')->first();
+        $carriedBefore = round((float) $loan->interest_carried, 2);
+
+        $loan->forceFill([
+            'outstanding_interest' => round((float) $loan->outstanding_interest + $accrued, 2),
+            'interest_carried'     => round($carriedBefore + $accrued, 2),
+            'interest_accrued_to'  => $to->toDateString(),
+        ])->save();
+
+        if ($row && !$this->previewing) {
+            LoanInterestCharge::create([
+                'loan_id' => $loan->id, 'loan_schedule_id' => $row->id,
+                'from_date' => $from->toDateString(), 'to_date' => $to->toDateString(), 'days' => $days,
+                'principal' => $prin, 'rate' => $rate, 'amount' => $accrued,
+                'carried_before' => $carriedBefore, 'carried_after' => round($carriedBefore + $accrued, 2),
+                'created_by' => auth()->id(),
+            ]);
+        }
+        return ['days' => $days, 'accrued' => $accrued, 'from' => $from->toDateString(), 'to' => $to->toDateString()];
+    }
+
     /** Charges interest for the period ending on this installment's due date. */
     public function charge(Loan $loan, LoanSchedule $row): array
     {

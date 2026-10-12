@@ -328,6 +328,11 @@ class LoanService
                 app(LoanInterestService::class)->convert($loan, Carbon::parse($data['payment_date']));
                 $loan->refresh();
             }
+            // Early settlement: charge interest by days up to the settlement date first
+            if (!empty($data['settle']) && !$loan->isLockedUp() && $loan->isDayBasedInterest()) {
+                app(LoanInterestService::class)->chargeForSettlement($loan, Carbon::parse($data['payment_date']));
+                $loan->refresh();
+            }
 
             $amount    = $data['amount'];
             $remaining = $amount;
@@ -463,6 +468,15 @@ class LoanService
 
             if ($newPrincipal <= 0.01 && $newInterest <= 0.01 && $newPenalty <= 0.01) {
                 $loan->update(['status' => 'closed']);
+                // Day-based: interest projected on installments never charged is not owed — clear it
+                if ($loan->isDayBasedInterest() && !$loan->isLockedUp()) {
+                    foreach ($loan->schedules()->where('interest_charged', false)->get() as $s) {
+                        $s->interest_due = $s->interest_paid;
+                        $s->total_due    = round($s->principal_due + $s->interest_due, 2);
+                        $s->status       = abs($s->principal_paid - $s->principal_due) < 0.01 ? 'paid' : $s->status;
+                        $s->save();
+                    }
+                }
             } elseif ($loan->isDayBasedInterest() && !$loan->isLockedUp()) {
                 app(LoanInterestService::class)->rebalance($loan->fresh());
             }
@@ -472,9 +486,9 @@ class LoanService
     }
 
     /**
-     * Calculate the amount required to settle the loan early as of a given date.
-     * Interest is charged for every installment period that has already started:
-     * period 1 starts on disbursement date, period N starts on the previous due date.
+     * Calculate the amount required to settle the loan early as of a given date:
+     * outstanding principal + interest already charged and unpaid + interest by days
+     * from the last charge to the date (principal × rate × days ÷ 365) + penalty.
      */
     public function calculateEarlySettlement(Loan $loan, string $date): array
     {
@@ -491,33 +505,20 @@ class LoanService
             ];
         }
 
-        $schedules = $loan->schedules()
-            ->whereIn('status', ['pending', 'partial', 'overdue'])
-            ->orderBy('installment_no')
-            ->get();
-
-        $interestDue  = 0;
-        $disbursedStr = $loan->disbursement_date->toDateString();
-
-        foreach ($schedules as $index => $schedule) {
-            $periodStart = $index === 0
-                ? $disbursedStr
-                : $schedules[$index - 1]->due_date->toDateString();
-
-            if ($periodStart <= $date) {
-                $interestDue += max(0, $schedule->interest_due - $schedule->interest_paid);
-            } else {
-                break;
-            }
-        }
-
+        // Interest by days to the settlement date (same formula as Run Loans)
+        $q = app(LoanInterestService::class)->settlementQuote($loan, Carbon::parse($date));
         $penalty = $this->calculatePenalty($loan, $date);
 
         return [
-            'principal' => round($principal, 2),
-            'interest'  => round($interestDue, 2),
-            'penalty'   => round($penalty, 2),
-            'total'     => round($principal + $interestDue + $penalty, 2),
+            'principal'     => $q['principal'],
+            'interest'      => $q['interest'],
+            'interest_owed' => $q['interest_owed'],
+            'accrued'       => $q['accrued'],
+            'days'          => $q['days'],
+            'from'          => $q['from'],
+            'rate'          => $q['rate'],
+            'penalty'       => round($penalty, 2),
+            'total'         => round($q['principal'] + $q['interest'] + $penalty, 2),
         ];
     }
 
