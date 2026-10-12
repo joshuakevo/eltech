@@ -153,6 +153,7 @@ document.addEventListener('submit', function (e) {
     var form = e.target;
     if (form.tagName !== 'FORM') return;
     if (form.dataset.noBlock === '1') return;
+    if ((form.getAttribute('method') || 'get').toLowerCase() === 'get' || form.target === '_blank') return;
     form.querySelectorAll('button:not([type="button"]):not([type="reset"]), input[type="submit"]').forEach(function (btn) {
         btn.disabled = true;
         if (btn.tagName === 'BUTTON') {
