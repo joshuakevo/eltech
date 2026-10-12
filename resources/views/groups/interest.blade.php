@@ -10,7 +10,7 @@
 
 <div class="alert alert-info mb-3" style="max-width:640px">
     <i class="bi bi-info-circle me-1"></i>
-    Applies the group monthly rate (<strong>{{ number_format($group->monthly_interest_rate, 4) }}%</strong>)
+    Applies the group monthly rate (<strong>{{ round((float) $group->monthly_interest_rate) }}%</strong>)
     to each active member's current balance. Posts a single journal entry (DR Interest Expense / CR Group Savings)
     and credits each member's sub-balance individually.
 </div>

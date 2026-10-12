@@ -305,6 +305,43 @@ class GroupController extends Controller
             : back()->with('error', $err);
     }
 
+    /** Group statement for a period — PDF or Excel (CSV). */
+    public function statement(Request $request, Group $group)
+    {
+        $request->validate(['from' => 'nullable|date', 'to' => 'nullable|date', 'format' => 'nullable|in:pdf,excel']);
+        $firstTx = \App\Models\GroupTransaction::where('group_id', $group->id)->min('transaction_date');
+        $from = $request->from ? \Carbon\Carbon::parse($request->from)->toDateString()
+            : ($firstTx ? \Carbon\Carbon::parse($firstTx)->toDateString() : $group->registration_date->toDateString());
+        $to = $request->to ? \Carbon\Carbon::parse($request->to)->toDateString() : today()->toDateString();
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+        $s = $this->groupService->statement($group, $from, $to);
+        $file = 'group-statement-' . \Illuminate\Support\Str::slug($group->name) . "-{$from}-to-{$to}";
+
+        if ($request->format === 'excel') {
+            return response()->streamDownload(function () use ($group, $s) {
+                $out = fopen('php://output', 'w');
+                fputcsv($out, ["Group statement: {$group->name} ({$group->group_number})", "Period {$s['from']} to {$s['to']}", 'Rate ' . round((float) $group->monthly_interest_rate) . '% per month']);
+                fputcsv($out, []);
+                fputcsv($out, ['Member', 'Phone', 'Opening balance', 'Deposits', 'Interest', 'Withdrawals', 'Closing balance']);
+                foreach ($s['members'] as $m) {
+                    fputcsv($out, [$m['name'] . ($m['leader'] ? ' (Leader)' : ''), $m['phone'], $m['opening'], $m['deposits'], $m['interest'], $m['withdrawals'], $m['closing']]);
+                }
+                fputcsv($out, ['TOTAL', '', $s['opening'], $s['deposits'], $s['interest'], $s['withdrawals'], $s['closing']]);
+                fputcsv($out, []);
+                fputcsv($out, ['Date', 'Member', 'Type', 'Reference', 'Notes', 'Money in', 'Money out']);
+                foreach ($s['transactions'] as $t) {
+                    fputcsv($out, [$t['date'], $t['member'], ucwords(str_replace('_', ' ', $t['type'])), $t['reference'], $t['notes'], $t['in'] ?: '', $t['out'] ?: '']);
+                }
+                fclose($out);
+            }, "{$file}.csv", ['Content-Type' => 'text/csv']);
+        }
+
+        return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.group-statement', ['group' => $group, 's' => $s])
+            ->setPaper('a4', 'portrait')->download("{$file}.pdf");
+    }
+
     public function memberStatement(Group $group, GroupMember $member)
     {
         abort_unless($member->group_id === $group->id, 404);

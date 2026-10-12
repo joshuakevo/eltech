@@ -11,6 +11,8 @@
         <h4 class="fw-bold mb-0">{{ $group->name }}</h4>
         <div class="text-muted small font-monospace">{{ $group->group_number }} &bull; Registered {{ $group->registration_date->format('d M Y') }}</div>
     </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#groupStatementModal"><i class="bi bi-file-earmark-arrow-down me-1"></i> Statement</button>
     @can('manage groups')
     <div class="d-flex flex-wrap gap-2 align-items-center">
         @if($group->isPooled())
@@ -30,6 +32,41 @@
         </form>
     </div>
     @endcan
+    </div>
+</div>
+
+@php $firstGroupTx = \App\Models\GroupTransaction::where('group_id', $group->id)->min('transaction_date'); @endphp
+<div class="modal fade" id="groupStatementModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="GET" action="{{ route('groups.statement', $group) }}" class="modal-content" target="_blank">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-1 text-primary"></i>Group statement — {{ $group->name }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">From</label>
+                        <input type="date" name="from" class="form-control" value="{{ $firstGroupTx ? \Carbon\Carbon::parse($firstGroupTx)->toDateString() : optional($group->registration_date)->toDateString() }}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">To</label>
+                        <input type="date" name="to" class="form-control" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}">
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                    @foreach(['This month' => [now()->startOfMonth(), today()], 'Last month' => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()], 'This year' => [now()->startOfYear(), today()]] as $label => [$f, $t])
+                        <button type="button" class="btn btn-light btn-sm py-0" onclick="this.form.from.value='{{ $f->toDateString() }}';this.form.to.value='{{ $t->toDateString() }}'">{{ $label }}</button>
+                    @endforeach
+                </div>
+                <div class="form-text mt-2">Members' opening and closing balances, deposits, interest and withdrawals, plus every transaction in the period.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" name="format" value="excel" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+                <button type="submit" name="format" value="pdf" class="btn btn-danger"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 {{-- Stats --}}
@@ -75,7 +112,7 @@
     <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-label">Monthly Rate</div>
-            <div class="stat-value">{{ (int) $group->monthly_interest_rate }}%</div>
+            <div class="stat-value">{{ round((float) $group->monthly_interest_rate) }}%</div>
         </div>
     </div>
     <div class="col-md-3">

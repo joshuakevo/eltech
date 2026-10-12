@@ -181,6 +181,7 @@ Route::middleware('auth')->group(function () {
     Route::get('groups/create', [GroupController::class, 'create'])->name('groups.create')->middleware('permission:manage groups');
     Route::post('groups', [GroupController::class, 'store'])->name('groups.store')->middleware('permission:manage groups');
     Route::get('groups/{group}', [GroupController::class, 'show'])->name('groups.show')->middleware('permission:view groups');
+    Route::get('groups/{group}/statement', [GroupController::class, 'statement'])->name('groups.statement')->middleware('permission:view groups');
     Route::get('groups/{group}/edit', [GroupController::class, 'edit'])->name('groups.edit')->middleware('permission:manage groups');
     Route::put('groups/{group}', [GroupController::class, 'update'])->name('groups.update')->middleware('permission:manage groups');
     Route::post('groups/{group}/members', [GroupController::class, 'storeMember'])->name('groups.members.store')->middleware('permission:manage groups');

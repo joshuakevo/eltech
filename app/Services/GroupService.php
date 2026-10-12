@@ -529,6 +529,57 @@ class GroupService
         });
     }
 
+    /**
+     * Group statement for a period. Money in: deposit, interest; money out: withdrawal, transfer_out
+     * (anything else counts as out). Balances are anchored on today's balances (members' balance,
+     * pooled groups' pool_balance) and walked back, so closing figures always agree with the system.
+     * Pool payouts (member_id null) only move the pool.
+     */
+    public function statement(Group $group, string $from, string $to): array
+    {
+        $sign = fn ($t) => in_array($t->type, ['deposit', 'interest'], true) ? (float) $t->amount : -(float) $t->amount;
+        $all = GroupTransaction::where('group_id', $group->id)->orderBy('transaction_date')->orderBy('id')->get();
+        $after  = $all->filter(fn ($t) => $t->transaction_date->toDateString() > $to);
+        $period = $all->filter(fn ($t) => $t->transaction_date->toDateString() >= $from && $t->transaction_date->toDateString() <= $to);
+
+        $members = $group->members()->orderByDesc('is_leader')->orderBy('name')->get()->map(function ($m) use ($after, $period, $sign) {
+            $mine = fn ($c) => $c->filter(fn ($t) => (int) $t->member_id === (int) $m->id);
+            $closing = round((float) $m->balance - $mine($after)->sum($sign), 2);
+            $p = $mine($period);
+            $in = fn ($type) => round($p->where('type', $type)->sum('amount'), 2);
+            $out = round($p->filter(fn ($t) => !in_array($t->type, ['deposit', 'interest'], true))->sum('amount'), 2);
+            return [
+                'name' => $m->name, 'phone' => $m->phone, 'leader' => (bool) $m->is_leader, 'status' => $m->status,
+                'opening' => round($closing - $p->sum($sign), 2), 'deposits' => $in('deposit'), 'interest' => $in('interest'),
+                'withdrawals' => $out, 'closing' => $closing,
+            ];
+        })->filter(fn ($m) => $m['status'] === 'active' || abs($m['opening']) > 0.005 || abs($m['closing']) > 0.005 || $m['deposits'] || $m['withdrawals'] || $m['interest'])->values();
+
+        if ($group->isPooled()) {
+            $closing = round((float) $group->pool_balance - $after->sum($sign), 2);
+            $opening = round($closing - $period->sum($sign), 2);
+        } else {
+            $closing = round($members->sum('closing'), 2);
+            $opening = round($members->sum('opening'), 2);
+        }
+        $memberNames = $group->members()->pluck('name', 'id');
+
+        return [
+            'from' => $from, 'to' => $to, 'opening' => $opening, 'closing' => $closing,
+            'deposits' => round($period->where('type', 'deposit')->sum('amount'), 2),
+            'interest' => round($period->where('type', 'interest')->sum('amount'), 2),
+            'withdrawals' => round($period->filter(fn ($t) => !in_array($t->type, ['deposit', 'interest'], true))->sum('amount'), 2),
+            'members' => $members,
+            'transactions' => $period->map(fn ($t) => [
+                'date' => $t->transaction_date->toDateString(),
+                'member' => $t->member_id ? ($memberNames[$t->member_id] ?? '—') : 'Group pool',
+                'type' => $t->type, 'reference' => $t->reference, 'notes' => $t->notes,
+                'in' => in_array($t->type, ['deposit', 'interest'], true) ? (float) $t->amount : 0.0,
+                'out' => in_array($t->type, ['deposit', 'interest'], true) ? 0.0 : (float) $t->amount,
+            ])->values(),
+        ];
+    }
+
     public function withdrawPooled(Group $group, float $amount, string $date, string $purpose, string $reference = ''): GroupTransaction
     {
         if ($amount <= 0) throw new \InvalidArgumentException('Withdrawal amount must be positive.');

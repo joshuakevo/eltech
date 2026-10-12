@@ -47,7 +47,7 @@
                 <td class="fw-semibold">{{ $g->name }}</td>
                 <td class="text-center">{{ $g->active_members_count }}</td>
                 <td class="text-end fw-semibold text-primary">{{ number_format($g->members_sum_balance ?? 0, 0) }}</td>
-                <td class="text-end text-muted small">{{ $g->monthly_interest_rate }}%</td>
+                <td class="text-end text-muted small">{{ round((float) $g->monthly_interest_rate) }}%</td>
                 <td>
                     <span class="badge {{ $g->status === 'active' ? 'bg-success' : ($g->status === 'dissolved' ? 'bg-danger' : 'bg-secondary') }}">
                         {{ ucfirst($g->status) }}
