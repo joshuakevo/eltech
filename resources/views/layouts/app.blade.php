@@ -714,6 +714,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var form = e.target;
         if (form.tagName !== 'FORM') return;
         if (form.dataset.noBlock === '1') return;
+        // Searches, filters and downloads (GET / new tab) don't save anything and may not leave the page
+        if ((form.getAttribute('method') || 'get').toLowerCase() === 'get' || form.target === '_blank') return;
         // Catch explicit type="submit" AND buttons with no type (HTML default = submit)
         // Exclude type="button" (JS helpers) and type="reset"
         form.querySelectorAll(
