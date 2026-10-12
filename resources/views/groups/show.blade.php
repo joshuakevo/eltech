@@ -38,7 +38,7 @@
 @php $firstGroupTx = \App\Models\GroupTransaction::where('group_id', $group->id)->min('transaction_date'); @endphp
 <div class="modal fade" id="groupStatementModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="GET" action="{{ route('groups.statement', $group) }}" class="modal-content" target="_blank">
+        <form method="GET" action="{{ route('groups.statement', $group) }}" class="modal-content" onsubmit="setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('groupStatementModal'))?.hide(), 400)">
             <div class="modal-header">
                 <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-1 text-primary"></i>Group statement — {{ $group->name }}</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
