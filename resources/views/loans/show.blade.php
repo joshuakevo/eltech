@@ -37,6 +37,9 @@
         @if(in_array($loan->status, ['active', 'defaulted', 'closed']))
             <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#correctLoanModal"><i class="bi bi-wrench-adjustable"></i> Correct Balance</button>
         @endif
+        @if($loan->isLockedUp() && $loan->status !== 'closed')
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#activateLoanModal"><i class="bi bi-arrow-repeat"></i> Move to active loans</button>
+        @endif
         @endcan
         <div class="dropdown">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
@@ -185,6 +188,22 @@
 @endif
 
 @include('loans._correction')
+@if($loan->isLockedUp() && $loan->status !== 'closed')
+    @include('loans._activate')
+@endif
+@php $activeMove = \App\Models\LoanActivation::with('createdBy')->where('loan_id', $loan->id)->where('status', 'applied')->latest('id')->first(); @endphp
+@if($activeMove)
+<div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 small">
+    <span><i class="bi bi-arrow-repeat me-1"></i>Moved from <b>Locked-Up Loans</b> on {{ $activeMove->start_date->format('d M Y') }}
+        ({{ $activeMove->interest_rate + 0 }}% {{ $activeMove->interest_method }}, {{ $activeMove->term_months }} months) by {{ $activeMove->createdBy->name ?? '—' }}.</span>
+    @can('correct loans')
+    <form method="POST" action="{{ route('loans.activation.undo', [$loan, $activeMove]) }}" onsubmit="return confirm('Undo the move and return {{ $loan->loan_number }} to Locked-Up Loans?')">
+        @csrf
+        <button class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-arrow-counterclockwise me-1"></i>Undo move</button>
+    </form>
+    @endcan
+</div>
+@endif
 
 <!-- Guarantors -->
 <div class="card mb-3">

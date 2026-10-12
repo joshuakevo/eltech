@@ -273,6 +273,12 @@ Route::middleware('auth')->group(function () {
         ->name('loans.guarantors.store')->middleware('permission:create loans');
     Route::delete('loans/{loan}/guarantors/{guarantor}', [LoanController::class, 'destroyGuarantor'])
         ->name('loans.guarantors.destroy')->middleware('permission:create loans');
+    Route::post('loans/{loan}/activate/preview', [LoanController::class, 'activationPreview'])
+        ->name('loans.activate.preview')->middleware('permission:correct loans');
+    Route::post('loans/{loan}/activate', [LoanController::class, 'activate'])
+        ->name('loans.activate')->middleware('permission:correct loans');
+    Route::post('loans/{loan}/activations/{activation}/undo', [LoanController::class, 'undoActivation'])
+        ->name('loans.activation.undo')->middleware('permission:correct loans');
     Route::post('loans/{loan}/correction/preview', [LoanController::class, 'correctionPreview'])
         ->name('loans.correction.preview')->middleware('permission:correct loans');
     Route::post('loans/{loan}/correction', [LoanController::class, 'correct'])

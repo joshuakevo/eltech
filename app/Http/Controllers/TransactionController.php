@@ -791,8 +791,18 @@ class TransactionController extends Controller
             'loan_provision' => $this->reverseLoanProvisionImpact($transaction),
             'loan_correction' => $this->reverseLoanCorrectionImpact($transaction),
             'loan_transfer' => $this->reverseLoanTransferImpact($transaction),
+            'loan_activation' => $this->reverseLoanActivationImpact($transaction),
             default         => null,
         };
+    }
+
+    /** Locked-Up → active journals: return the loan to Locked-Up Loans (checked beforehand). */
+    private function reverseLoanActivationImpact(Transaction $transaction): void
+    {
+        $activation = \App\Models\LoanActivation::find($transaction->module_id);
+        if ($activation && $activation->status === 'applied') {
+            app(\App\Services\LockedUpActivationService::class)->undo($activation, false);
+        }
     }
 
     /** Locked-Up loan transfer (import) journals: remove the transferred loan (no recoveries — checked beforehand). */
@@ -832,6 +842,21 @@ class TransactionController extends Controller
             if ($correction && $correction->status === 'applied') {
                 try {
                     app(\App\Services\LoanCorrectionService::class)->assertUndoable($correction);
+                } catch (ValidationException $e) {
+                    $msg = collect($e->errors())->flatten()->first();
+                    if ($isDestroy) {
+                        throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+                    }
+                    throw ValidationException::withMessages(['reversal_reason' => $msg]);
+                }
+            }
+        }
+
+        if ($transaction->module === 'loan_activation') {
+            $activation = \App\Models\LoanActivation::find($transaction->module_id);
+            if ($activation && $activation->status === 'applied') {
+                try {
+                    app(\App\Services\LockedUpActivationService::class)->assertUndoable($activation);
                 } catch (ValidationException $e) {
                     $msg = collect($e->errors())->flatten()->first();
                     if ($isDestroy) {

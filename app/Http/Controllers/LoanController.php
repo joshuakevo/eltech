@@ -349,6 +349,29 @@ class LoanController extends Controller
         return redirect()->route('loans.show', $loan)->with('success', 'Correction undone — balances and schedule restored.');
     }
 
+    /** Locked-Up → active loans: dry run (JSON). */
+    public function activationPreview(Request $request, Loan $loan, \App\Services\LockedUpActivationService $activations)
+    {
+        return response()->json($activations->preview($loan, $request->only(['loan_product_id', 'start_date', 'interest_rate', 'interest_method', 'term_months', 'installment'])));
+    }
+
+    public function activate(Request $request, Loan $loan, \App\Services\LockedUpActivationService $activations)
+    {
+        $request->validate(['reason' => 'required|string|max:500']);
+        $activation = $activations->activate($loan, $request->only(['loan_product_id', 'start_date', 'interest_rate', 'interest_method', 'term_months', 'installment']), $request->reason);
+
+        return redirect()->route('loans.show', $loan)->with('success', "Moved to {$activation->toProduct->name} from "
+            . $activation->start_date->format('d M Y') . '. Run Loans will now charge interest and recover installments.');
+    }
+
+    public function undoActivation(Loan $loan, \App\Models\LoanActivation $activation, \App\Services\LockedUpActivationService $activations)
+    {
+        abort_unless((int) $activation->loan_id === (int) $loan->id, 404);
+        $activations->undo($activation);
+
+        return redirect()->route('loans.show', $loan)->with('success', 'Move undone — the loan is back in Locked-Up Loans.');
+    }
+
     public function disburse(Request $request, Loan $loan)
     {
         $request->validate([
