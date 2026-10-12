@@ -721,6 +721,15 @@ class LoanService
         return Account::where('account_code', $fallbackAccountCode)->value('id') ?? 1;
     }
 
+    /** An income account for interest / penalty: a product mapped to a non-income account (e.g. its receivable) falls back. */
+    protected function resolveIncomeAccountId(?int $accountId, string $fallbackAccountCode): int
+    {
+        if ($accountId !== null && Account::where('id', $accountId)->value('account_type') === 'revenue') {
+            return $accountId;
+        }
+        return Account::where('account_code', $fallbackAccountCode)->value('id') ?? $this->resolveGlAccountId($accountId, $fallbackAccountCode);
+    }
+
     protected function postRepaymentJournal(Loan $loan, string $date, float $principalPaid, float $interestPaid, float $penaltyPaid, ?string $reference = null, ?int $paymentSourceAccountId = null): \App\Models\Transaction
     {
         $product = $loan->product;
@@ -746,7 +755,7 @@ class LoanService
 
         if ($interestPaid > 0) {
             $lines[] = [
-                'account_id'  => $this->resolveGlAccountId($product->interest_income_account_id, '4001'),
+                'account_id'  => $this->resolveIncomeAccountId($product->interest_income_account_id, '4001'),
                 'debit'       => 0,
                 'credit'      => $interestPaid,
                 'description' => "Interest income - {$loan->loan_number}",
@@ -755,7 +764,7 @@ class LoanService
 
         if ($penaltyPaid > 0) {
             $lines[] = [
-                'account_id'  => $this->resolveGlAccountId($product->penalty_income_account_id, '4004'),
+                'account_id'  => $this->resolveIncomeAccountId($product->penalty_income_account_id, '4004'),
                 'debit'       => 0,
                 'credit'      => $penaltyPaid,
                 'description' => "Penalty income - {$loan->loan_number}",
