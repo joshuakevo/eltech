@@ -224,6 +224,18 @@ class ClientController extends Controller
         return back()->with('success', 'Client segment updated.');
     }
 
+    /** Run Loans: may an installment be recovered from this member's savings minimum balance? */
+    public function updateLoanRecoveryMinimum(Request $request, Client $client)
+    {
+        $data = $request->validate(['loan_recovery_uses_minimum' => 'required|boolean']);
+        $client->update(['loan_recovery_uses_minimum' => (bool) $data['loan_recovery_uses_minimum']]);
+        \App\Models\AuditLog::record('client_loan_recovery_minimum', "{$client->name}: loan recovery " . ($client->loan_recovery_uses_minimum ? 'may use' : 'keeps') . ' the savings minimum balance', 'clients');
+
+        return $request->expectsJson()
+            ? response()->json(['ok' => true, 'value' => $client->loan_recovery_uses_minimum])
+            : back()->with('success', 'Loan recovery setting updated.');
+    }
+
     public function updateRelationshipManager(Request $request, Client $client)
     {
         $data = $request->validate([
@@ -285,6 +297,9 @@ class ClientController extends Controller
 
         $data['name']         = trim($data['first_name'] . ' ' . ($data['middle_name'] ? $data['middle_name'] . ' ' : '') . $data['last_name']);
         $data['loan_interest'] = $request->boolean('loan_interest');
+        if ($request->has('loan_recovery_uses_minimum')) {
+            $data['loan_recovery_uses_minimum'] = $request->boolean('loan_recovery_uses_minimum');
+        }
 
         if ($request->hasFile('photo')) {
             if ($client->photo) {

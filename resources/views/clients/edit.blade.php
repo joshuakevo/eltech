@@ -302,6 +302,15 @@
         </div>
         @endif
         <div class="col-md-6">
+            <label class="form-label">Loan recovery (Run Loans)</label>
+            <input type="hidden" name="loan_recovery_uses_minimum" value="0">
+            <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" role="switch" name="loan_recovery_uses_minimum" value="1" id="lrMin" @checked(old('loan_recovery_uses_minimum', $client->loan_recovery_uses_minimum))>
+                <label class="form-check-label small" for="lrMin">May recover installments from the savings <b>minimum balance</b> (down to 0)</label>
+            </div>
+            <div class="form-text">Off: Run Loans keeps the product minimum (e.g. 100,000) and recovers only what is above it.</div>
+        </div>
+        <div class="col-md-6">
             <label class="form-label">Account Status</label>
             <select name="status" class="form-select">
                 <option value="active"      @selected(old('status',$client->status)=='active')>Active</option>

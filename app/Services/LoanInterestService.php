@@ -380,8 +380,11 @@ class LoanInterestService
             $out['note'] = 'No active savings account';
             return $out;
         }
-        // Recoveries may use the whole balance (minimum balance applies to ordinary withdrawals only)
-        $available = max(0, round($this->savings->balanceAsOf($account, $date->toDateString()), 2));
+        // The product minimum balance is kept unless the member allows recovery from it (down to 0)
+        $usesMinimum = $this->usesMinimum($loan);
+        $floor = $usesMinimum ? 0 : (float) ($account->product->minimum_balance ?? 0);
+        $available = max(0, round($this->savings->balanceAsOf($account, $date->toDateString()) - $floor, 2));
+        $out['floor'] = $floor;
         $out['available'] = $available;
         $out['account']   = $account->account_number;
 
@@ -392,7 +395,7 @@ class LoanInterestService
             return $out;
         }
 
-        $withdrawal = $this->savings->withdraw($account, $amount, $date->toDateString(), "Loan repayment - {$loan->loan_number}", null, 0.0, loanRecovery: true);
+        $withdrawal = $this->savings->withdraw($account, $amount, $date->toDateString(), "Loan repayment - {$loan->loan_number}", null, 0.0, loanRecovery: $usesMinimum);
         $repayment = $this->loans->processRepayment($loan->fresh(), [
             'amount'         => $amount,
             'payment_date'   => $date->toDateString(),
@@ -416,7 +419,14 @@ class LoanInterestService
     public function savingsAccountFor(Loan $loan, Carbon $date): ?SavingsAccount
     {
         $accounts = SavingsAccount::with('product')->where('client_id', $loan->client_id)->where('status', 'active')->get();
-        return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()))->first();
+        $usesMinimum = $this->usesMinimum($loan);
+        return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()) - ($usesMinimum ? 0 : (float) ($a->product->minimum_balance ?? 0)))->first();
+    }
+
+    /** Member setting: may Run Loans recover from the savings minimum balance? */
+    private function usesMinimum(Loan $loan): bool
+    {
+        return (bool) \App\Models\Client::where('id', $loan->client_id)->value('loan_recovery_uses_minimum');
     }
 
     /** Every installment has been charged (the loan is past its last due date). */

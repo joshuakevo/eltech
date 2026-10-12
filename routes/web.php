@@ -140,6 +140,8 @@ Route::middleware('auth')->group(function () {
         Route::post('clients/import/cancel', [\App\Http\Controllers\ClientImportController::class, 'cancel'])->name('clients.import.cancel');
     });
     Route::resource('clients', ClientController::class)->middleware('permission:view clients');
+    Route::patch('clients/{client}/loan-recovery-minimum', [ClientController::class, 'updateLoanRecoveryMinimum'])
+        ->name('clients.loan-recovery-minimum')->middleware('permission:repay loans');
     Route::patch('clients/{client}/segment', [ClientController::class, 'updateSegment'])
         ->name('clients.segment.update')->middleware('permission:edit clients');
     Route::patch('clients/{client}/relationship-manager', [ClientController::class, 'updateRelationshipManager'])

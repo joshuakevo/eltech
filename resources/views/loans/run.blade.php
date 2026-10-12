@@ -147,6 +147,8 @@
                     $expected = $steps->sum(fn ($s) => $s['recovery']['expected'] ?? 0);
                     $recover = $steps->sum(fn ($s) => $s['recovery']['recovered'] ?? 0);
                     $available = $steps->max(fn ($s) => $s['recovery']['available'] ?? 0);
+                    $floor = $steps->max(fn ($s) => $s['recovery']['floor'] ?? 0);
+                    $usesMin = (bool) ($loan->client->loan_recovery_uses_minimum ?? false);
                     $canRun = !$p['errors'] && $steps->count();
                 @endphp
                 <tr class="{{ $p['errors'] ? 'table-danger' : '' }}">
@@ -157,6 +159,14 @@
                         <div class="fw-semibold text-truncate" title="{{ $loan->client->name ?? '' }}">{{ $loan->client->name ?? 'Deleted client' }}</div>
                         <a href="{{ route('loans.show', $loan) }}" class="font-monospace small text-decoration-none">{{ $loan->loan_number }}</a>
                         <span class="text-muted small">· {{ $loan->interest_rate }}%</span>
+                        @can('repay loans')
+                        @if($loan->client)
+                        <div class="form-check form-switch mb-0 mt-1" style="font-size:.72rem" title="Allow Run Loans to recover from this member's savings minimum balance (down to 0)">
+                            <input class="form-check-input lr-min-toggle" type="checkbox" role="switch" data-url="{{ route('clients.loan-recovery-minimum', $loan->client) }}" @checked($usesMin)>
+                            <label class="form-check-label {{ $usesMin ? 'text-primary fw-semibold' : 'text-muted' }}">Use minimum balance</label>
+                        </div>
+                        @endif
+                        @endcan
                         @if($p['conversion'])
                             <span class="badge bg-info text-dark" title="First run on day-based interest: interest counted from {{ \Carbon\Carbon::parse($p['conversion']['baseline'])->format('d M Y') }}; outstanding interest {{ number_format($p['conversion']['old_interest'], 0) }} → {{ number_format($p['conversion']['new_interest'], 0) }} (future scheduled interest is no longer counted until charged)">first run</span>
                         @endif
@@ -175,7 +185,9 @@
                         @endforelse
                     </td>
                     <td class="text-end">{{ $expected ? number_format($expected, $dp) : '—' }}</td>
-                    <td class="text-end {{ $available + 0.01 < $expected ? 'text-danger' : '' }}">{{ number_format($available, $dp) }}</td>
+                    <td class="text-end {{ $available + 0.01 < $expected ? 'text-danger' : '' }}">{{ number_format($available, $dp) }}
+                        @if($floor > 0)<div class="text-muted" style="font-size:.68rem">keeps {{ number_format($floor, 0) }} minimum</div>@elseif($usesMin && $expected)<div class="text-primary" style="font-size:.68rem">incl. minimum balance</div>@endif
+                    </td>
                     <td class="text-end fw-semibold {{ $recover + 0.01 < $expected ? 'text-warning' : 'text-success' }}">{{ number_format($recover, $dp) }}</td>
                     <td class="pe-3 small">
                         @if($p['errors'])
@@ -216,6 +228,19 @@
 @endpush
 
 @push('scripts')
+<script>
+document.querySelectorAll('.lr-min-toggle').forEach(function (el) {
+    el.addEventListener('change', async function () {
+        el.disabled = true;
+        try {
+            const r = await fetch(el.dataset.url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify({ loan_recovery_uses_minimum: el.checked ? 1 : 0 }) });
+            if (!r.ok) throw new Error();
+            location.reload();   // recompute the preview with the new setting
+        } catch (e) { el.checked = !el.checked; el.disabled = false; alert('Could not update the setting.'); }
+    });
+});
+</script>
+
 <script>
 (function () {
     const picks = Array.from(document.querySelectorAll('.run-pick:not(:disabled)'));
