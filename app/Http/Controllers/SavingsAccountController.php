@@ -18,8 +18,9 @@ class SavingsAccountController extends Controller
     public function index(Request $request)
     {
         $filtered = SavingsAccount::query()
-            ->when($request->search, fn($q) => $q->where('account_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")))
+            ->when($request->search, fn($q) => $q->where(fn($q1) => $q1->where('account_number', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%"))))
+            ->when($request->product_id, fn($q) => $q->where('product_id', $request->product_id))
             ->when($request->status, fn($q) => $q->where('status', $request->status));
 
         $totalBalance = (clone $filtered)->sum('balance');
@@ -65,7 +66,13 @@ class SavingsAccountController extends Controller
         $this->attachPendingInterest($accounts->getCollection());
         $totalExclInterest = $totalBalance - $this->sumPendingInterest(clone $filtered);
 
-        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers', 'totalExclInterest'));
+        // One colour per product so Ordinary Savings / Interest Wallet rows are easy to tell apart
+        $palette  = ['#2563eb', '#0d9488', '#7c3aed', '#c2410c', '#db2777', '#65a30d', '#0891b2', '#475569'];
+        $products = \App\Models\SavingsProduct::orderBy('name')->get(['id', 'name'])
+            ->values()->map(fn ($p, $i) => tap($p, fn ($p) => $p->color = $palette[$i % count($palette)]));
+        $productColors = $products->pluck('color', 'id');
+
+        return view('savings.index', compact('accounts', 'totalBalance', 'totalSavers', 'totalExclInterest', 'products', 'productColors'));
     }
 
     /**

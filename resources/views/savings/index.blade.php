@@ -25,7 +25,6 @@
             </ul>
         </div>
         @can('create savings')
-        <a href="{{ route('savings.import-opening') }}" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i> Import opening balances</a>
         <a href="{{ route('savings.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> Open Account</a>
         @endcan
     </div>
@@ -128,6 +127,14 @@
         <form class="row g-2 mb-3" method="GET">
             <div class="col-md-4"><input type="text" name="search" class="form-control" placeholder="Account # or client..." value="{{ request('search') }}"></div>
             <div class="col-md-3">
+                <select name="product_id" class="form-select">
+                    <option value="">All Products</option>
+                    @foreach($products as $p)
+                    <option value="{{ $p->id }}" @selected((string) request('product_id') === (string) $p->id)>{{ $p->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
                     <option value="active" @selected(request('status')=='active')>Active</option>
@@ -148,8 +155,9 @@
             </tr></thead>
             <tbody>
             @forelse($accounts as $acc)
+                @php $pc = $productColors[$acc->product_id] ?? '#64748b'; @endphp
                 <tr>
-                    <td class="ps-3 font-monospace">{{ $acc->account_number }}</td>
+                    <td class="ps-3 font-monospace" style="box-shadow: inset 4px 0 0 {{ $pc }}">{{ $acc->account_number }}</td>
                     <td>
                         @if($acc->client)
                             <a href="{{ route('clients.show', $acc->client) }}" class="text-decoration-none">{{ $acc->client->name }}</a>
@@ -157,7 +165,7 @@
                             <span class="text-muted fst-italic">Deleted client</span>
                         @endif
                     </td>
-                    <td class="small text-muted">{{ $acc->product->name }}</td>
+                    <td><span class="badge rounded-pill fw-semibold" style="background: {{ $pc }}1a; color: {{ $pc }}; border: 1px solid {{ $pc }}55; font-size: .74rem">{{ $acc->product->name }}</span></td>
                     <td class="text-end fw-semibold {{ $acc->is_overdrawn ? 'text-overdrawn' : '' }}">{{ number_format($acc->balance - $acc->pending_interest, $dp) }}</td>
                     <td class="text-end fw-semibold {{ $acc->is_overdrawn ? 'text-overdrawn' : ($acc->pending_interest > 0 ? 'text-success' : '') }}">
                         {{ number_format($acc->balance, $dp) }}
