@@ -101,13 +101,15 @@
 @endphp
 <table class="stats-table">
 <tr>
+    <td><span class="stat-label">Opening Balance</span><span class="stat-value">{{ number_format($openingBalance ?? 0, $dp) }}</span></td>
     <td><span class="stat-label">Total Deposits</span><span class="stat-value amount-credit">{{ number_format($totalDeposits, $dp) }}</span></td>
     <td><span class="stat-label">Total Withdrawals</span><span class="stat-value amount-debit">{{ number_format($totalWithdrawals, $dp) }}</span></td>
     <td><span class="stat-label">Transactions</span><span class="stat-value">{{ $transactions->count() }}</span></td>
-    <td><span class="stat-label">Closing Balance{{ $pendingInterest > 0 ? ' (Excluding Interest)' : '' }}</span><span class="stat-value" style="color:#0f2444">{{ number_format($account->balance - $pendingInterest, $dp) }}</span></td>
+    @php $closing = $closingBalance ?? $account->balance; @endphp
+    <td><span class="stat-label">Closing Balance{{ $pendingInterest > 0 ? ' (Excluding Interest)' : '' }}</span><span class="stat-value" style="color:#0f2444">{{ number_format($closing - $pendingInterest, $dp) }}</span></td>
     @if($pendingInterest > 0)
     <td><span class="stat-label">Accrued Interest</span><span class="stat-value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</span></td>
-    <td><span class="stat-label">Closing Balance (Including Interest)</span><span class="stat-value" style="color:#2563eb">{{ number_format($account->balance, $dp) }}</span></td>
+    <td><span class="stat-label">Closing Balance (Including Interest)</span><span class="stat-value" style="color:#2563eb">{{ number_format($closing, $dp) }}</span></td>
     @endif
 </tr>
 </table>
@@ -130,6 +132,12 @@
         </tr>
     </thead>
     <tbody>
+        <tr>
+            <td></td>
+            <td>{{ $fromDate ? \Carbon\Carbon::parse($fromDate)->format('d M Y') : '' }}</td>
+            <td colspan="4" style="font-weight:bold;color:#6b7280">Opening balance</td>
+            <td class="text-right" style="font-weight:bold">{{ number_format($openingBalance ?? 0, $dp) }}</td>
+        </tr>
     @foreach($transactions as $i => $t)
     @php
         $isCredit = in_array($t->transaction_type, ['deposit', 'interest']) ||

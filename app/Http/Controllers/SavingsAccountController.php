@@ -331,10 +331,34 @@ class SavingsAccountController extends Controller
         $fromDate     = $request->from_date;
         $toDate       = $request->to_date;
         $pendingInterest = $this->pendingInterestFor($account, $toDate);
+        // Balances at the start and end of the chosen period (not today's balance)
+        $openingBalance = $fromDate ? $this->savingsService->balanceAsOf($saving, \Carbon\Carbon::parse($fromDate)->subDay()->toDateString()) : 0.0;
+        $closingBalance = $toDate ? $this->savingsService->balanceAsOf($saving, $toDate) : (float) $saving->balance;
+        $period = ($fromDate ?: 'start') . '-to-' . ($toDate ?: now()->toDateString());
 
-        $pdf = Pdf::loadView('pdf.savings-statement', compact('account', 'transactions', 'fromDate', 'toDate', 'pendingInterest'))
+        if ($request->format === 'excel') {
+            $credit = fn ($t) => in_array($t->transaction_type, ['deposit', 'interest']) || ($t->transaction_type === 'transfer' && $t->balance_after > $t->balance_before);
+            $rows = [
+                ["Savings statement: {$saving->account_number} — " . ($saving->client->name ?? '') . ' (' . ($saving->client->client_number ?? '') . ')', $saving->product->name ?? '',
+                    'Period ' . ($fromDate ?: 'beginning') . ' to ' . ($toDate ?: now()->toDateString())],
+                [],
+                ['#', 'Date', 'Type', 'Description', 'Reference', 'Debit (-)', 'Credit (+)', 'Balance'],
+                ['', $fromDate ?: '', 'Opening balance', '', '', '', '', round($openingBalance, 2)],
+            ];
+            foreach ($transactions as $i => $t) {
+                $rows[] = [$i + 1, $t->transaction_date->format('Y-m-d'), ucfirst(str_replace('_', ' ', $t->transaction_type)), $t->description, $t->reference,
+                    $credit($t) ? '' : $t->amount, $credit($t) ? $t->amount : '', $t->balance_after];
+            }
+            $rows[] = ['', $toDate ?: now()->toDateString(), 'Closing balance', '', '', '', '', round($closingBalance, 2)];
+            if ($pendingInterest > 0) {
+                $rows[] = ['', '', 'Accrued interest (not yet posted)', '', '', '', '', round($pendingInterest, 2)];
+            }
+            return $this->csvDownload($rows, "savings-statement-{$saving->account_number}-{$period}");
+        }
+
+        $pdf = Pdf::loadView('pdf.savings-statement', compact('account', 'transactions', 'fromDate', 'toDate', 'pendingInterest', 'openingBalance', 'closingBalance'))
             ->setPaper('a4', 'portrait');
-        return $pdf->download("savings-statement-{$saving->account_number}.pdf");
+        return $pdf->download("savings-statement-{$saving->account_number}-{$period}.pdf");
     }
 
     public function postInterest(Request $request, SavingsAccount $saving)
