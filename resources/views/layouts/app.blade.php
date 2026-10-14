@@ -363,8 +363,12 @@
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#fdMenu" aria-expanded="{{ $fdGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-safe-fill"></i> Fixed Deposits
             @can('view fixed-deposits')
-                @php $fdDueCount = \App\Models\FixedDeposit::where('status','active')->whereDate('maturity_date','<=',today())->count(); @endphp
-                @if($fdDueCount > 0)<span class="badge bg-danger rounded-pill ms-auto me-1" style="font-size:.62rem" title="Fixed deposits past maturity">{{ $fdDueCount }}</span>@endif
+                @php
+                    $fdMenuDays = (int) \App\Models\SystemSetting::get('fd_alert_days', 7);
+                    $fdDueCount = \App\Models\FixedDeposit::where('status','active')->whereDate('maturity_date','<=',today())->count();
+                    $fdSoonCount = \App\Models\FixedDeposit::where('status','active')->whereDate('maturity_date','>',today())->whereDate('maturity_date','<=',today()->addDays($fdMenuDays))->count();
+                @endphp
+                @if($fdDueCount + $fdSoonCount > 0)<span class="badge {{ $fdDueCount ? 'bg-danger' : 'bg-warning text-dark' }} rounded-pill ms-auto me-1" style="font-size:.62rem" title="{{ $fdDueCount }} matured · {{ $fdSoonCount }} maturing within {{ $fdMenuDays }} days">{{ $fdDueCount + $fdSoonCount }}</span>@endif
             @endcan
             <i class="bi bi-chevron-right chevron"></i>
         </button>
@@ -590,46 +594,56 @@
         @endif
         @can('view fixed-deposits')
         @php
-            $fdDue  = \App\Models\FixedDeposit::with('client:id,name')->where('status', 'active')->whereDate('maturity_date', '<=', today())->orderBy('maturity_date')->get();
-            $fdSoon = \App\Models\FixedDeposit::where('status', 'active')->whereDate('maturity_date', '>', today())->whereDate('maturity_date', '<=', today()->addDays(7))->count();
+            // Alert a week before maturity (setting fd_alert_days, default 7) and keep alerting once matured
+            $fdAlertDays = (int) \App\Models\SystemSetting::get('fd_alert_days', 7);
+            $fdAlerts = \App\Models\FixedDeposit::with('client:id,name')->where('status', 'active')
+                ->whereDate('maturity_date', '<=', today()->addDays($fdAlertDays))->orderBy('maturity_date')->get();
+            $fdDue  = $fdAlerts->filter(fn ($f) => $f->maturity_date->lte(today()));
+            $fdSoon = $fdAlerts->filter(fn ($f) => $f->maturity_date->gt(today()));
         @endphp
         <div class="dropdown">
             <button class="btn btn-light position-relative border-0 px-2" data-bs-toggle="dropdown" title="Fixed deposit alerts" style="background:#f9fafb">
-                <i class="bi bi-bell{{ $fdDue->count() ? '-fill text-danger' : '' }}" style="font-size:1.05rem"></i>
-                @if($fdDue->count())
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.6rem">{{ $fdDue->count() }}</span>
-                @elseif($fdSoon)
-                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-light rounded-circle"></span>
+                <i class="bi bi-bell{{ $fdAlerts->count() ? '-fill ' . ($fdDue->count() ? 'text-danger' : 'text-warning') : '' }}" style="font-size:1.05rem"></i>
+                @if($fdAlerts->count())
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill {{ $fdDue->count() ? 'bg-danger' : 'bg-warning text-dark' }}" style="font-size:.6rem">{{ $fdAlerts->count() }}</span>
                 @endif
             </button>
-            <div class="dropdown-menu dropdown-menu-end shadow p-0" style="width:340px;font-size:.82rem">
-                <div class="px-3 py-2 border-bottom fw-semibold d-flex justify-content-between">
-                    <span><i class="bi bi-safe-fill me-1 text-danger"></i>Matured fixed deposits</span>
-                    <span class="badge bg-danger rounded-pill">{{ $fdDue->count() }}</span>
+            <div class="dropdown-menu dropdown-menu-end shadow p-0" style="width:350px;font-size:.82rem">
+                <div class="px-3 py-2 border-bottom fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-safe-fill me-1 text-primary"></i>Fixed deposit alerts</span>
+                    <span class="badge bg-secondary rounded-pill">{{ $fdAlerts->count() }}</span>
                 </div>
-                <div style="max-height:300px;overflow:auto">
-                @forelse($fdDue->take(10) as $fd)
-                    <a href="{{ route('fixed-deposits.show', $fd) }}" class="dropdown-item py-2 border-bottom" style="white-space:normal">
-                        <div class="d-flex justify-content-between">
-                            <span class="fw-semibold text-truncate me-2">{{ $fd->client->name ?? '—' }}</span>
-                            <span class="fw-semibold">{{ number_format($fd->maturity_amount ?: $fd->principal, 0) }}</span>
-                        </div>
-                        <div class="text-muted d-flex justify-content-between" style="font-size:.72rem">
-                            <span class="font-monospace">{{ $fd->deposit_number }}</span>
-                            <span class="{{ $fd->maturity_date->lt(today()) ? 'text-danger' : 'text-warning' }}">
-                                {{ $fd->maturity_date->isToday() ? 'Matures today' : 'Matured ' . $fd->maturity_date->format('d M Y') . ' · ' . $fd->maturity_date->diffInDays(today()) . 'd ago' }}
-                            </span>
-                        </div>
-                    </a>
-                @empty
-                    <div class="px-3 py-3 text-muted text-center">No fixed deposits past maturity.</div>
-                @endforelse
-                </div>
-                @if($fdSoon)
-                    <div class="px-3 py-2 border-top text-muted" style="font-size:.75rem"><i class="bi bi-hourglass-split me-1 text-warning"></i>{{ $fdSoon }} more maturing in the next 7 days</div>
+                <div style="max-height:340px;overflow:auto">
+                @foreach([['Matured — action needed', $fdDue, 'danger'], ["Maturing within {$fdAlertDays} days", $fdSoon, 'warning']] as [$title, $list, $tone])
+                    @if($list->count())
+                    <div class="px-3 py-1 bg-light border-bottom small fw-semibold text-{{ $tone }}">{{ $title }} ({{ $list->count() }})</div>
+                    @foreach($list->take(8) as $fd)
+                        @php $days = today()->diffInDays($fd->maturity_date, false); @endphp
+                        <a href="{{ route('fixed-deposits.show', $fd) }}" class="dropdown-item py-2 border-bottom" style="white-space:normal">
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-semibold text-truncate me-2">{{ $fd->client->name ?? '—' }}</span>
+                                <span class="fw-semibold">{{ number_format($fd->maturity_amount ?: $fd->principal, 0) }}</span>
+                            </div>
+                            <div class="text-muted d-flex justify-content-between" style="font-size:.72rem">
+                                <span class="font-monospace">{{ $fd->deposit_number }}</span>
+                                <span class="text-{{ $tone }}">
+                                    @if($days < 0) Matured {{ $fd->maturity_date->format('d M Y') }} · {{ abs($days) }}d ago
+                                    @elseif($days === 0) Matures today
+                                    @else Matures {{ $fd->maturity_date->format('d M Y') }} · in {{ $days }} {{ $days === 1 ? 'day' : 'days' }}
+                                    @endif
+                                </span>
+                            </div>
+                        </a>
+                    @endforeach
+                    @if($list->count() > 8)<div class="px-3 py-1 small text-muted border-bottom">and {{ $list->count() - 8 }} more…</div>@endif
+                    @endif
+                @endforeach
+                @if(!$fdAlerts->count())
+                    <div class="px-3 py-3 text-muted text-center">No fixed deposits maturing in the next {{ $fdAlertDays }} days.</div>
                 @endif
+                </div>
                 <div class="d-flex border-top">
-                    <a href="{{ route('fixed-deposits.index', ['status' => 'due']) }}" class="flex-fill text-center py-2 small text-decoration-none">View all matured</a>
+                    <a href="{{ route('fixed-deposits.index', ['status' => 'alert']) }}" class="flex-fill text-center py-2 small text-decoration-none">View all</a>
                     <a href="{{ route('reports.fd-maturity') }}" class="flex-fill text-center py-2 small text-decoration-none border-start">Maturity report</a>
                 </div>
             </div>

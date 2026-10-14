@@ -19,9 +19,14 @@ class FixedDepositController extends Controller
         $filtered = FixedDeposit::query()
             // "due" = still active but past its maturity date (awaiting maturity / payout)
             ->when($request->status === 'due', fn($q) => $q->where('status', 'active')->whereDate('maturity_date', '<=', today()))
-            ->when($request->status && $request->status !== 'due', fn($q) => $q->where('status', $request->status))
-            ->when($request->search, fn($q) => $q->where('deposit_number', 'like', "%{$request->search}%")
-                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%")));
+            // "soon" = maturing within the alert window; "alert" = matured or maturing soon (bell)
+            ->when($request->status === 'soon', fn($q) => $q->where('status', 'active')->whereDate('maturity_date', '>', today())
+                ->whereDate('maturity_date', '<=', today()->addDays((int) \App\Models\SystemSetting::get('fd_alert_days', 7))))
+            ->when($request->status === 'alert', fn($q) => $q->where('status', 'active')
+                ->whereDate('maturity_date', '<=', today()->addDays((int) \App\Models\SystemSetting::get('fd_alert_days', 7))))
+            ->when($request->status && !in_array($request->status, ['due', 'soon', 'alert'], true), fn($q) => $q->where('status', $request->status))
+            ->when($request->search, fn($q) => $q->where(fn($q1) => $q1->where('deposit_number', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%"))));
 
         $totalPrincipal = (clone $filtered)->sum('principal');
         $totalCount     = (clone $filtered)->count();
