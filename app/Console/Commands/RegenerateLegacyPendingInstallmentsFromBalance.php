@@ -110,7 +110,7 @@ class RegenerateLegacyPendingInstallmentsFromBalance extends Command
                 }
 
                 $frequency = $loan->repayment_frequency ?? 'monthly';
-                $step      = $frequency === 'quarterly' ? 3 : 1;
+                $step      = \App\Models\Loan::stepMonthsFor($frequency);
 
                 $principal = round((float) $loan->outstanding_principal, 2);
                 $rate      = (float) $loan->interest_rate / 100;

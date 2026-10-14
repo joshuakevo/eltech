@@ -385,7 +385,7 @@ class LoanCorrectionService
     /** The installment the loan's own terms give at disbursement (principal, rate, method, term). */
     public function termsInstallment(Loan $loan): ?float
     {
-        $step    = ($loan->repayment_frequency ?? 'monthly') === 'quarterly' ? 3 : 1;
+        $step    = \App\Models\Loan::stepMonthsFor($loan->repayment_frequency);
         $periods = intdiv((int) $loan->term_months, $step);
         $amount  = (float) $loan->principal;
         if ($periods < 1 || $amount <= 0) {
@@ -407,7 +407,7 @@ class LoanCorrectionService
      */
     private function amortize(Loan $loan, Carbon $asAt, float $principal): array
     {
-        $step     = ($loan->repayment_frequency ?? 'monthly') === 'quarterly' ? 3 : 1;
+        $step     = \App\Models\Loan::stepMonthsFor($loan->repayment_frequency);
         $anchor   = $loan->disbursement_date->copy()->startOfDay();
         $maturity = $loan->maturity_date?->copy()->startOfDay()
             ?? $anchor->copy()->addMonthsNoOverflow((int) $loan->term_months);

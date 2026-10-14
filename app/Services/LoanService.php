@@ -183,7 +183,7 @@ class LoanService
 
         $rows      = $this->buildScheduleRows($loan, Carbon::parse($loan->disbursement_date));
         $frequency = $loan->repayment_frequency ?? 'monthly';
-        $step      = $frequency === 'quarterly' ? 3 : 1;
+        $step      = \App\Models\Loan::stepMonthsFor($frequency);
 
         foreach ($rows as $row) {
             LoanSchedule::create([
@@ -222,7 +222,7 @@ class LoanService
         $rate      = $loan->interest_rate / 100;
         $months    = $loan->term_months;
         $frequency = $loan->repayment_frequency ?? 'monthly';
-        $step      = $frequency === 'quarterly' ? 3 : 1;   // months between installments
+        $step      = \App\Models\Loan::stepMonthsFor($frequency);   // months between installments
         $periods   = intval($months / $step);               // number of installments
         $balance   = $principal;
         $rows      = [];

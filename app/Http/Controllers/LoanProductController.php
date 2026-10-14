@@ -31,7 +31,7 @@ class LoanProductController extends Controller
             'name'                       => 'required|string|max:255',
             'interest_rate'              => 'required|numeric|min:0|max:100',
             'interest_method'            => 'required|in:flat,reducing',
-            'repayment_frequency'        => 'required|in:monthly,quarterly',
+            'repayment_frequency'        => 'required|in:' . implode(',', array_keys(Loan::FREQUENCIES)),
             'term_months'                => 'required|integer|min:1',
             'penalty_rate'               => 'nullable|numeric|min:0',
             'min_amount'                 => 'nullable|numeric|min:0',
@@ -72,7 +72,7 @@ class LoanProductController extends Controller
             'name'                       => 'required|string|max:255',
             'interest_rate'              => 'required|numeric|min:0|max:100',
             'interest_method'            => 'required|in:flat,reducing',
-            'repayment_frequency'        => 'required|in:monthly,quarterly',
+            'repayment_frequency'        => 'required|in:' . implode(',', array_keys(Loan::FREQUENCIES)),
             'term_months'                => 'required|integer|min:1',
             'penalty_rate'               => 'nullable|numeric|min:0',
             'min_amount'                 => 'nullable|numeric|min:0',
@@ -98,13 +98,14 @@ class LoanProductController extends Controller
             'principal'            => 'required|numeric|min:1',
             'interest_rate'        => 'required|numeric|min:0|max:100',
             'interest_method'      => 'required|in:flat,reducing',
-            'repayment_frequency'  => 'required|in:monthly,quarterly',
+            'repayment_frequency'  => 'required|in:' . implode(',', array_keys(Loan::FREQUENCIES)),
             'term_months'          => 'required|integer|min:1|max:360',
         ]);
 
-        // For quarterly, term must be a multiple of 3
-        if ($data['repayment_frequency'] === 'quarterly' && $data['term_months'] % 3 !== 0) {
-            return response()->json(['error' => 'For quarterly repayments, the term in months must be a multiple of 3.'], 422);
+        // The term must be a whole number of installments (e.g. multiple of 3 quarterly, of 4 every 4 months)
+        $step = Loan::stepMonthsFor($data['repayment_frequency']);
+        if ($data['term_months'] % $step !== 0) {
+            return response()->json(['error' => 'For ' . strtolower(Loan::frequencyLabel($data['repayment_frequency'])) . " repayments, the term in months must be a multiple of {$step}."], 422);
         }
 
         // Build a temporary unsaved Loan object to reuse buildScheduleRows()
@@ -118,6 +119,6 @@ class LoanProductController extends Controller
 
         $rows = $this->loanService->buildScheduleRows($loan, Carbon::today(), true);
 
-        return response()->json(['rows' => $rows, 'frequency' => $data['repayment_frequency']]);
+        return response()->json(['rows' => $rows, 'frequency' => $data['repayment_frequency'], 'step' => $step]);
     }
 }

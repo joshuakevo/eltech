@@ -106,7 +106,7 @@ class RegenerateLegacyLoanSchedulesFromCurrentBalance extends Command
                 }
 
                 $frequency = $loan->repayment_frequency ?? 'monthly';
-                $step      = $frequency === 'quarterly' ? 3 : 1;
+                $step      = \App\Models\Loan::stepMonthsFor($frequency);
                 $totalPeriods = intval($loan->term_months / $step);
 
                 $disbursement = Carbon::parse($loan->disbursement_date);

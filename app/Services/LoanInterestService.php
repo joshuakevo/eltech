@@ -687,7 +687,7 @@ class LoanInterestService
 
     private function stepMonths(Loan $loan): int
     {
-        return ($loan->repayment_frequency ?? 'monthly') === 'quarterly' ? 3 : 1;
+        return \App\Models\Loan::stepMonthsFor($loan->repayment_frequency);
     }
 
     private function annuity(float $principal, float $annualRate, int $n, int $step): float

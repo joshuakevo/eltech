@@ -10,6 +10,23 @@ class Loan extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /** Repayment frequencies: key => [label, months between installments]. */
+    public const FREQUENCIES = [
+        'monthly'        => ['Monthly', 1],
+        'quarterly'      => ['Quarterly (every 3 months)', 3],
+        'every_4_months' => ['Every 4 months', 4],
+    ];
+
+    public static function stepMonthsFor(?string $frequency): int
+    {
+        return self::FREQUENCIES[$frequency ?: 'monthly'][1] ?? 1;
+    }
+
+    public static function frequencyLabel(?string $frequency): string
+    {
+        return self::FREQUENCIES[$frequency ?: 'monthly'][0] ?? ucfirst((string) $frequency);
+    }
+
     protected $fillable = [
         'loan_number', 'client_id', 'loan_product_id', 'principal', 'interest_rate',
         'interest_method', 'repayment_frequency', 'term_months', 'disbursement_date', 'maturity_date',

@@ -36,8 +36,9 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Repayment Frequency <span class="text-danger">*</span></label>
                             <select name="repayment_frequency" id="pv_freq" class="form-select" required>
-                                <option value="monthly"   @selected(old('repayment_frequency',$loanProduct->repayment_frequency)==='monthly')>Monthly</option>
-                                <option value="quarterly" @selected(old('repayment_frequency',$loanProduct->repayment_frequency)==='quarterly')>Quarterly (every 3 months)</option>
+                                @foreach(\App\Models\Loan::FREQUENCIES as $fKey => [$fLabel, $fStep])
+                                <option value="{{ $fKey }}" data-step="{{ $fStep }}" @selected(old('repayment_frequency',$loanProduct->repayment_frequency) === $fKey)>{{ $fLabel }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -114,7 +115,8 @@
     function updateHint() {
         var freq = document.getElementById('pv_freq').value;
         var hint = document.getElementById('termHint');
-        hint.textContent = freq === 'quarterly' ? 'Must be a multiple of 3 (e.g. 12, 24, 36)' : '';
+        var step = Number(document.getElementById('pv_freq').selectedOptions[0].dataset.step || 1);
+        hint.textContent = step > 1 ? 'Must be a multiple of ' + step + ' (e.g. ' + [step * 3, step * 6, step * 9].join(', ') + ')' : '';
     }
 
     function fetchPreview() {
@@ -143,7 +145,7 @@
                     '<div class="alert alert-warning m-3 small">' + data.error + '</div>';
                 return;
             }
-            renderPreview(data.rows, data.frequency);
+            renderPreview(data.rows, data.frequency, data.step || 1);
         })
         .catch(function() {
             document.getElementById('previewBody').innerHTML =
@@ -153,13 +155,13 @@
 
     function fmt(n) { return Number(n).toLocaleString('en-UG', {minimumFractionDigits:0, maximumFractionDigits:0}); }
 
-    function renderPreview(rows, frequency) {
+    function renderPreview(rows, frequency, step) {
         if (!rows || rows.length === 0) {
             document.getElementById('previewBody').innerHTML = '<div class="text-muted text-center py-3 small">No data</div>';
             return;
         }
 
-        var isQuarterly = frequency === 'quarterly';
+        var isQuarterly = step > 1;   // any multi-month interval: show the monthly equivalent
         var html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0" style="font-size:.78rem">';
 
         // Header
@@ -167,7 +169,7 @@
         html += '<th class="ps-3">#</th><th>Due Date</th>';
         html += '<th class="text-end">Principal</th><th class="text-end">Interest</th><th class="text-end">Total Due</th><th class="text-end pe-2">Balance</th>';
         if (isQuarterly) {
-            html += '<th class="text-end text-warning" title="Equivalent per month within the quarter">Mo. Equiv.</th>';
+            html += '<th class="text-end text-warning" title="Equivalent per month within the period">Mo. Equiv.</th>';
         }
         html += '</tr></thead><tbody>';
 
@@ -175,7 +177,7 @@
         rows.forEach(function(r) {
             totP += r.principal_due; totI += r.interest_due; totT += r.total_due;
             html += '<tr>';
-            html += '<td class="ps-3 text-muted">' + (isQuarterly ? 'Q' : '') + r.installment_no + '</td>';
+            html += '<td class="ps-3 text-muted">' + (isQuarterly ? 'P' : '') + r.installment_no + '</td>';
             html += '<td>' + r.due_date + '</td>';
             html += '<td class="text-end">' + fmt(r.principal_due) + '</td>';
             html += '<td class="text-end text-warning">' + fmt(r.interest_due) + '</td>';
@@ -186,12 +188,12 @@
             }
             html += '</tr>';
 
-            // Monthly breakdown rows for quarterly
+            // Monthly breakdown rows for multi-month periods
             if (isQuarterly) {
-                for (var m = 1; m <= 3; m++) {
+                for (var m = 1; m <= step; m++) {
                     html += '<tr style="background:#f9fafb;font-size:.72rem;color:#6b7280">';
                     html += '<td class="ps-4 text-muted">↳ Mo ' + m + '</td>';
-                    html += '<td class="text-muted" style="font-size:.7rem">within Q' + r.installment_no + '</td>';
+                    html += '<td class="text-muted" style="font-size:.7rem">within period ' + r.installment_no + '</td>';
                     html += '<td class="text-end">' + fmt(r.monthly_principal) + '</td>';
                     html += '<td class="text-end">' + fmt(r.monthly_interest) + '</td>';
                     html += '<td class="text-end">' + fmt(r.monthly_total) + '</td>';
@@ -204,7 +206,7 @@
 
         // Footer totals
         html += '</tbody><tfoot class="table-secondary fw-semibold" style="font-size:.78rem"><tr>';
-        html += '<td colspan="2" class="ps-3">Totals (' + rows.length + ' ' + (isQuarterly ? 'quarters' : 'months') + ')</td>';
+        html += '<td colspan="2" class="ps-3">Totals (' + rows.length + ' ' + (isQuarterly ? 'payments, every ' + step + ' months' : 'months') + ')</td>';
         html += '<td class="text-end">' + fmt(totP) + '</td>';
         html += '<td class="text-end text-warning">' + fmt(totI) + '</td>';
         html += '<td class="text-end">' + fmt(totT) + '</td>';
@@ -215,8 +217,8 @@
         if (isQuarterly) {
             html += '<div class="px-3 py-2 text-muted" style="font-size:.72rem">'
                 + '<i class="bi bi-info-circle me-1"></i>'
-                + 'Quarterly schedule: actual payment every 3 months. '
-                + '<span class="text-info">Mo. Equiv.</span> = quarterly amount ÷ 3 (informational only).'
+                + 'Payment every ' + step + ' months. '
+                + '<span class="text-info">Mo. Equiv.</span> = installment ÷ ' + step + ' (informational only).'
                 + '</div>';
         }
 
