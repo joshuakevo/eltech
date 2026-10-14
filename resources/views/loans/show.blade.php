@@ -41,6 +41,11 @@
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#activateLoanModal"><i class="bi bi-arrow-repeat"></i> Move to active loans</button>
         @endif
         @endcan
+        @can('initiate loan lockup')
+        @if(!$loan->isLockedUp() && in_array($loan->status, ['active', 'defaulted']) && !\App\Models\LoanLockup::where('loan_id', $loan->id)->where('status', 'pending')->exists())
+            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#lockupLoanModal"><i class="bi bi-lock"></i> Lock up loan</button>
+        @endif
+        @endcan
         <div class="dropdown">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
                 <i class="bi bi-download me-1"></i> Export
@@ -188,6 +193,7 @@
 @endif
 
 @include('loans._correction')
+@include('loans._lockup')
 @if($loan->isLockedUp() && $loan->status !== 'closed')
     @include('loans._activate')
 @endif

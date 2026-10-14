@@ -351,6 +351,15 @@
                 <i class="bi bi-calendar2-check"></i> Run Loans
             </a>
             @endcan
+            @php $lockupWaiting = \Illuminate\Support\Facades\Schema::hasTable('loan_lockups') ? \App\Models\LoanLockup::where('status', 'pending')->count() : 0; @endphp
+            @if(auth()->user()->can('initiate loan lockup') || auth()->user()->hasAnyRole(array_keys(app(\App\Services\LoanLockupService::class)->approverRoles())) || $lockupWaiting)
+            @can('view loans')
+            <a href="{{ route('loans.lockups.index') }}" class="nav-link-item {{ request()->routeIs('loans.lockups.*') ? 'active' : '' }}">
+                <i class="bi bi-lock"></i> Lock-up Approvals
+                @if($lockupWaiting)<span class="badge bg-warning text-dark rounded-pill ms-auto" style="font-size:.62rem">{{ $lockupWaiting }}</span>@endif
+            </a>
+            @endcan
+            @endif
             @can('view loan provisions')
             <a href="{{ route('loan-provisions.index') }}" class="nav-link-item {{ request()->routeIs('loan-provisions.*') ? 'active' : '' }}">
                 <i class="bi bi-shield-check"></i> Loan Provisions

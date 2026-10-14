@@ -243,6 +243,7 @@ Route::middleware('auth')->group(function () {
         ->name('loans.store')->middleware('permission:create loans');
     Route::get('loans', [LoanController::class, 'index'])
         ->name('loans.index')->middleware('permission:view loans');
+    Route::get('loans/lockups', [\App\Http\Controllers\LoanLockupController::class, 'index'])->name('loans.lockups.index')->middleware('permission:view loans');
     Route::get('loans/run', [LoanController::class, 'run'])
         ->name('loans.run')->middleware('permission:run loans');
     Route::post('loans/run', [LoanController::class, 'runProcess'])
@@ -274,6 +275,11 @@ Route::middleware('auth')->group(function () {
         ->name('loans.guarantors.store')->middleware('permission:create loans');
     Route::delete('loans/{loan}/guarantors/{guarantor}', [LoanController::class, 'destroyGuarantor'])
         ->name('loans.guarantors.destroy')->middleware('permission:create loans');
+    // Four-eyes lock-up: request (initiate loan lockup) → approvals (approver roles, checked in the service)
+    Route::post('loans/{loan}/lockup', [\App\Http\Controllers\LoanLockupController::class, 'store'])->name('loans.lockups.store')->middleware('permission:initiate loan lockup');
+    Route::post('loan-lockups/{lockup}/approve', [\App\Http\Controllers\LoanLockupController::class, 'approve'])->name('loans.lockups.approve')->middleware('permission:view loans');
+    Route::post('loan-lockups/{lockup}/reject', [\App\Http\Controllers\LoanLockupController::class, 'reject'])->name('loans.lockups.reject')->middleware('permission:view loans');
+    Route::post('loan-lockups/{lockup}/undo', [\App\Http\Controllers\LoanLockupController::class, 'undo'])->name('loans.lockups.undo')->middleware('permission:correct loans');
     Route::post('loans/{loan}/activate/preview', [LoanController::class, 'activationPreview'])
         ->name('loans.activate.preview')->middleware('permission:correct loans');
     Route::post('loans/{loan}/activate', [LoanController::class, 'activate'])

@@ -38,6 +38,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view savings-products', 'create savings-products', 'edit savings-products',
 
             // Savings Accounts
+            'initiate loan lockup',
             'view savings', 'create savings', 'deposit savings', 'withdraw savings', 'transfer savings', 'overdraw savings',
 
             // FD Products

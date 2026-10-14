@@ -593,6 +593,9 @@ class LoanInterestService
         if ($now !== $expected) {
             throw ValidationException::withMessages(['run' => 'Repayments on this loan were added or removed after this run — undo is no longer exact.']);
         }
+        if (\App\Models\LoanLockup::where('loan_id', $run->loan_id)->where('status', 'executed')->where('executed_at', '>', $run->created_at)->exists()) {
+            throw ValidationException::withMessages(['run' => 'The loan was locked up after this run — undo the lock-up first.']);
+        }
         $correction = LoanCorrection::where('loan_id', $run->loan_id)->where('status', 'applied')->max('id');
         if ($correction != ($run->snapshot['correction_id'] ?? null)) {
             throw ValidationException::withMessages(['run' => 'The loan balance was corrected after this run — undo that correction first.']);
