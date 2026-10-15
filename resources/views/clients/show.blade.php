@@ -40,6 +40,20 @@
         <a href="{{ route('fixed-deposits.create', ['client_id'=>$client->id]) }}" class="btn btn-secondary btn-sm"><i class="bi bi-plus"></i> Fixed Deposit</a>
         @endcan
         @can('edit clients')
+        @if(($client->client_type ?? 'individual') === 'individual')
+            @php $clientHasPortal = \Illuminate\Support\Facades\DB::table('client_portal_users')->where('client_id', $client->id)->exists(); @endphp
+            @if($client->email)
+            <form method="POST" action="{{ route('clients.invite', $client) }}" class="d-inline"
+                  onsubmit="return confirm('{{ $clientHasPortal ? 'Send a new password link' : 'Send a portal invitation' }} to {{ $client->email }}?')">
+                @csrf
+                <button class="btn btn-sm {{ $clientHasPortal ? 'btn-outline-primary' : 'btn-outline-success' }}" title="{{ $clientHasPortal ? 'Has portal access — use this if they forgot their password' : 'Invite to the client portal' }}">
+                    <i class="bi {{ $clientHasPortal ? 'bi-key' : 'bi-envelope-arrow-up' }}"></i> {{ $clientHasPortal ? 'Resend portal link' : 'Invite to portal' }}
+                </button>
+            </form>
+            @else
+            <button class="btn btn-sm btn-outline-secondary" disabled title="Add an email address to invite this client"><i class="bi bi-envelope-arrow-up"></i> Invite to portal</button>
+            @endif
+        @endif
         <a href="{{ route('clients.edit', $client) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
         @endcan
         @can('delete clients')

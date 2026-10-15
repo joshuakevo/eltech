@@ -113,13 +113,15 @@
                         <a href="{{ route('clients.edit', $client) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
                         @if(($client->client_type ?? 'individual') === 'individual')
                         @if($client->email)
-                        <button type="button" class="btn btn-sm btn-outline-success invite-btn"
-                            title="Send portal invitation"
+                        @php $hasPortal = isset($portalClientIds[(int) $client->id]); @endphp
+                        <button type="button" class="btn btn-sm {{ $hasPortal ? 'btn-outline-primary' : 'btn-outline-success' }} invite-btn"
+                            title="{{ $hasPortal ? 'Has portal access — resend invite / reset password' : 'Send portal invitation' }}"
                             data-action="{{ route('clients.invite', $client) }}"
                             data-name="{{ $client->name }}"
                             data-email="{{ $client->email }}"
+                            data-existing="{{ $hasPortal ? 1 : 0 }}"
                             data-type="individual">
-                            <i class="bi bi-envelope-arrow-up"></i>
+                            <i class="bi {{ $hasPortal ? 'bi-key' : 'bi-envelope-arrow-up' }}"></i>
                         </button>
                         @else
                         <button class="btn btn-sm btn-outline-success" disabled title="No email address on file"><i class="bi bi-envelope-arrow-up"></i></button>
@@ -214,10 +216,13 @@
                 document.getElementById('inviteIcon').className = 'bi bi-people-fill fs-4 text-primary';
                 document.getElementById('inviteHelpText').textContent = 'Each member will receive a link to set their password and access the group portal.';
             } else {
-                document.getElementById('inviteIntroText').textContent  = 'Send a password reset link to:';
+                const again = btn.dataset.existing === '1';
+                document.getElementById('inviteIntroText').textContent  = again ? 'This client already has portal access. Send a new link to:' : 'Send a portal invitation to:';
                 document.getElementById('inviteClientEmail').textContent = btn.dataset.email;
-                document.getElementById('inviteIcon').className = 'bi bi-person-circle fs-4 text-muted';
-                document.getElementById('inviteHelpText').textContent = 'The client will receive a link to set their password and access their portal.';
+                document.getElementById('inviteIcon').className = again ? 'bi bi-key-fill fs-4 text-primary' : 'bi bi-person-circle fs-4 text-muted';
+                document.getElementById('inviteHelpText').textContent = again
+                    ? 'Use this if they forgot their password: the link lets them set a new one and signs them straight in.'
+                    : 'The client will receive a link to set their password and access their portal.';
             }
             resetModal();
             modal.show();

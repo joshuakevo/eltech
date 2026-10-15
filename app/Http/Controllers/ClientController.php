@@ -63,7 +63,11 @@ class ClientController extends Controller
         $segments = \App\Models\ClientSegment::orderBy('name')->get();
         $relationshipManagers = $this->staffUsers();
 
-        return view('clients.index', compact('clients', 'segments', 'relationshipManagers', 'totalCount'));
+        // Clients who already have portal access get "Resend invite / reset password"
+        $portalClientIds = \Illuminate\Support\Facades\DB::table('client_portal_users')
+            ->whereIn('client_id', $clients->pluck('id'))->pluck('client_id')->map(fn ($id) => (int) $id)->flip();
+
+        return view('clients.index', compact('clients', 'segments', 'relationshipManagers', 'totalCount', 'portalClientIds'));
     }
 
     public function create()
@@ -323,7 +327,8 @@ class ClientController extends Controller
             return back()->with('error', 'This client has no email address. Add an email first.');
         }
 
-        // Find or create a portal user for this email
+        // Find or create a portal user for this email (re-inviting an existing user just sends a new link)
+        $existing = User::where('email', $client->email)->exists();
         $user = User::firstOrCreate(
             ['email' => $client->email],
             [
@@ -344,8 +349,17 @@ class ClientController extends Controller
         // Send password reset / invitation link
         $status = Password::sendResetLink(['email' => $user->email]);
 
+        if ($status === Password::RESET_THROTTLED) {
+            $err = "A link was sent to {$client->email} less than a minute ago. Please wait a minute before sending another.";
+            return request()->wantsJson()
+                ? response()->json(['success' => false, 'message' => $err], 429)
+                : back()->with('error', $err);
+        }
+
         if ($status === Password::RESET_LINK_SENT) {
-            $msg = "Portal invitation sent to {$client->email}.";
+            $msg = $existing
+                ? "New password link sent to {$client->email}. They can set a new password and sign in."
+                : "Portal invitation sent to {$client->email}.";
             return request()->wantsJson()
                 ? response()->json(['success' => true, 'message' => $msg])
                 : back()->with('success', $msg);

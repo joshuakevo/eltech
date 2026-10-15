@@ -100,6 +100,7 @@
                     <input class="form-check-input" type="checkbox" name="remember" id="remember">
                     <label class="form-check-label" for="remember">Remember me</label>
                 </div>
+                <a href="{{ route('password.request') }}" class="ms-auto small text-decoration-none">Forgot password?</a>
             </div>
             <button type="submit" class="btn btn-login text-white">
                 <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
