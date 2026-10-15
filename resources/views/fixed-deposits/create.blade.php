@@ -112,6 +112,11 @@
                         {{ old('savings_account_id') ? 'checked' : '' }} onchange="onFundingChange()">
                     <label class="form-check-label" for="fundSavings"><i class="bi bi-piggy-bank me-1"></i>Deduct from Savings</label>
                 </div>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="radio" name="_funding" id="fundOther" value="other"
+                        {{ old('funding_account_id') ? 'checked' : '' }} onchange="onFundingChange()">
+                    <label class="form-check-label" for="fundOther"><i class="bi bi-arrow-left-right me-1"></i>From another member's account</label>
+                </div>
             </div>
         </div>
 
@@ -123,6 +128,32 @@
                 </select>
                 <div class="form-text" id="savingsBalanceHint"></div>
             </div>
+        </div>
+
+        <div id="otherAccountRow" class="row g-2 mb-2" style="display:none">
+            <div class="col-md-6">
+                <label class="form-label mb-1">Fund from account <span class="text-danger">*</span></label>
+                <select name="funding_account_id" id="otherAccountSelect" class="form-select form-select-sm ts-select">
+                    <option value="">— Select account (e.g. a pool) —</option>
+                    @foreach($allSavingsAccounts as $a)
+                    <option value="{{ $a->id }}" @selected(old('funding_account_id') == $a->id)>{{ $a->account_number }} — {{ $a->client->name ?? '' }} ({{ $a->product->name ?? '' }}, bal {{ number_format($a->balance, 0) }})</option>
+                    @endforeach
+                </select>
+                <div class="form-text">The money moves from this account into the placement; at maturity it is paid to the investor's own savings.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1">Funding date</label>
+                <input type="date" name="funding_date" class="form-control form-control-sm" value="{{ old('funding_date') }}" max="{{ today()->toDateString() }}">
+                <div class="form-text">Blank = start date</div>
+            </div>
+            @can('overdraw savings')
+            <div class="col-md-3 d-flex align-items-center">
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" name="allow_overdraft" value="1" id="allowOverdraft" @checked(old('allow_overdraft'))>
+                    <label class="form-check-label small" for="allowOverdraft">Allow the account to go overdrawn</label>
+                </div>
+            </div>
+            @endcan
         </div>
 
         <div id="cashSourceRow" class="row g-2 mb-2" style="display:none">
@@ -163,10 +194,13 @@ function fmt(v) { return parseFloat(v).toFixed(dp); }
 
 function onFundingChange() {
     const isSavings = document.getElementById('fundSavings').checked;
+    const isOther   = document.getElementById('fundOther').checked;
     document.getElementById('savingsAccountRow').style.display = isSavings ? '' : 'none';
-    document.getElementById('cashSourceRow').style.display     = isSavings ? 'none' : '';
+    document.getElementById('otherAccountRow').style.display   = isOther ? '' : 'none';
+    document.getElementById('cashSourceRow').style.display     = (isSavings || isOther) ? 'none' : '';
     if (!isSavings) document.querySelector('[name=savings_account_id]').value = '';
-    document.getElementById('paymentSourceSelect').required = !isSavings;
+    if (!isOther) { const o = document.getElementById('otherAccountSelect'); if (o.tomselect) o.tomselect.clear(); else o.value = ''; }
+    document.getElementById('paymentSourceSelect').required = !(isSavings || isOther);
     checkBalance();
 }
 

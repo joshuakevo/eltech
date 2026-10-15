@@ -39,15 +39,19 @@ class FixedDepositService
                 ? SavingsAccount::findOrFail($data['savings_account_id'])
                 : null;
 
-            if ($savingsAccount && !$savingsAccount->canWithdraw($principal)) {
+            $allowOverdraft = !empty($data['allow_overdraft']);
+            if ($savingsAccount && !$allowOverdraft && !$savingsAccount->canWithdraw($principal)) {
                 throw new \InvalidArgumentException(
                     'Insufficient savings balance to fund this fixed deposit.'
                 );
             }
+            // Funded from another member's account (e.g. a pool): don't link it — maturity pays the investor's own savings
+            $linkSavings = $savingsAccount && (int) $savingsAccount->client_id === (int) $data['client_id'];
+            $fundDate = !empty($data['funding_date']) ? Carbon::parse($data['funding_date'])->toDateString() : $startDate->toDateString();
 
             $deposit = FixedDeposit::create([
                 'client_id'          => $data['client_id'],
-                'savings_account_id' => $savingsAccount?->id,
+                'savings_account_id' => $linkSavings ? $savingsAccount->id : null,
                 'product_id'         => $data['product_id'],
                 'deposit_number'     => $this->generateDepositNumber(),
                 'principal'          => $principal,
@@ -72,7 +76,7 @@ class FixedDepositService
                 $balBefore      = $savingsAccount->balance;
 
                 $placementJournal = $this->accounting->post(
-                    $startDate->toDateString(),
+                    $fundDate,
                     "Fixed deposit placement from savings - {$deposit->deposit_number}",
                     [
                         [
@@ -80,6 +84,7 @@ class FixedDepositService
                             'debit'       => $principal,
                             'credit'      => 0,
                             'description' => "FD placement - {$savingsAccount->account_number}",
+                            'client_id'   => $savingsAccount->client_id,
                         ],
                         [
                             'account_id'  => $product->deposit_liability_account_id,
@@ -93,20 +98,20 @@ class FixedDepositService
                     $reference
                 );
 
-                $savingsAccount->update(['balance' => $balBefore - $principal]);
-
                 SavingsTransaction::create([
                     'savings_account_id' => $savingsAccount->id,
                     'transaction_type'   => 'withdrawal',
                     'amount'             => $principal,
                     'balance_before'     => $balBefore,
                     'balance_after'      => $balBefore - $principal,
-                    'transaction_date'   => $startDate->toDateString(),
+                    'transaction_date'   => $fundDate,
                     'reference'          => $placementJournal->reference,
-                    'description'        => "Fixed deposit placement - {$deposit->deposit_number}",
+                    'description'        => "Fixed deposit placement - {$deposit->deposit_number}" . ($linkSavings ? '' : ' (' . ($deposit->client->name ?? 'investor') . ')'),
                     'transaction_id'     => $placementJournal->id,
                     'created_by'         => auth()->id(),
                 ]);
+                // Running balances in date order (handles a back-dated funding date)
+                app(\App\Services\SavingsService::class)->recalculateLedger($savingsAccount->fresh());
             } else {
                 // Cash-funded: DR Cash/Bank, CR FD Liability
                 $this->accounting->post(
@@ -208,7 +213,7 @@ class FixedDepositService
                 $amount = round($row['cumulative'] - $booked, 2);
                 $this->accounting->post(
                     $row['date']->toDateString(),
-                    "Interest earned month {$row['month']} of {$n} - {$deposit->deposit_number}",
+                    "Interest accrual month {$row['month']} of {$n} - {$deposit->deposit_number}",
                     [
                         ['account_id' => $product->interest_expense_account_id ?: \App\Models\Account::where('account_code', '5002')->value('id'), 'debit' => $amount, 'credit' => 0, 'client_id' => $deposit->client_id, 'description' => "Interest expense - {$deposit->deposit_number}"],
                         ['account_id' => $this->getInterestPayableAccount(), 'debit' => 0, 'credit' => $amount, 'client_id' => $deposit->client_id, 'description' => "Interest payable - {$deposit->deposit_number}"],

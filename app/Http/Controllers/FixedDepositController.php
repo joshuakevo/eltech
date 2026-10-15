@@ -87,7 +87,8 @@ class FixedDepositController extends Controller
             ]));
 
         $paymentSourceAccounts = \App\Models\Account::where('is_payment_source', true)->where('is_active', true)->orderBy('account_code')->get();
-        return view('fixed-deposits.create', compact('clients', 'products', 'selectedClient', 'savingsAccounts', 'savingsByClient', 'paymentSourceAccounts'));
+        $allSavingsAccounts = SavingsAccount::with('client:id,name', 'product:id,name')->where('status', 'active')->orderBy('account_number')->get();
+        return view('fixed-deposits.create', compact('clients', 'products', 'selectedClient', 'savingsAccounts', 'savingsByClient', 'paymentSourceAccounts', 'allSavingsAccounts'));
     }
 
     public function store(Request $request)
@@ -101,14 +102,22 @@ class FixedDepositController extends Controller
             'start_date'                => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
             'savings_account_id'        => 'nullable|exists:savings_accounts,id',
             'reference'                 => 'required|string|max:100|unique:transactions,reference',
-            'payment_source_account_id' => 'required_without:savings_account_id|nullable|exists:accounts,id',
+            'payment_source_account_id' => 'required_without_all:savings_account_id,funding_account_id|nullable|exists:accounts,id',
             'compounding'               => 'nullable|in:simple,monthly',
+            'funding_account_id'        => 'nullable|exists:savings_accounts,id',
+            'funding_date'              => ['nullable', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
+            'allow_overdraft'           => 'nullable|boolean',
             'asset_class'               => 'nullable|string|max:255',
             'certificate_reference'     => 'nullable|string|max:100',
         ]);
 
         try {
             $data = $request->all();
+            // "From another member's account" (e.g. a pool) funds through the savings path
+            if (!empty($data['funding_account_id'])) {
+                $data['savings_account_id'] = $data['funding_account_id'];
+            }
+            $data['allow_overdraft'] = $request->boolean('allow_overdraft') && $request->user()->can('overdraw savings');
             // A monthly-rate product's rate is typed per month; deposits store % p.a.
             if (($data['interest_rate'] ?? '') !== '' && $data['interest_rate'] !== null) {
                 $data['interest_rate'] = \App\Models\FixedDepositProduct::findOrFail($data['product_id'])->toAnnualRate((float) $data['interest_rate']);
