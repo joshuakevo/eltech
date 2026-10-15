@@ -42,9 +42,9 @@
         <div class="stat-card h-100">
             <div class="d-flex align-items-start justify-content-between">
                 <div>
-                    <div class="sc-label">Fixed Deposits</div>
+                    <div class="sc-label">Investments</div>
                     <div class="sc-value text-warning">{{ number_format($totalFdValue, 0) }}</div>
-                    <div class="sc-sub">{{ $activeFds->count() }} active</div>
+                    <div class="sc-sub">{{ $activeFds->count() }} running{{ $sharesValue > 0 ? ' · shares ' . number_format($sharesValue, 0) : '' }}</div>
                 </div>
                 <div class="sc-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-safe-fill"></i></div>
             </div>
@@ -159,32 +159,35 @@
         <div class="card h-100">
             <div class="card-header py-3 d-flex align-items-center gap-2">
                 <i class="bi bi-safe-fill text-warning"></i>
-                <span>Fixed Deposits</span>
+                <span>My Investments</span>
             </div>
             <div class="card-body">
                 @if($activeFds->isEmpty())
                     <div class="text-center text-muted py-3 small">
                         <i class="bi bi-safe fs-4 d-block mb-2 opacity-50"></i>
-                        No active fixed deposits
+                        No running investments
                     </div>
                 @else
                     @foreach($activeFds as $fd)
-                    @php $daysToMaturity = now()->diffInDays($fd->maturity_date, false); @endphp
-                    <div class="d-flex justify-content-between align-items-center small {{ !$loop->last ? 'mb-2 pb-2 border-bottom' : '' }}">
+                    @php $daysToMaturity = now()->diffInDays($fd->maturity_date, false); $earned = collect($fd->monthlySchedule())->where('earned', true)->last()['cumulative'] ?? 0; @endphp
+                    <a href="{{ route('client-portal.fd', $fd) }}" class="d-flex justify-content-between align-items-center small text-decoration-none text-reset {{ !$loop->last ? 'mb-2 pb-2 border-bottom' : '' }}">
                         <div>
-                            <div class="fw-semibold">{{ $fd->deposit_number }}</div>
+                            <div class="fw-semibold">{{ $fd->product->name ?? $fd->deposit_number }}</div>
+                            <div class="text-muted" style="font-size:.72rem">{{ $fd->deposit_number }} · earned so far <b class="text-success">{{ number_format($earned, 0) }}</b></div>
                             <div class="text-muted" style="font-size:.72rem">
                                 Matures {{ $fd->maturity_date->format('d M Y') }}
                             </div>
-                            @if($daysToMaturity <= 30)
+                            @if($daysToMaturity <= 0)
+                            <span class="badge bg-success" style="font-size:.6rem">Matured — payout due</span>
+                            @elseif($daysToMaturity <= 30)
                             <span class="badge bg-warning text-dark" style="font-size:.6rem">{{ $daysToMaturity }} days left</span>
                             @endif
                         </div>
                         <div class="text-end">
                             <div class="fw-bold text-warning">{{ number_format($fd->principal, 0) }}</div>
-                            <div class="text-muted" style="font-size:.7rem">{{ $fd->interest_rate }}% p.a.</div>
+                            <div class="text-muted" style="font-size:.7rem">{{ $fd->product ? $fd->product->rateLabel($fd->interest_rate) : $fd->interest_rate . '% p.a.' }}{{ $fd->isCompounding() ? ' · compounded' : '' }}</div>
                         </div>
-                    </div>
+                    </a>
                     @endforeach
                 @endif
             </div>

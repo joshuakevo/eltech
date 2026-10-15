@@ -92,6 +92,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/loans/{loan}/pdf', [ClientPortalController::class, 'loanStatementPdf'])->name('loan.pdf');
         Route::get('/fixed-deposits/{fixedDeposit}', [ClientPortalController::class, 'fdStatement'])->name('fd');
         Route::get('/fixed-deposits/{fixedDeposit}/pdf', [ClientPortalController::class, 'fdStatementPdf'])->name('fd.pdf');
+        Route::get('/fixed-deposits/{fixedDeposit}/statement', [ClientPortalController::class, 'fdMonthlyStatementPdf'])->name('fd.statement');
 
         Route::get('/mobile-money', [ClientPortalController::class, 'mobileMoneyIndex'])->name('mobile-money.index');
         Route::get('/mobile-money/deposit', [ClientPortalController::class, 'depositForm'])->name('mobile-money.deposit-form');

@@ -81,11 +81,11 @@ class ClientPortalController extends Controller
 
         $totalSavings  = SavingsAccount::where('client_id', $client->id)->sum('balance');
         $totalLoanDebt = Loan::where('client_id', $client->id)
-            ->whereIn('status', ['active', 'disbursed', 'overdue'])
+            ->whereIn('status', ['active', 'disbursed', 'overdue', 'defaulted'])
             ->selectRaw('SUM(outstanding_principal + outstanding_interest + outstanding_penalty) as total')
             ->value('total') ?? 0;
-        $totalFdValue  = FixedDeposit::where('client_id', $client->id)->where('status', 'active')->sum('principal');
-        $activeLoans   = Loan::where('client_id', $client->id)->whereIn('status', ['active', 'disbursed', 'overdue'])->count();
+        $totalFdValue  = FixedDeposit::where('client_id', $client->id)->whereIn('status', ['active', 'matured'])->sum('principal');
+        $activeLoans   = Loan::where('client_id', $client->id)->whereIn('status', ['active', 'disbursed', 'overdue', 'defaulted'])->count();
 
         // Monthly savings trend — last 6 months
         $savingsAccountIds = SavingsAccount::where('client_id', $client->id)->pluck('id');
@@ -118,7 +118,8 @@ class ClientPortalController extends Controller
 
         // Active FDs
         $activeFds = FixedDeposit::where('client_id', $client->id)
-            ->where('status', 'active')->with('product')->orderBy('maturity_date')->get();
+            ->whereIn('status', ['active', 'matured'])->with('product')->orderBy('maturity_date')->get();
+        $sharesValue = (float) \App\Models\MemberShare::where('client_id', $client->id)->where('status', '!=', 'liquidated')->sum('amount_paid');
 
         // This month cashflow
         $depositsThisMonth    = SavingsTransaction::whereIn('savings_account_id', $savingsAccountIds)
@@ -132,13 +133,13 @@ class ClientPortalController extends Controller
 
         // Active loans list
         $activeLoansData = Loan::where('client_id', $client->id)
-            ->whereIn('status', ['active', 'disbursed', 'overdue'])->with('product')->get();
+            ->whereIn('status', ['active', 'disbursed', 'overdue', 'defaulted'])->with('product')->get();
 
         return view('client-portal.overview', compact(
             'client', 'clients', 'totalSavings', 'totalLoanDebt', 'totalFdValue',
             'activeLoans', 'trend', 'nextDue', 'overdueCount',
             'savingsAccounts', 'activeFds',
-            'depositsThisMonth', 'withdrawalsThisMonth', 'activeLoansData'
+            'depositsThisMonth', 'withdrawalsThisMonth', 'activeLoansData', 'sharesValue'
         ));
     }
 
@@ -146,9 +147,10 @@ class ClientPortalController extends Controller
     {
         $clients = $this->linkedClients();
         $client  = $this->activeClient();
-        $client->load(['savingsAccounts.product', 'loans.product', 'fixedDeposits.product']);
+        $client->load(['savingsAccounts.product', 'loans.product', 'fixedDeposits.product', 'shares']);
+        $groupMemberships = \App\Models\GroupMember::with('group')->where('client_id', $client->id)->get();
 
-        return view('client-portal.accounts', compact('client', 'clients'));
+        return view('client-portal.accounts', compact('client', 'clients', 'groupMemberships'));
     }
 
     public function activity()
@@ -260,12 +262,26 @@ class ClientPortalController extends Controller
         $client  = $this->activeClient();
         abort_if((int) $fixedDeposit->client_id !== (int) $client->id, 403);
 
-        $fixedDeposit->load('product');
+        $fixedDeposit->load('product', 'client');
+        $view = $fixedDeposit->product && ($fixedDeposit->product->isMonthlyRate() || $fixedDeposit->product->isAnniversary())
+            ? 'pdf.investment-certificate' : 'pdf.fd-certificate';
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView($view, compact('client', 'fixedDeposit'))->setPaper('a4', 'portrait');
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.fd-certificate', compact('client', 'fixedDeposit'))
-            ->setPaper('a4', 'portrait');
+        return $pdf->download("certificate-{$fixedDeposit->deposit_number}.pdf");
+    }
 
-        return $pdf->download("fd-statement-{$fixedDeposit->deposit_number}.pdf");
+    /** Monthly statement of an investment: interest earned on each monthly anniversary up to the payout. */
+    public function fdMonthlyStatementPdf(FixedDeposit $fixedDeposit)
+    {
+        $this->linkedClients();
+        $client = $this->activeClient();
+        abort_if((int) $fixedDeposit->client_id !== (int) $client->id, 403);
+
+        $fixedDeposit->load('product', 'client');
+        $schedule = $fixedDeposit->monthlySchedule();
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.fd-monthly-statement', compact('fixedDeposit', 'schedule'))->setPaper('a4', 'portrait');
+
+        return $pdf->download("statement-{$fixedDeposit->deposit_number}.pdf");
     }
 
     public function mobileMoneyIndex()
