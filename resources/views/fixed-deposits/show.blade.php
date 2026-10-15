@@ -11,8 +11,12 @@
         <span class="text-muted">{{ $fixedDeposit->client->name }} &bull; {{ $fixedDeposit->product->name }}</span>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ route('fixed-deposits.certificate', $fixedDeposit) }}" target="_blank" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-file-earmark-text me-1"></i>FD Certificate (PDF)
+        @php $isPlacement = $fixedDeposit->product && ($fixedDeposit->product->isMonthlyRate() || $fixedDeposit->product->isAnniversary()); @endphp
+        <a href="{{ route('fixed-deposits.statement', $fixedDeposit) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-calendar3 me-1"></i>Monthly Statement (PDF)
+        </a>
+        <a href="{{ route('fixed-deposits.certificate', $fixedDeposit) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-earmark-text me-1"></i>{{ $isPlacement ? 'Placement Certificate' : 'FD Certificate' }} (PDF)
         </a>
         @can('mature fixed-deposits')
         @if($fixedDeposit->status === 'active' && !$fixedDeposit->isMatured())
@@ -54,7 +58,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <dl class="row mb-0 small">
-                    <dt class="col-6 fw-normal text-muted">Rate</dt><dd class="col-6">{{ $fixedDeposit->interest_rate }}% p.a.</dd>
+                    <dt class="col-6 fw-normal text-muted">Rate</dt><dd class="col-6">{{ $fixedDeposit->product ? $fixedDeposit->product->rateLabel($fixedDeposit->interest_rate) : $fixedDeposit->interest_rate . '% p.a.' }}</dd>
                     <dt class="col-6 fw-normal text-muted">Term</dt><dd class="col-6">{{ $fixedDeposit->term_months }} months</dd>
                     <dt class="col-6 fw-normal text-muted">Start Date</dt><dd class="col-6">{{ $fixedDeposit->start_date->format('d M Y') }}</dd>
                     <dt class="col-6 fw-normal text-muted">Maturity</dt>
@@ -85,4 +89,35 @@
         Only the principal of <strong>{{ number_format($fixedDeposit->principal, $dp) }}</strong> was returned. Interest was forfeited.</span>
     </div>
 @endif
+
+{{-- Monthly statement: interest earned on each monthly anniversary --}}
+@php $schedule = $fixedDeposit->monthlySchedule(); $earnedRows = collect($schedule)->where('earned', true); @endphp
+<div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center bg-white">
+        <span class="fw-semibold"><i class="bi bi-calendar3 me-1 text-primary"></i>Monthly statement</span>
+        <span class="small text-muted">Interest earned on the {{ $fixedDeposit->start_date->format('jS') }} of each month · earned so far
+            <b class="text-success">{{ number_format($earnedRows->last()['cumulative'] ?? 0, $dp) }}</b> of {{ number_format($fixedDeposit->interest_amount, $dp) }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light"><tr><th class="ps-3">Month</th><th>Anniversary date</th><th class="text-end">Interest earned</th><th class="text-end">Total interest</th><th class="text-end">Investment value</th><th class="pe-3">Status</th></tr></thead>
+            <tbody>
+                <tr class="text-muted"><td class="ps-3">—</td><td>{{ $fixedDeposit->start_date->format('d M Y') }}</td><td class="text-end">Principal placed</td><td class="text-end">0</td><td class="text-end">{{ number_format($fixedDeposit->principal, $dp) }}</td><td class="pe-3">Value date</td></tr>
+            @foreach($schedule as $row)
+                <tr class="{{ $row['earned'] ? '' : 'text-muted' }}">
+                    <td class="ps-3">{{ $row['month'] }}</td>
+                    <td>{{ $row['date']->format('d M Y') }}</td>
+                    <td class="text-end {{ $row['earned'] ? 'text-success fw-semibold' : '' }}">{{ number_format($row['interest'], $dp) }}</td>
+                    <td class="text-end">{{ number_format($row['cumulative'], $dp) }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($row['value'], $dp) }}</td>
+                    <td class="pe-3">
+                        @if($row['earned'])<span class="badge bg-success-subtle text-success-emphasis">Earned</span>@else<span class="badge bg-light text-muted">Upcoming</span>@endif
+                        @if($loop->last)<span class="badge bg-primary-subtle text-primary-emphasis">Maturity · payout {{ number_format($fixedDeposit->maturity_amount, $dp) }}</span>@endif
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
 @endsection

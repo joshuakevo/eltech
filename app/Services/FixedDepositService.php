@@ -140,6 +140,10 @@ class FixedDepositService
         if ($deposit->status !== 'active') return;
 
         $product       = $deposit->product;
+        if ($product && $product->isAnniversary()) {
+            $this->accrueAnniversaries($deposit, $date);
+            return;
+        }
         $daysElapsed   = Carbon::parse($deposit->start_date)->diffInDays(Carbon::parse($date));
         $totalDays     = Carbon::parse($deposit->start_date)->diffInDays($deposit->maturity_date);
         $totalInterest = $deposit->interest_amount;
@@ -176,6 +180,43 @@ class FixedDepositService
 
             $deposit->increment('accrued_interest', $newAccrual);
 
+            if (Carbon::parse($date)->gte($deposit->maturity_date)) {
+                $deposit->update(['status' => 'matured']);
+            }
+        });
+    }
+
+    /**
+     * Anniversary products: book one month's interest on each monthly anniversary of the value date
+     * reached by $date (dated the anniversary), DR interest expense / CR FD interest payable (2003).
+     */
+    protected function accrueAnniversaries(FixedDeposit $deposit, string $date): void
+    {
+        $product = $deposit->product;
+        DB::transaction(function () use ($deposit, $product, $date) {
+            $deposit = FixedDeposit::whereKey($deposit->id)->lockForUpdate()->first();
+            $booked = round((float) $deposit->accrued_interest, 2);
+            $n = max(1, (int) $deposit->term_months);
+            foreach ($deposit->monthlySchedule(Carbon::parse($date)) as $row) {
+                if (!$row['earned'] || $row['cumulative'] <= $booked + 0.01) {
+                    continue;
+                }
+                $amount = round($row['cumulative'] - $booked, 2);
+                $this->accounting->post(
+                    $row['date']->toDateString(),
+                    "Interest earned month {$row['month']} of {$n} - {$deposit->deposit_number}",
+                    [
+                        ['account_id' => $product->interest_expense_account_id ?: \App\Models\Account::where('account_code', '5002')->value('id'), 'debit' => $amount, 'credit' => 0, 'client_id' => $deposit->client_id, 'description' => "Interest expense - {$deposit->deposit_number}"],
+                        ['account_id' => $this->getInterestPayableAccount(), 'debit' => 0, 'credit' => $amount, 'client_id' => $deposit->client_id, 'description' => "Interest payable - {$deposit->deposit_number}"],
+                    ],
+                    'fixed_deposit',
+                    $deposit->id
+                );
+                $booked = round($booked + $amount, 2);
+            }
+            if ($booked > (float) $deposit->accrued_interest) {
+                $deposit->update(['accrued_interest' => $booked]);
+            }
             if (Carbon::parse($date)->gte($deposit->maturity_date)) {
                 $deposit->update(['status' => 'matured']);
             }

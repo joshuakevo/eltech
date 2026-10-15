@@ -31,8 +31,8 @@
                 <select name="product_id" class="form-select form-select-sm" id="fdProduct" required>
                     <option value="">Select product...</option>
                     @foreach($products as $p)
-                        <option value="{{ $p->id }}" data-rate="{{ $p->interest_rate }}" data-months="{{ $p->term_months }}" @selected(old('product_id')==$p->id)>
-                            {{ $p->name }} ({{ $p->interest_rate }}% p.a., {{ $p->term_months }} months)
+                        <option value="{{ $p->id }}" data-rate="{{ $p->isMonthlyRate() ? round($p->interest_rate / 12, 4) : $p->interest_rate }}" data-basis="{{ $p->rate_basis ?? 'annual' }}" data-months="{{ $p->term_months }}" @selected(old('product_id')==$p->id)>
+                            {{ $p->name }} ({{ $p->rateLabel($p->interest_rate) }}, {{ $p->term_months }} months)
                         </option>
                     @endforeach
                 </select>
@@ -49,7 +49,7 @@
                 </div>
             </div>
             <div class="col-md-4">
-                <label class="form-label mb-1">Interest Rate (%)</label>
+                <label class="form-label mb-1">Interest Rate <span id="fdRateUnit">(% p.a.)</span></label>
                 <input type="number" name="interest_rate" id="fdRate" class="form-control form-control-sm"
                        step="0.01" min="0" value="{{ old('interest_rate') }}" placeholder="From product" oninput="calcMaturity()">
             </div>
@@ -207,7 +207,9 @@ function calcMaturity() {
     const calcPlaceholder = document.getElementById('calcPlaceholder');
     if (!p || !r || !m) { calcResult.classList.add('d-none'); calcPlaceholder.classList.remove('d-none'); return; }
 
-    const interest = p * (r / 100) * (m / 12);
+    const monthly = (opt.dataset.basis || 'annual') === 'monthly';
+    document.getElementById('fdRateUnit').textContent = monthly ? '(% per month)' : '(% p.a.)';
+    const interest = monthly ? p * (r / 100) * m : p * (r / 100) * (m / 12);
     const maturity = p + interest;
     const startVal = document.querySelector('[name=start_date]').value;
     let maturityDate = '—';

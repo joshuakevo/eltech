@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 
 class AccrueFixedDepositInterest extends Command
 {
-    protected $signature   = 'eltech:accrue-fd-interest {--date= : Date to accrue interest to (default: today)} {--deposit= : Only accrue for a specific deposit number}';
+    protected $signature   = 'eltech:accrue-fd-interest {--date= : Date to accrue interest to (default: today)} {--deposit= : Only accrue for a specific deposit number} {--method= : Only products with this accrual method (prorata|anniversary)}';
     protected $description = 'Accrue periodic interest expense on all active fixed deposits';
 
     public function handle(FixedDepositService $fdService): int
@@ -17,6 +17,11 @@ class AccrueFixedDepositInterest extends Command
         $depositNum = $this->option('deposit');
 
         $query = FixedDeposit::with('product')->where('status', 'active');
+        if ($method = $this->option('method')) {
+            $query->whereHas('product', fn ($q) => $method === 'anniversary'
+                ? $q->where('accrual_method', 'anniversary')
+                : $q->where(fn ($q2) => $q2->whereNull('accrual_method')->orWhere('accrual_method', '!=', 'anniversary')));
+        }
 
         if ($depositNum) {
             $query->where('deposit_number', $depositNum);

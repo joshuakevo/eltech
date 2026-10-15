@@ -31,7 +31,14 @@ class FixedDepositProductController extends Controller
             'deposit_liability_account_id' => 'nullable|exists:accounts,id',
             'interest_expense_account_id'  => 'nullable|exists:accounts,id',
             'is_active'                    => 'boolean',
+            'rate_basis'                   => 'nullable|in:annual,monthly',
+            'accrual_method'               => 'nullable|in:prorata,anniversary',
+            'asset_class'                  => 'nullable|string|max:255',
         ]);
+        $data['rate_basis']     = $data['rate_basis'] ?? 'annual';
+        $data['accrual_method'] = $data['accrual_method'] ?? 'prorata';
+        // Rates are stored as % p.a.; a monthly product's rate is typed per month
+        $data['interest_rate']  = (new FixedDepositProduct(['rate_basis' => $data['rate_basis']]))->toAnnualRate((float) $data['interest_rate']);
 
         FixedDepositProduct::create($data);
 
@@ -65,7 +72,14 @@ class FixedDepositProductController extends Controller
             'deposit_liability_account_id' => 'nullable|exists:accounts,id',
             'interest_expense_account_id'  => 'nullable|exists:accounts,id',
             'is_active'                    => 'boolean',
+            'rate_basis'                   => 'nullable|in:annual,monthly',
+            'accrual_method'               => 'nullable|in:prorata,anniversary',
+            'asset_class'                  => 'nullable|string|max:255',
         ]);
+        $data['rate_basis']     = $data['rate_basis'] ?? 'annual';
+        $data['accrual_method'] = $data['accrual_method'] ?? 'prorata';
+        // Rates are stored as % p.a.; a monthly product's rate is typed per month
+        $data['interest_rate']  = (new FixedDepositProduct(['rate_basis' => $data['rate_basis']]))->toAnnualRate((float) $data['interest_rate']);
 
         $fdProduct->update($data);
 

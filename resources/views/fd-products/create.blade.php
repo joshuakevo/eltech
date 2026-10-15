@@ -18,7 +18,7 @@
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Interest Rate (% p.a.) <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">Interest Rate <span id="rateUnit">{{ old('rate_basis') === 'monthly' ? '(% per month)' : '(% p.a.)' }}</span> <span class="text-danger">*</span></label>
                             <input type="number" name="interest_rate" class="form-control" step="0.01" min="0" value="{{ old('interest_rate') }}" required>
                         </div>
                         <div class="col-md-4">
@@ -28,6 +28,26 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Min Amount</label>
                             <input type="number" name="min_amount" class="form-control" step="0.01" min="0" value="{{ old('min_amount', 0) }}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Rate entered as</label>
+                            <select name="rate_basis" class="form-select" id="rateBasis" onchange="document.getElementById('rateUnit').textContent = this.value === 'monthly' ? '(% per month)' : '(% p.a.)'">
+                                <option value="annual" @selected(old('rate_basis', 'annual') === 'annual')>% per year</option>
+                                <option value="monthly" @selected(old('rate_basis', 'annual') === 'monthly')>% per month</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Interest earned</label>
+                            <select name="accrual_method" class="form-select">
+                                <option value="prorata" @selected(old('accrual_method', 'prorata') === 'prorata')>Spread by days (monthly interest run)</option>
+                                <option value="anniversary" @selected(old('accrual_method', 'prorata') === 'anniversary')>On each monthly anniversary of the value date</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Asset class <span class="text-muted fw-normal">(shown on the certificate)</span></label>
+                            <input type="text" name="asset_class" class="form-control" maxlength="255" value="{{ old('asset_class') }}" placeholder="e.g. Short-Term Invoice Financing Facility">
                         </div>
                     </div>
                     <div class="row g-3 mb-3">

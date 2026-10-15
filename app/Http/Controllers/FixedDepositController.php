@@ -105,7 +105,12 @@ class FixedDepositController extends Controller
         ]);
 
         try {
-            $deposit = $this->fdService->createDeposit($request->all());
+            $data = $request->all();
+            // A monthly-rate product's rate is typed per month; deposits store % p.a.
+            if (($data['interest_rate'] ?? '') !== '' && $data['interest_rate'] !== null) {
+                $data['interest_rate'] = \App\Models\FixedDepositProduct::findOrFail($data['product_id'])->toAnnualRate((float) $data['interest_rate']);
+            }
+            $deposit = $this->fdService->createDeposit($data);
             return redirect()->route('fixed-deposits.show', $deposit)->with('success', 'Fixed deposit created successfully.');
         } catch (\InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -203,8 +208,19 @@ class FixedDepositController extends Controller
     public function certificate(FixedDeposit $fixedDeposit)
     {
         $fixedDeposit->load('client', 'product');
-        $pdf = Pdf::loadView('pdf.fd-certificate', compact('fixedDeposit'))
-            ->setPaper('a4', 'portrait');
-        return $pdf->download("fd-certificate-{$fixedDeposit->deposit_number}.pdf");
+        // Monthly-rate / anniversary products (e.g. Venture Capital Studio) use the investment placement certificate
+        $view = $fixedDeposit->product && ($fixedDeposit->product->isMonthlyRate() || $fixedDeposit->product->isAnniversary())
+            ? 'pdf.investment-certificate' : 'pdf.fd-certificate';
+        $pdf = Pdf::loadView($view, compact('fixedDeposit'))->setPaper('a4', 'portrait');
+        return $pdf->download("certificate-{$fixedDeposit->deposit_number}.pdf");
+    }
+
+    /** Monthly statement: interest earned on each monthly anniversary up to the payout. */
+    public function statement(FixedDeposit $fixedDeposit)
+    {
+        $fixedDeposit->load('client', 'product');
+        $schedule = $fixedDeposit->monthlySchedule();
+        $pdf = Pdf::loadView('pdf.fd-monthly-statement', compact('fixedDeposit', 'schedule'))->setPaper('a4', 'portrait');
+        return $pdf->download("statement-{$fixedDeposit->deposit_number}.pdf");
     }
 }

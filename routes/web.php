@@ -385,6 +385,8 @@ Route::middleware('auth')->group(function () {
         ->name('fixed-deposits.break-form')->middleware('permission:mature fixed-deposits');
     Route::post('fixed-deposits/{fixedDeposit}/break', [FixedDepositController::class, 'breakDeposit'])
         ->name('fixed-deposits.break')->middleware('permission:mature fixed-deposits');
+    Route::get('fixed-deposits/{fixedDeposit}/statement', [FixedDepositController::class, 'statement'])
+        ->name('fixed-deposits.statement')->middleware('permission:view fixed-deposits');
     Route::get('fixed-deposits/{fixedDeposit}/certificate', [FixedDepositController::class, 'certificate'])
         ->name('fixed-deposits.certificate')->middleware('permission:view fixed-deposits');
 

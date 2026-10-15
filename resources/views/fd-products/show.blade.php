@@ -17,7 +17,7 @@
 <div class="card">
     <div class="card-body">
         <dl class="row">
-            <dt class="col-4 fw-normal text-muted">Interest Rate</dt><dd class="col-8">{{ $fdProduct->interest_rate }}% p.a.</dd>
+            <dt class="col-4 fw-normal text-muted">Interest Rate</dt><dd class="col-8">{{ $fdProduct->rateLabel($fdProduct->interest_rate) }}@if($fdProduct->isAnniversary()) <span class="badge bg-info-subtle text-info-emphasis">anniversary</span>@endif</dd>
             <dt class="col-4 fw-normal text-muted">Term</dt><dd class="col-8">{{ $fdProduct->term_months }} months</dd>
             <dt class="col-4 fw-normal text-muted">Min Amount</dt><dd class="col-8">{{ number_format($fdProduct->min_amount, $dp) }}</dd>
             <dt class="col-4 fw-normal text-muted">FD Liability</dt><dd class="col-8">{{ $fdProduct->liabilityAccount?->account_code }} — {{ $fdProduct->liabilityAccount?->account_name ?? '—' }}</dd>

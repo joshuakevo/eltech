@@ -20,7 +20,7 @@
             @forelse($products as $p)
                 <tr>
                     <td class="ps-3 fw-semibold">{{ $p->name }}</td>
-                    <td>{{ $p->interest_rate }}% p.a.</td>
+                    <td>{{ $p->rateLabel($p->interest_rate) }}@if($p->isAnniversary()) <span class="badge bg-info-subtle text-info-emphasis">anniversary</span>@endif</td>
                     <td>{{ $p->term_months }} months</td>
                     <td>{{ number_format($p->min_amount, $dp) }}</td>
                     <td><span class="badge {{ $p->is_active ? 'bg-success' : 'bg-secondary' }} bg-opacity-10 {{ $p->is_active ? 'text-success' : 'text-secondary' }}">{{ $p->is_active ? 'Active' : 'Inactive' }}</span></td>
