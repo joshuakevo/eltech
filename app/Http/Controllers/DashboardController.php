@@ -22,11 +22,10 @@ class DashboardController extends Controller
     public function index(\App\Services\DashboardInsightsService $insights)
     {
         session(['active_portal' => 'staff']);
-        if (auth()->user()->hasRole('group_leader')) {
-            return redirect()->route('group-portal.leader');
-        }
-        if (auth()->user()->hasRole('group_member')) {
-            return redirect()->route('group-portal.member');
+        // Only portal-only users are sent away from the staff dashboard
+        $portals = auth()->user()->availablePortals();
+        if (!in_array('staff', $portals, true) && $portals) {
+            return app(\App\Http\Controllers\Auth\LoginController::class)->redirectForUser(auth()->user());
         }
 
         // ── Member deposits: each savings product, fixed deposits, group deposits ──

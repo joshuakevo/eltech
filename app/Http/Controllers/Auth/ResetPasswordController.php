@@ -38,13 +38,15 @@ class ResetPasswordController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            // Redirect based on role
+            // Sign the user straight in and send them to their portal — no second login
             $user = \App\Models\User::where('email', $request->email)->first();
-            $redirect = ($user && $user->hasRole('client'))
-                ? route('client-portal.dashboard')
-                : route('login');
-
-            return redirect($redirect)->with('success', 'Password set successfully. You can now log in.');
+            if ($user && $user->is_active) {
+                \Illuminate\Support\Facades\Auth::login($user);
+                $request->session()->regenerate();
+                return app(\App\Http\Controllers\Auth\LoginController::class)->redirectForUser($user)
+                    ->with('success', 'Password set — welcome!');
+            }
+            return redirect()->route('login')->with('success', 'Password set successfully. You can now log in.');
         }
 
         return back()->withErrors(['email' => __($status)]);

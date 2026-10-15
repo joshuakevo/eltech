@@ -8,32 +8,17 @@ use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
-    private function redirectForUser($user, bool $useIntended = false)
+    /** Where a signed-in user goes: their only portal, or the chooser when they have several. */
+    public function redirectForUser($user, bool $useIntended = false)
     {
-        $portalRoles = ['client', 'group_leader', 'group_member'];
-        $hasPortal   = collect($portalRoles)->filter(fn($r) => $user->hasRole($r));
-        $hasAdmin    = $user->hasAnyRole(['super_admin', 'admin', 'cashier']);
-
-        // Multiple portal types or portal + admin → let them choose
-        if ($hasPortal->count() + ($hasAdmin ? 1 : 0) > 1) {
-            $route = route('choose-portal');
-            return $useIntended ? redirect()->intended($route) : redirect($route);
-        }
-
-        if ($user->hasRole('client')) {
-            $route = route('client-portal.dashboard');
-            return $useIntended ? redirect()->intended($route) : redirect($route);
-        }
-        if ($user->hasRole('group_leader')) {
-            $route = route('group-portal.leader');
-            return $useIntended ? redirect()->intended($route) : redirect($route);
-        }
-        if ($user->hasRole('group_member')) {
-            $route = route('group-portal.member');
-            return $useIntended ? redirect()->intended($route) : redirect($route);
-        }
-
-        $route = route('dashboard');
+        $portals = $user->availablePortals();
+        $route = match (true) {
+            count($portals) > 1          => route('choose-portal'),
+            $portals === ['client']      => route('client-portal.dashboard'),
+            $portals === ['leader']      => route('group-portal.leader'),
+            $portals === ['member']      => route('group-portal.member'),
+            default                      => route('dashboard'),
+        };
         return $useIntended ? redirect()->intended($route) : redirect($route);
     }
 

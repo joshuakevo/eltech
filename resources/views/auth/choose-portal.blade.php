@@ -53,7 +53,8 @@
 
     <div class="row g-3 justify-content-center">
 
-        @if(auth()->user()->hasAnyRole(['super_admin', 'admin', 'cashier']))
+        @php $portalsAvail = auth()->user()->availablePortals(); @endphp
+        @if(in_array('staff', $portalsAvail))
         <div class="col-6 col-md-4">
             <a href="{{ route('dashboard') }}" class="portal-card {{ $activePortal === 'staff' ? 'active-portal' : '' }}">
                 @if($activePortal === 'staff')<span class="active-badge"><i class="bi bi-check-circle-fill me-1"></i>Currently Here</span>@endif
@@ -64,7 +65,7 @@
         </div>
         @endif
 
-        @if(auth()->user()->hasRole('client'))
+        @if(in_array('client', $portalsAvail))
         <div class="col-6 col-md-4">
             <a href="{{ route('client-portal.dashboard') }}" class="portal-card {{ $activePortal === 'client' ? 'active-portal' : '' }}">
                 @if($activePortal === 'client')<span class="active-badge"><i class="bi bi-check-circle-fill me-1"></i>Currently Here</span>@endif
@@ -75,7 +76,7 @@
         </div>
         @endif
 
-        @if(auth()->user()->hasRole('group_leader'))
+        @if(in_array('leader', $portalsAvail))
         <div class="col-6 col-md-4">
             <a href="{{ route('group-portal.leader') }}" class="portal-card {{ $activePortal === 'leader' ? 'active-portal' : '' }}">
                 @if($activePortal === 'leader')<span class="active-badge"><i class="bi bi-check-circle-fill me-1"></i>Currently Here</span>@endif
@@ -86,7 +87,7 @@
         </div>
         @endif
 
-        @if(auth()->user()->hasRole('group_member'))
+        @if(in_array('member', $portalsAvail))
         <div class="col-6 col-md-4">
             <a href="{{ route('group-portal.member') }}" class="portal-card {{ $activePortal === 'member' ? 'active-portal' : '' }}">
                 @if($activePortal === 'member')<span class="active-badge"><i class="bi bi-check-circle-fill me-1"></i>Currently Here</span>@endif

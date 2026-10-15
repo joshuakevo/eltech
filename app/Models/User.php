@@ -34,6 +34,30 @@ class User extends Authenticatable
         return $this->belongsTo(\App\Models\Client::class);
     }
 
+    /**
+     * Portals this user can really use: 'client' (client role + linked member), 'leader' / 'member'
+     * (group role + an actual group member profile), 'staff' (any other role). A role without its
+     * profile (e.g. group_member with no linked GroupMember) is ignored, so sign-in never lands on a 403.
+     */
+    public function availablePortals(): array
+    {
+        $portals = [];
+        if ($this->hasRole('client') && ($this->client_id || $this->portalClients()->exists())) {
+            $portals[] = 'client';
+        }
+        $member = \App\Models\GroupMember::where('user_id', $this->id)->first();
+        if ($member && $this->hasRole('group_leader')) {
+            $portals[] = 'leader';
+        }
+        if ($member && $this->hasRole('group_member')) {
+            $portals[] = 'member';
+        }
+        if ($this->roles->pluck('name')->diff(['client', 'group_leader', 'group_member'])->isNotEmpty()) {
+            $portals[] = 'staff';
+        }
+        return $portals;
+    }
+
     public function portalClients()
     {
         return $this->belongsToMany(\App\Models\Client::class, 'client_portal_users');
