@@ -16,7 +16,20 @@ class FixedDepositController extends Controller
 
     public function index(Request $request)
     {
+        // Tabs: "all" running deposits, one tab per product (running), and "closed"
+        $running = ['active', 'matured'];
+        $tab = $request->input('tab', 'all');
+        $palette = ['#2563eb', '#0d9488', '#7c3aed', '#c2410c', '#db2777', '#65a30d', '#0891b2'];
+        $products = \App\Models\FixedDepositProduct::orderBy('id')->get()->values()
+            ->map(fn ($p, $i) => tap($p, fn ($p) => $p->color = $palette[$i % count($palette)]));
+        $tabCounts = ['all' => FixedDeposit::whereIn('status', $running)->count(),
+            'closed' => FixedDeposit::whereNotIn('status', $running)->count()]
+            + FixedDeposit::whereIn('status', $running)->groupBy('product_id')->selectRaw('product_id, COUNT(*) c')->pluck('c', 'product_id')->mapWithKeys(fn ($c, $id) => ["p{$id}" => $c])->all();
+
         $filtered = FixedDeposit::query()
+            ->when($tab === 'closed', fn($q) => $q->whereNotIn('status', $running))
+            ->when($tab !== 'closed', fn($q) => $q->whereIn('status', $running))
+            ->when(str_starts_with((string) $tab, 'p'), fn($q) => $q->where('product_id', (int) substr($tab, 1)))
             // "due" = still active but past its maturity date (awaiting maturity / payout)
             ->when($request->status === 'due', fn($q) => $q->where('status', 'active')->whereDate('maturity_date', '<=', today()))
             // "soon" = maturing within the alert window; "alert" = matured or maturing soon (bell)
@@ -30,6 +43,10 @@ class FixedDepositController extends Controller
 
         $totalPrincipal = (clone $filtered)->sum('principal');
         $totalCount     = (clone $filtered)->count();
+        $totalInterest  = (clone $filtered)->sum('interest_amount');
+        $totalPayout    = (clone $filtered)->sum('maturity_amount');
+        $maturingSoon   = (clone $filtered)->where('status', 'active')
+            ->whereDate('maturity_date', '<=', today()->addDays((int) \App\Models\SystemSetting::get('fd_alert_days', 7)))->count();
 
         if ($request->format === 'pdf') {
             $all = (clone $filtered)->with('client', 'product')->orderBy('maturity_date')->get();
@@ -63,7 +80,10 @@ class FixedDepositController extends Controller
             ->orderBy('maturity_date')
             ->paginate(20);
 
-        return view('fixed-deposits.index', compact('deposits', 'totalPrincipal', 'totalCount'));
+        $productColors = $products->pluck('color', 'id');
+
+        return view('fixed-deposits.index', compact('deposits', 'totalPrincipal', 'totalCount', 'totalInterest', 'totalPayout', 'maturingSoon',
+            'tab', 'products', 'tabCounts', 'productColors'));
     }
 
     public function create(Request $request)

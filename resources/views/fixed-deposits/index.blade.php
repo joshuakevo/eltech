@@ -27,22 +27,56 @@
     </div>
 </div>
 
+{{-- Tabs: all running · one per product · closed --}}
+@php
+    $fdTabs = [['all', 'All running', 'bi-collection', '15, 36, 68']];
+    foreach ($products as $p) {
+        $hex = ltrim($p->color, '#');
+        $fdTabs[] = ['p' . $p->id, $p->name, $p->isAnniversary() || $p->isMonthlyRate() ? 'bi-graph-up-arrow' : 'bi-safe', implode(', ', array_map('hexdec', str_split($hex, 2)))];
+    }
+    $fdTabs[] = ['closed', 'Closed', 'bi-archive', '100, 116, 139'];
+    $tabLabel = collect($fdTabs)->firstWhere(0, $tab)[1] ?? 'All running';
+@endphp
+<style>
+    .fd-tabs { border-bottom: 1px solid #e2e6ec; gap: .25rem; }
+    .fd-tabs .nav-link { color: #5b6573; font-weight: 500; border: 0; border-bottom: 2px solid transparent; border-radius: .4rem .4rem 0 0; padding: .6rem .95rem; margin-bottom: -1px; }
+    .fd-tabs .nav-link i { color: rgb(var(--tab)); opacity: .75; }
+    .fd-tabs .nav-link:hover { color: rgb(var(--tab)); background: rgba(var(--tab), .05); }
+    .fd-tabs .nav-link.active { color: rgb(var(--tab)); font-weight: 600; background: rgba(var(--tab), .09); border-bottom: 3px solid rgb(var(--tab)); }
+    .fd-tabs .count { font-size: .7rem; background: rgba(var(--tab), .12); color: rgb(var(--tab)); border-radius: 999px; padding: .05rem .45rem; margin-left: .3rem; }
+    .fd-tabs .tab-sep { width: 1px; background: #e2e6ec; margin: .55rem .5rem; }
+</style>
+<ul class="nav fd-tabs mb-4">
+    @foreach($fdTabs as [$key, $label, $icon, $rgb])
+        @if($key === 'closed')<li class="tab-sep" aria-hidden="true"></li>@endif
+        <li class="nav-item">
+            <a class="nav-link text-nowrap {{ $tab === $key ? 'active' : '' }}" style="--tab: {{ $rgb }}" href="{{ route('fixed-deposits.index', ['tab' => $key]) }}">
+                <i class="bi {{ $icon }} me-1"></i>{{ $label }}<span class="count">{{ $tabCounts[$key] ?? 0 }}</span>
+            </a>
+        </li>
+    @endforeach
+</ul>
+
 <div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase">Total Principal</div>
-                <div class="fs-4 fw-bold">{{ number_format($totalPrincipal, $dp) }}</div>
-            </div>
-        </div>
+    @foreach([
+        ['Total principal', $totalPrincipal, ''],
+        [$tab === 'closed' ? 'Interest paid' : 'Interest at maturity', $totalInterest, 'text-success'],
+        [$tab === 'closed' ? 'Total paid out' : 'Payout at maturity', $totalPayout, ''],
+    ] as [$l, $v, $cls])
+    <div class="col-6 col-md-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small text-uppercase">{{ $l }}</div>
+            <div class="fs-5 fw-bold {{ $cls }}">{{ number_format($v, $dp) }}</div>
+        </div></div>
     </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase">Number of Deposits</div>
-                <div class="fs-4 fw-bold">{{ number_format($totalCount) }}</div>
+    @endforeach
+    <div class="col-6 col-md-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small text-uppercase">{{ $tabLabel }} — deposits</div>
+            <div class="fs-5 fw-bold">{{ number_format($totalCount) }}
+                @if($tab !== 'closed' && $maturingSoon)<span class="badge bg-warning text-dark ms-1" style="font-size:.7rem">{{ $maturingSoon }} due / maturing soon</span>@endif
             </div>
-        </div>
+        </div></div>
     </div>
 </div>
 
@@ -80,7 +114,9 @@
 <div class="card">
     <div class="card-body pb-0">
         <form class="row g-2 mb-3" method="GET">
+            <input type="hidden" name="tab" value="{{ $tab }}">
             <div class="col-md-4"><input type="text" name="search" class="form-control" placeholder="Deposit # or client..." value="{{ request('search') }}"></div>
+            @if($tab !== 'closed')
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">All Statuses</option>
@@ -89,9 +125,9 @@
                     <option value="soon" @selected(request('status')=='soon')>Maturing within {{ (int) \App\Models\SystemSetting::get('fd_alert_days', 7) }} days</option>
                     <option value="active" @selected(request('status')=='active')>Active</option>
                     <option value="matured" @selected(request('status')=='matured')>Matured</option>
-                    <option value="closed" @selected(request('status')=='closed')>Closed</option>
                 </select>
             </div>
+            @endif
             <div class="col-auto"><button class="btn btn-outline-primary">Filter</button></div>
         </form>
     </div>
@@ -113,7 +149,9 @@
                             <span class="text-muted fst-italic">Deleted client</span>
                         @endif
                     </td>
-                    <td class="small text-muted">{{ $fd->product->name }}</td>
+                    @php $pc = $productColors[$fd->product_id] ?? '#64748b'; @endphp
+                    <td><span class="badge rounded-pill fw-semibold" style="background: {{ $pc }}1a; color: {{ $pc }}; border: 1px solid {{ $pc }}55; font-size: .72rem">{{ $fd->product->name }}</span>
+                        <div class="text-muted" style="font-size:.7rem">{{ $fd->product->rateLabel($fd->interest_rate) }}{{ $fd->isCompounding() ? ' · compounded' : '' }}</div></td>
                     <td class="text-end">{{ number_format($fd->principal, $dp) }}</td>
                     <td class="text-end">{{ number_format($fd->interest_amount, $dp) }}</td>
                     <td class="text-end fw-semibold">{{ number_format($fd->maturity_amount, $dp) }}</td>
