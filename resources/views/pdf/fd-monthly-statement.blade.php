@@ -43,7 +43,7 @@
 <div class="wrap">
     <table class="info">
         <tr><td class="l">Investor</td><td class="v">{{ $fd->client->name ?? '—' }} ({{ $fd->client->client_number ?? '' }})</td><td class="l">Product</td><td class="v">{{ $p->name ?? '' }}</td></tr>
-        <tr><td class="l">Principal</td><td class="v">{{ $n($fd->principal) }}</td><td class="l">Rate</td><td class="v">{{ $p ? $p->rateLabel($fd->interest_rate) : $fd->interest_rate . '% p.a.' }}</td></tr>
+        <tr><td class="l">Principal</td><td class="v">{{ $n($fd->principal) }}</td><td class="l">Rate</td><td class="v">{{ $p ? $p->rateLabel($fd->interest_rate) : $fd->interest_rate . '% p.a.' }}{{ $fd->isCompounding() ? ' · compounded monthly' : '' }}</td></tr>
         <tr><td class="l">Value date</td><td class="v">{{ $fd->start_date->format('d M Y') }}</td><td class="l">Maturity date</td><td class="v">{{ $fd->maturity_date->format('d M Y') }} ({{ $fd->term_months }} months)</td></tr>
     </table>
 

@@ -102,6 +102,9 @@ class FixedDepositController extends Controller
             'savings_account_id'        => 'nullable|exists:savings_accounts,id',
             'reference'                 => 'required|string|max:100|unique:transactions,reference',
             'payment_source_account_id' => 'required_without:savings_account_id|nullable|exists:accounts,id',
+            'compounding'               => 'nullable|in:simple,monthly',
+            'asset_class'               => 'nullable|string|max:255',
+            'certificate_reference'     => 'nullable|string|max:100',
         ]);
 
         try {

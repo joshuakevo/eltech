@@ -41,7 +41,7 @@
 <h1>INVESTMENT PLACEMENT CERTIFICATE</h1>
 
 <table class="meta">
-    <tr><td class="label">Reference:&nbsp;</td><td>{{ $fd->deposit_number }}</td></tr>
+    <tr><td class="label">Reference:&nbsp;</td><td>{{ $fd->certificate_reference ?: $fd->deposit_number }}</td></tr>
     <tr><td class="label">Date:&nbsp;</td><td>{{ $fd->start_date->format('j F, Y') }}</td></tr>
 </table>
 
@@ -49,20 +49,21 @@
 <div class="rule"></div>
 <table class="spec">
     <tr><td><span class="label">Investor Name:</span> {{ $fd->client->name ?? '—' }}</td></tr>
-    <tr><td><span class="label">Asset Class:</span> {{ $p->asset_class ?: $p->name }}</td></tr>
+    <tr><td><span class="label">Asset Class:</span> {{ $fd->asset_class ?: ($p->asset_class ?: $p->name) }}</td></tr>
     <tr><td><span class="label">Principal Investment Capital:</span> {{ $cur }} {{ number_format($fd->principal, 0) }}</td></tr>
-    <tr><td><span class="label">{{ $p->isMonthlyRate() ? 'Monthly Yield Rate' : 'Yield Rate' }}:</span> {{ $p->rateLabel($fd->interest_rate) }}</td></tr>
+    <tr><td><span class="label">{{ $p->isMonthlyRate() ? 'Monthly Yield Rate' : 'Yield Rate' }}:</span> {{ $p->rateLabel($fd->interest_rate) }}{{ $fd->isCompounding() ? ', compounded monthly' : '' }}</td></tr>
     <tr><td><span class="label">Tenure:</span> {{ $fd->term_months }} Month{{ $fd->term_months == 1 ? '' : 's' }} ({{ $days }} Days)</td></tr>
     <tr><td><span class="label">Value Date:</span> {{ $fd->start_date->format('j F, Y') }}</td></tr>
     <tr><td><span class="label">Maturity Date:</span> {{ $fd->maturity_date->format('j F, Y') }}</td></tr>
-    <tr><td><span class="label">Gross Return:</span> {{ $cur }} {{ number_format($fd->interest_amount, 0) }}</td></tr>
+    <tr><td><span class="label">Gross Return:</span> {{ $cur }} {{ number_format($fd->interest_amount, fmod((float) $fd->interest_amount, 1) ? 2 : 0) }}</td></tr>
 </table>
 
-<div class="total">TOTAL PAYOUT AT MATURITY: {{ $cur }} {{ number_format($fd->maturity_amount, 0) }}</div>
+<div class="total">TOTAL PAYOUT AT MATURITY: {{ $cur }} {{ number_format($fd->maturity_amount, fmod((float) $fd->maturity_amount, 1) ? 2 : 0) }}</div>
 
 <div class="note">
     Returns are earned monthly on the {{ $fd->start_date->format('jS') }} of each month
-    ({{ $cur }} {{ number_format($fd->interest_amount / max(1, $fd->term_months), 0) }} per month) and paid together with the principal at maturity.
+    @if($fd->isCompounding())(compounded — each month's return also earns in the following months)@else({{ $cur }} {{ number_format($fd->interest_amount / max(1, $fd->term_months), 0) }} per month)@endif
+    and paid together with the principal at maturity.
 </div>
 
 <table class="sign">

@@ -31,7 +31,7 @@
                 <select name="product_id" class="form-select form-select-sm" id="fdProduct" required>
                     <option value="">Select product...</option>
                     @foreach($products as $p)
-                        <option value="{{ $p->id }}" data-rate="{{ $p->isMonthlyRate() ? round($p->interest_rate / 12, 4) : $p->interest_rate }}" data-basis="{{ $p->rate_basis ?? 'annual' }}" data-months="{{ $p->term_months }}" @selected(old('product_id')==$p->id)>
+                        <option value="{{ $p->id }}" data-asset="{{ $p->asset_class }}" data-rate="{{ $p->isMonthlyRate() ? round($p->interest_rate / 12, 4) : $p->interest_rate }}" data-basis="{{ $p->rate_basis ?? 'annual' }}" data-months="{{ $p->term_months }}" @selected(old('product_id')==$p->id)>
                             {{ $p->name }} ({{ $p->rateLabel($p->interest_rate) }}, {{ $p->term_months }} months)
                         </option>
                     @endforeach
@@ -57,6 +57,24 @@
                 <label class="form-label mb-1">Term (months)</label>
                 <input type="number" name="term_months" id="fdMonths" class="form-control form-control-sm"
                        min="1" value="{{ old('term_months') }}" placeholder="From product" oninput="calcMaturity()">
+            </div>
+        </div>
+
+        <div class="row g-2 mb-2">
+            <div class="col-md-3">
+                <label class="form-label mb-1">Interest</label>
+                <select name="compounding" id="fdCompounding" class="form-select form-select-sm" onchange="calcMaturity()">
+                    <option value="simple" @selected(old('compounding', 'simple') === 'simple')>Simple (P × R × T)</option>
+                    <option value="monthly" @selected(old('compounding') === 'monthly')>Compounded monthly</option>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label mb-1">Asset class <span class="text-muted">(certificate)</span></label>
+                <input type="text" name="asset_class" id="fdAsset" class="form-control form-control-sm" maxlength="255" value="{{ old('asset_class') }}" placeholder="From product">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label mb-1">Certificate reference</label>
+                <input type="text" name="certificate_reference" class="form-control form-control-sm" maxlength="100" value="{{ old('certificate_reference') }}" placeholder="e.g. KIL/2026/IVF-094">
             </div>
         </div>
 
@@ -209,7 +227,11 @@ function calcMaturity() {
 
     const monthly = (opt.dataset.basis || 'annual') === 'monthly';
     document.getElementById('fdRateUnit').textContent = monthly ? '(% per month)' : '(% p.a.)';
-    const interest = monthly ? p * (r / 100) * m : p * (r / 100) * (m / 12);
+    const annual = monthly ? r * 12 : r;
+    const interest = document.getElementById('fdCompounding').value === 'monthly'
+        ? p * (Math.pow(1 + annual / 1200, m) - 1)
+        : p * (annual / 100) * (m / 12);
+    const asset = document.getElementById('fdAsset'); if (!asset.value && opt.dataset.asset) asset.placeholder = opt.dataset.asset;
     const maturity = p + interest;
     const startVal = document.querySelector('[name=start_date]').value;
     let maturityDate = '—';

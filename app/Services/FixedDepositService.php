@@ -30,8 +30,9 @@ class FixedDepositService
             $startDate  = Carbon::parse($data['start_date']);
             $maturity   = $startDate->copy()->addMonths($months);
 
-            // Simple interest: P * R * T (T in years)
-            $interestAmount  = $principal * ($rate / 100) * ($months / 12);
+            // Simple interest P × R × T (T in years), or compounded monthly when the placement says so
+            $compounding     = ($data['compounding'] ?? 'simple') === 'monthly' ? 'monthly' : 'simple';
+            $interestAmount  = FixedDeposit::interestFor((float) $principal, (float) $rate, (int) $months, $compounding);
             $maturityAmount  = $principal + $interestAmount;
 
             $savingsAccount = isset($data['savings_account_id']) && $data['savings_account_id']
@@ -51,6 +52,9 @@ class FixedDepositService
                 'deposit_number'     => $this->generateDepositNumber(),
                 'principal'          => $principal,
                 'interest_rate'      => $rate,
+                'compounding'        => $compounding,
+                'asset_class'        => ($data['asset_class'] ?? null) ?: null,
+                'certificate_reference' => ($data['certificate_reference'] ?? null) ?: null,
                 'term_months'        => $months,
                 'start_date'         => $startDate->toDateString(),
                 'maturity_date'      => $maturity->toDateString(),

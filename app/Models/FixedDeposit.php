@@ -12,6 +12,7 @@ class FixedDeposit extends Model
 
     protected $fillable = [
         'client_id', 'savings_account_id', 'product_id', 'deposit_number', 'principal', 'interest_rate',
+        'compounding', 'asset_class', 'certificate_reference',
         'term_months', 'start_date', 'maturity_date', 'interest_amount', 'maturity_amount',
         'accrued_interest', 'status', 'closed_date', 'payment_source_account_id', 'created_by',
     ];
@@ -62,6 +63,8 @@ class FixedDeposit extends Model
         $asOf  = ($asOf ?? today())->copy()->startOfDay();
         $n     = max(1, (int) $this->term_months);
         $each  = round((float) $this->interest_amount / $n, 2);
+        $r     = (float) $this->interest_rate / 1200;   // monthly rate
+        $compound = $this->isCompounding();
         $rows  = [];
         $total = 0.0;
         for ($k = 1; $k <= $n; $k++) {
@@ -69,12 +72,28 @@ class FixedDeposit extends Model
             if ($k === $n) {
                 $date = $this->maturity_date->copy();
             }
-            $amount = $k === $n ? round((float) $this->interest_amount - $total, 2) : $each;
+            // Compounding: month k earns on principal + interest already earned, P(1+r)^(k-1) × r
+            $monthAmount = $compound ? round((float) $this->principal * pow(1 + $r, $k) - (float) $this->principal - $total, 2) : $each;
+            $amount = $k === $n ? round((float) $this->interest_amount - $total, 2) : $monthAmount;
             $total  = round($total + $amount, 2);
             $rows[] = ['month' => $k, 'date' => $date, 'interest' => $amount, 'cumulative' => $total,
                 'value' => round((float) $this->principal + $total, 2), 'earned' => $date->lte($asOf)];
         }
         return $rows;
+    }
+
+    public function isCompounding(): bool
+    {
+        return ($this->compounding ?? 'simple') === 'monthly';
+    }
+
+    /** Total interest for a placement: simple P × R × T, or compounded monthly P × ((1 + R/12)^months − 1). */
+    public static function interestFor(float $principal, float $annualRate, int $months, string $compounding = 'simple'): float
+    {
+        if ($compounding === 'monthly') {
+            return round($principal * (pow(1 + $annualRate / 1200, $months) - 1), 2);
+        }
+        return round($principal * ($annualRate / 100) * ($months / 12), 2);
     }
 
     public function daysToMaturity(): int

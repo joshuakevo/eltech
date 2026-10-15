@@ -58,7 +58,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <dl class="row mb-0 small">
-                    <dt class="col-6 fw-normal text-muted">Rate</dt><dd class="col-6">{{ $fixedDeposit->product ? $fixedDeposit->product->rateLabel($fixedDeposit->interest_rate) : $fixedDeposit->interest_rate . '% p.a.' }}</dd>
+                    <dt class="col-6 fw-normal text-muted">Rate</dt><dd class="col-6">{{ $fixedDeposit->product ? $fixedDeposit->product->rateLabel($fixedDeposit->interest_rate) : $fixedDeposit->interest_rate . '% p.a.' }}{{ $fixedDeposit->isCompounding() ? ' · compounded monthly' : '' }}</dd>
                     <dt class="col-6 fw-normal text-muted">Term</dt><dd class="col-6">{{ $fixedDeposit->term_months }} months</dd>
                     <dt class="col-6 fw-normal text-muted">Start Date</dt><dd class="col-6">{{ $fixedDeposit->start_date->format('d M Y') }}</dd>
                     <dt class="col-6 fw-normal text-muted">Maturity</dt>
