@@ -227,6 +227,19 @@ class FixedDepositController extends Controller
         return $pdf->download("certificate-{$fixedDeposit->deposit_number}.pdf");
     }
 
+    /** Book this placement's interest due up to today (anniversary products: each anniversary reached). */
+    public function accrueOne(FixedDeposit $fixedDeposit)
+    {
+        $before = (float) $fixedDeposit->accrued_interest;
+        try {
+            $this->fdService->accrueInterest($fixedDeposit, today()->toDateString());
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        $added = round((float) $fixedDeposit->fresh()->accrued_interest - $before, 2);
+        return back()->with('success', $added > 0 ? 'Booked ' . number_format($added, 2) . ' interest up to today.' : 'Nothing new to book — interest is up to date.');
+    }
+
     /** Monthly statement: interest earned on each monthly anniversary up to the payout. */
     public function statement(FixedDeposit $fixedDeposit)
     {

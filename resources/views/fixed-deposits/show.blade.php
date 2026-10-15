@@ -95,8 +95,15 @@
 <div class="card mt-3">
     <div class="card-header d-flex justify-content-between align-items-center bg-white">
         <span class="fw-semibold"><i class="bi bi-calendar3 me-1 text-primary"></i>Monthly statement</span>
-        <span class="small text-muted">Interest earned on the {{ $fixedDeposit->start_date->format('jS') }} of each month · earned so far
-            <b class="text-success">{{ number_format($earnedRows->last()['cumulative'] ?? 0, $dp) }}</b> of {{ number_format($fixedDeposit->interest_amount, $dp) }}</span>
+        <span class="small text-muted d-flex align-items-center gap-2">Interest earned on the {{ $fixedDeposit->start_date->format('jS') }} of each month · earned so far
+            <b class="text-success">{{ number_format($earnedRows->last()['cumulative'] ?? 0, $dp) }}</b> of {{ number_format($fixedDeposit->interest_amount, $dp) }}
+            · booked <b>{{ number_format($fixedDeposit->accrued_interest, $dp) }}</b>
+            @can('mature fixed-deposits')
+            @if($fixedDeposit->status === 'active' && ($earnedRows->last()['cumulative'] ?? 0) > $fixedDeposit->accrued_interest + 0.01)
+                <form method="POST" action="{{ route('fixed-deposits.accrue-one', $fixedDeposit) }}" class="d-inline">@csrf<button class="btn btn-sm btn-success py-0">Book interest due</button></form>
+            @endif
+            @endcan
+        </span>
     </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
