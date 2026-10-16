@@ -11,6 +11,11 @@ class AuditAuthEvents
 {
     public function handleLogin(Login $event): void
     {
+        // Last sign-in (password, fingerprint or invite link) — shown on the Users page
+        if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'last_login_at')) {
+            \App\Models\User::whereKey($event->user->id)->update(['last_login_at' => now()]);
+        }
+
         AuditLog::create([
             'user_id'     => $event->user->id,
             'event'       => 'login',

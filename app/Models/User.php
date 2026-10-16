@@ -22,6 +22,7 @@ class User extends Authenticatable
         'email_verified_at'       => 'datetime',
         'is_active'               => 'boolean',
         'is_relationship_manager' => 'boolean',
+        'last_login_at'           => 'datetime',
     ];
 
     public function branch()

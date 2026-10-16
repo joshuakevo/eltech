@@ -27,6 +27,7 @@
                     <th>Branch</th>
                     <th class="text-center">Status</th>
                     <th class="text-center">RM</th>
+                    <th>Last login</th>
                     <th></th>
                 </tr>
             </thead>
@@ -62,6 +63,15 @@
                             <span class="badge bg-primary-subtle text-primary">Yes</span>
                         @else
                             <span class="text-muted">—</span>
+                        @endif
+                    </td>
+                    <td class="small text-nowrap">
+                        @if($user->last_login_at)
+                            @php $ago = $user->last_login_at->diffInDays(now()); @endphp
+                            <span class="{{ $ago <= 7 ? 'text-success' : ($ago <= 30 ? 'text-warning' : 'text-danger') }}" title="{{ $user->last_login_at->format('d M Y H:i') }}">{{ $user->last_login_at->diffForHumans() }}</span>
+                            <div class="text-muted" style="font-size:.7rem">{{ $user->last_login_at->format('d M Y H:i') }}</div>
+                        @else
+                            <span class="text-muted">Never</span>
                         @endif
                     </td>
                     <td class="text-end">
