@@ -53,7 +53,10 @@
                                     @php $linked = $user->portalClients; $gm = $groupMembers[$user->id] ?? collect(); @endphp
                                     <div class="small text-muted">
                                         @forelse($linked as $lc)
-                                            <span class="me-2"><i class="bi bi-person me-1"></i>{{ $lc->name }} ({{ $lc->client_number }})</span>
+                                            @php $mismatch = $lc->email && strcasecmp($lc->email, $user->email) !== 0; @endphp
+                                            <span class="me-2 {{ $mismatch ? 'text-danger' : '' }}" title="{{ $mismatch ? 'Member email is ' . $lc->email . ' — not this account' : '' }}"><i class="bi bi-person me-1"></i>{{ $lc->name }} ({{ $lc->client_number }})@if($mismatch) <i class="bi bi-exclamation-triangle-fill"></i>@endif
+                                                <form method="POST" action="{{ route('users.portal-clients.detach', [$user, $lc]) }}" class="d-inline" onsubmit="return confirm('Remove {{ $user->name }}\'s access to {{ $lc->name }}\'s records?')">@csrf @method('DELETE')<button class="btn btn-link btn-sm p-0 text-danger align-baseline" title="Remove access"><i class="bi bi-x-circle"></i></button></form>
+                                            </span>
                                         @empty
                                             @if($user->hasRole('client'))<span class="text-danger me-2">No member linked</span>@endif
                                         @endforelse

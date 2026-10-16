@@ -479,6 +479,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:manage users')->group(function () {
         Route::resource('users', UserController::class)->except(['destroy']);
         Route::post('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+        Route::delete('users/{user}/portal-clients/{client}', [UserController::class, 'detachPortalClient'])->name('users.portal-clients.detach');
         Route::post('users/{user}/toggle-rm', [UserController::class, 'toggleRelationshipManager'])->name('users.toggle-rm');
         Route::post('users/{user}/send-invite', [UserController::class, 'sendInvite'])->name('users.send-invite');
         Route::post('users/{user}/assign-role', [UserController::class, 'assignRole'])->name('users.assign-role');

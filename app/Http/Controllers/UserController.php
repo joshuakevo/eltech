@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
+
 use App\Mail\UserInviteMail;
 use App\Models\Branch;
 use App\Models\Client;
@@ -19,7 +21,7 @@ class UserController extends Controller
         // Staff users by default; "Portal users" = client / group accounts (with what they are linked to)
         $portal = $request->input('type') === 'portal';
         $portalRoles = ['group_member', 'group_leader', 'client'];
-        $users = User::with(['roles', 'branch', 'portalClients:id,name,client_number'])
+        $users = User::with(['roles', 'branch', 'portalClients:id,name,client_number,email'])
             ->when(!$portal, fn ($q) => $q->whereDoesntHave('roles', fn ($r) => $r->whereIn('name', $portalRoles)))
             ->when($portal, fn ($q) => $q->whereHas('roles', fn ($r) => $r->whereIn('name', $portalRoles)))
             ->orderBy('name')
@@ -31,6 +33,15 @@ class UserController extends Controller
         ];
 
         return view('users.index', compact('users', 'portal', 'groupMembers', 'counts'));
+    }
+
+    /** Portal users: remove an account's access to a member's records (e.g. linked by mistake). */
+    public function detachPortalClient(User $user, \App\Models\Client $client)
+    {
+        $user->portalClients()->detach($client->id);
+        AuditLog::record('portal_access_removed', "Removed {$user->email}'s portal access to {$client->name} ({$client->client_number})", 'users');
+
+        return back()->with('success', "{$user->name} can no longer see {$client->name}'s records.");
     }
 
     public function create()

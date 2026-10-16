@@ -12,6 +12,11 @@ class LoginController extends Controller
     public function redirectForUser($user, bool $useIntended = false)
     {
         $portals = $user->availablePortals();
+        // No usable portal (e.g. a portal account whose member link was removed): don't drop them on the staff dashboard
+        if (!$portals) {
+            Auth::logout();
+            return redirect()->route('login')->withErrors(['email' => 'Your account is not linked to any member records yet. Please contact the office.']);
+        }
         $route = match (true) {
             count($portals) > 1          => route('choose-portal'),
             $portals === ['client']      => route('client-portal.dashboard'),

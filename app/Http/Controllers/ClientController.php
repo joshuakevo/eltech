@@ -166,7 +166,7 @@ class ClientController extends Controller
         ]);
 
         $data['client_type']   = 'individual';
-        $data['name']          = trim($data['first_name'] . ' ' . ($data['middle_name'] ? $data['middle_name'] . ' ' : '') . $data['last_name']);
+        $data['name']          = trim($data['first_name'] . ' ' . (!empty($data['middle_name']) ? $data['middle_name'] . ' ' : '') . $data['last_name']);
         $data['client_number'] = $this->generateClientNumber();
         $data['created_by']    = auth()->id();
         $data['loan_interest'] = $request->boolean('loan_interest');
@@ -299,7 +299,7 @@ class ClientController extends Controller
             'joining_date'             => 'nullable|date',
         ]);
 
-        $data['name']         = trim($data['first_name'] . ' ' . ($data['middle_name'] ? $data['middle_name'] . ' ' : '') . $data['last_name']);
+        $data['name']         = trim($data['first_name'] . ' ' . (!empty($data['middle_name']) ? $data['middle_name'] . ' ' : '') . $data['last_name']);
         $data['loan_interest'] = $request->boolean('loan_interest');
         if ($request->has('loan_recovery_uses_minimum')) {
             $data['loan_recovery_uses_minimum'] = $request->boolean('loan_recovery_uses_minimum');
@@ -312,7 +312,18 @@ class ClientController extends Controller
             $data['photo'] = $request->file('photo')->store('clients', 'public');
         }
 
+        $oldEmail = $client->email;
         $client->update($data);
+
+        // Email changed: portal accounts on another email lose access to this member's records
+        if (strcasecmp((string) $oldEmail, (string) $client->email) !== 0) {
+            $stale = User::whereHas('portalClients', fn ($q) => $q->where('clients.id', $client->id))
+                ->where(fn ($q) => $q->whereNull('email')->orWhere('email', '!=', (string) $client->email))->get();
+            foreach ($stale as $u) {
+                $u->portalClients()->detach($client->id);
+                \App\Models\AuditLog::record('portal_access_removed', "Portal access to {$client->name} ({$client->client_number}) removed from {$u->email} after the member's email changed", 'clients');
+            }
+        }
 
         if ($client->group) {
             $client->group->update(['name' => $data['name']]);
