@@ -14,14 +14,23 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
-        $users = User::with(['roles', 'branch'])
-            ->whereDoesntHave('roles', fn($q) => $q->whereIn('name', ['group_member', 'group_leader', 'client']))
+        // Staff users by default; "Portal users" = client / group accounts (with what they are linked to)
+        $portal = $request->input('type') === 'portal';
+        $portalRoles = ['group_member', 'group_leader', 'client'];
+        $users = User::with(['roles', 'branch', 'portalClients:id,name,client_number'])
+            ->when(!$portal, fn ($q) => $q->whereDoesntHave('roles', fn ($r) => $r->whereIn('name', $portalRoles)))
+            ->when($portal, fn ($q) => $q->whereHas('roles', fn ($r) => $r->whereIn('name', $portalRoles)))
             ->orderBy('name')
             ->get();
+        $groupMembers = $portal ? \App\Models\GroupMember::with('group:id,name')->whereIn('user_id', $users->pluck('id'))->get()->groupBy('user_id') : collect();
+        $counts = [
+            'staff'  => User::whereDoesntHave('roles', fn ($r) => $r->whereIn('name', $portalRoles))->count(),
+            'portal' => User::whereHas('roles', fn ($r) => $r->whereIn('name', $portalRoles))->count(),
+        ];
 
-        return view('users.index', compact('users'));
+        return view('users.index', compact('users', 'portal', 'groupMembers', 'counts'));
     }
 
     public function create()

@@ -337,6 +337,19 @@ class ClientController extends Controller
             ]
         );
 
+        // A left-over portal-only account (no staff role, no active group member profile) takes this
+        // client's name and is reactivated; stray group roles are cleared
+        $staffRoles = $user->roles->pluck('name')->diff(['client', 'group_member', 'group_leader']);
+        $hasGroupProfile = \App\Models\GroupMember::where('user_id', $user->id)->exists();
+        if ($existing && $staffRoles->isEmpty() && !$hasGroupProfile) {
+            $user->update(['name' => $client->name, 'is_active' => true]);
+            foreach (['group_member', 'group_leader'] as $role) {
+                if ($user->hasRole($role)) {
+                    $user->removeRole($role);
+                }
+            }
+        }
+
         // Assign client role if not already set
         if (!$user->hasRole('client')) {
             $user->assignRole('client');

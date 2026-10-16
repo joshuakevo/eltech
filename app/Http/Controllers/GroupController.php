@@ -263,7 +263,11 @@ class GroupController extends Controller
                 if (!empty($data['portal_email'])) $upd['email'] = $data['portal_email'];
                 if ($request->filled('portal_password')) $upd['password'] = Hash::make($data['portal_password']);
                 $user->update($upd);
-                $user->syncRoles([$request->boolean('is_leader') ? 'group_leader' : 'group_member']);
+                // Swap only the group role — keep any client / staff roles on the same account
+                $user->removeRole($request->boolean('is_leader') ? 'group_member' : 'group_leader');
+                if (!$user->hasRole($request->boolean('is_leader') ? 'group_leader' : 'group_member')) {
+                    $user->assignRole($request->boolean('is_leader') ? 'group_leader' : 'group_member');
+                }
             }
         } elseif (!empty($data['portal_email']) && $request->filled('portal_password')) {
             if (User::where('email', $data['portal_email'])->exists()) {
@@ -436,8 +440,16 @@ class GroupController extends Controller
             return back()->with('error', 'Cannot remove a member with a non-zero balance.');
         }
 
-        if ($member->user_id) {
-            User::where('id', $member->user_id)->update(['is_active' => false]);
+        if ($member->user_id && ($user = User::find($member->user_id))) {
+            // Drop the group roles; keep the account working if it also has other roles (e.g. client, staff)
+            foreach (['group_member', 'group_leader'] as $role) {
+                if ($user->hasRole($role)) {
+                    $user->removeRole($role);
+                }
+            }
+            if ($user->roles()->count() === 0) {
+                $user->update(['is_active' => false]);
+            }
         }
 
         $member->delete();

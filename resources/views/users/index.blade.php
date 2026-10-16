@@ -12,8 +12,15 @@
 </div>
 
 @php
-    $roleColors = ['super_admin'=>'danger','admin'=>'warning','cashier'=>'info','staff'=>'secondary'];
+    $roleColors = ['super_admin'=>'danger','admin'=>'warning','cashier'=>'info','staff'=>'secondary','client'=>'success','group_member'=>'info','group_leader'=>'primary'];
 @endphp
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link {{ !$portal ? 'active fw-semibold' : '' }}" href="{{ route('users.index') }}"><i class="bi bi-person-badge me-1"></i>Staff users <span class="badge bg-secondary-subtle text-secondary ms-1">{{ $counts['staff'] }}</span></a></li>
+    <li class="nav-item"><a class="nav-link {{ $portal ? 'active fw-semibold' : '' }}" href="{{ route('users.index', ['type' => 'portal']) }}"><i class="bi bi-phone me-1"></i>Portal users <span class="badge bg-secondary-subtle text-secondary ms-1">{{ $counts['portal'] }}</span></a></li>
+</ul>
+@if($portal)
+<div class="alert alert-light border small py-2">Client and group portal accounts, with the members and groups each one can see. The name is the account's own name — the one shown in the Audit Log.</div>
+@endif
 
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -40,15 +47,33 @@
                                  style="width:36px;height:36px;font-size:14px;flex-shrink:0">
                                 {{ strtoupper(substr($user->name,0,1)) }}
                             </div>
-                            <span class="fw-semibold">{{ $user->name }}</span>
+                            <div>
+                                <span class="fw-semibold">{{ $user->name }}</span>
+                                @if($portal)
+                                    @php $linked = $user->portalClients; $gm = $groupMembers[$user->id] ?? collect(); @endphp
+                                    <div class="small text-muted">
+                                        @forelse($linked as $lc)
+                                            <span class="me-2"><i class="bi bi-person me-1"></i>{{ $lc->name }} ({{ $lc->client_number }})</span>
+                                        @empty
+                                            @if($user->hasRole('client'))<span class="text-danger me-2">No member linked</span>@endif
+                                        @endforelse
+                                        @foreach($gm as $m)<span class="me-2"><i class="bi bi-people me-1"></i>{{ $m->group->name ?? 'Group' }}</span>@endforeach
+                                        @if($user->hasAnyRole(['group_member','group_leader']) && $gm->isEmpty())<span class="text-warning">group role, no group</span>@endif
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     </td>
                     <td class="text-muted">{{ $user->email }}</td>
                     <td>{{ $user->phone ?? '—' }}</td>
                     <td>
+                        @if($portal)
+                            @foreach($user->roles as $r)<span class="badge bg-{{ $roleColors[$r->name] ?? 'secondary' }}-subtle text-{{ $roleColors[$r->name] ?? 'secondary' }} me-1">{{ ucfirst(str_replace('_',' ',$r->name)) }}</span>@endforeach
+                        @else
                         <span class="badge bg-{{ $roleColors[$user->role_name] ?? 'secondary' }}-subtle text-{{ $roleColors[$user->role_name] ?? 'secondary' }}">
                             {{ ucfirst(str_replace('_',' ',$user->role_name)) }}
                         </span>
+                        @endif
                     </td>
                     <td>{{ $user->branch?->name ?? '—' }}</td>
                     <td class="text-center">
