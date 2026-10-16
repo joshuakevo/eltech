@@ -325,6 +325,11 @@ class ClientController extends Controller
             }
         }
 
+        // Portal accounts on this member's email take the member's (possibly new) name
+        foreach (User::whereHas('portalClients', fn ($q) => $q->where('clients.id', $client->id))->get() as $u) {
+            $u->syncPortalIdentity();
+        }
+
         if ($client->group) {
             $client->group->update(['name' => $data['name']]);
         }

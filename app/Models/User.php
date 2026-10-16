@@ -59,6 +59,29 @@ class User extends Authenticatable
         return $portals;
     }
 
+    /**
+     * A portal-only account (no staff role, no group member profile) carries the name of the member
+     * currently on its email, and loses group roles left over from an earlier owner of the email.
+     */
+    public function syncPortalIdentity(): void
+    {
+        if ($this->roles->pluck('name')->diff(['client', 'group_member', 'group_leader'])->isNotEmpty()
+            || \App\Models\GroupMember::where('user_id', $this->id)->exists()) {
+            return;
+        }
+        foreach (['group_member', 'group_leader'] as $role) {
+            if ($this->hasRole($role)) {
+                $this->removeRole($role);
+            }
+        }
+        $names = $this->portalClients()->where('clients.email', $this->email)->pluck('clients.name')->unique();
+        if ($names->count() === 1 && $names->first() !== $this->name) {
+            $old = $this->name;
+            $this->update(['name' => $names->first()]);
+            \App\Models\AuditLog::record('portal_account_renamed', "Portal account {$this->email} renamed from {$old} to {$this->name} (member on this email)", 'users');
+        }
+    }
+
     public function portalClients()
     {
         return $this->belongsToMany(\App\Models\Client::class, 'client_portal_users');
