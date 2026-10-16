@@ -174,8 +174,13 @@
 
         /* MOBILE */
         @media(max-width:768px){
-            .sidebar{transform:translateX(-100%)}
-            .sidebar.open{transform:translateX(0)}
+            /* Full menu = bottom sheet opened from the tab bar's More */
+            .sidebar{top:auto;right:0;width:auto;height:84vh;border-radius:20px 20px 0 0;padding-top:12px;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+            .sidebar.open{transform:translateY(0)}
+            .sidebar::before{content:'';position:absolute;top:6px;left:50%;width:42px;height:4px;margin-left:-21px;border-radius:2px;background:rgba(255,255,255,.3)}
+            .sidebar .nav-link-item{padding:.5rem 1.1rem;font-size:.88rem}
+            .sidebar-footer{padding-bottom:calc(.7rem + env(safe-area-inset-bottom))}
+            .topbar-toggle{display:none}
             .topbar,.main-wrap{left:0;margin-left:0}
             .topbar{left:0!important}
             .main-wrap{margin-left:0!important}
@@ -706,10 +711,37 @@
     </div>
 </div>
 
+{{-- Phone tab bar: the main screens the user can open, Teller raised in the middle, More = full menu sheet --}}
+@auth
+@php
+    $navUser = auth()->user();
+    $tabs = collect([
+        ['label' => 'Home',    'icon' => 'bi-house-door-fill', 'url' => route('dashboard'),       'active' => request()->routeIs('dashboard'), 'ok' => true],
+        ['label' => 'Clients', 'icon' => 'bi-people-fill',     'url' => route('clients.index'),   'active' => request()->routeIs('clients.*'), 'ok' => $navUser->can('view clients')],
+        ['label' => 'Loans',   'icon' => 'bi-cash-coin',       'url' => route('loans.index'),     'active' => request()->routeIs('loans.*'), 'ok' => $navUser->can('view loans')],
+        ['label' => 'Savings', 'icon' => 'bi-piggy-bank-fill', 'url' => route('savings.index'),   'active' => request()->routeIs('savings.*'), 'ok' => $navUser->can('view savings')],
+        ['label' => 'Reports', 'icon' => 'bi-bar-chart-fill',  'url' => route('reports.trial-balance'), 'active' => request()->routeIs('reports.*'), 'ok' => $navUser->can('view reports')],
+    ])->where('ok', true)->values();
+    if ($navUser->can('use teller')) {
+        $tabs = $tabs->take(3);
+        $tabs->splice(2, 0, [['label' => 'Teller', 'icon' => 'bi-arrow-left-right', 'url' => route('teller.index'), 'active' => request()->routeIs('teller.*'), 'fab' => true]]);
+    } else {
+        $tabs = $tabs->take(4);
+    }
+@endphp
+@include('partials.bottom-nav', ['items' => $tabs->all(), 'menu' => 'toggleSidebar()', 'menuBadge' => $lockupWaiting ?? 0])
+@endauth
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @include('partials.fingerprint-prompt')
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
+// Phone menu sheet: swipe down to close
+document.addEventListener('DOMContentLoaded',function(){
+    var s=document.getElementById('sidebar'),sc=s.querySelector('.sidebar-scroll'),y0=null;
+    s.addEventListener('touchstart',function(e){y0=(window.innerWidth<=768&&sc.scrollTop<=0)?e.touches[0].clientY:null;},{passive:true});
+    s.addEventListener('touchend',function(e){if(y0!==null&&e.changedTouches[0].clientY-y0>90&&s.classList.contains('open'))toggleSidebar();y0=null;},{passive:true});
+});
 function toggleSidebar(){
     const s=document.getElementById('sidebar'),o=document.getElementById('sidebarOverlay');
     if(window.innerWidth<=768){s.classList.toggle('open');o.classList.toggle('show');}

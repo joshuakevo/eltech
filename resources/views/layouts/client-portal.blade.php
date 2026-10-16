@@ -139,8 +139,15 @@
 
         /* Mobile */
         @media(max-width:767px){
-            .cp-sidebar { transform: translateX(-100%); transition: transform .2s; }
-            .cp-sidebar.open { transform: translateX(0); box-shadow: 4px 0 16px rgba(0,0,0,.15); }
+            /* Menu = bottom sheet opened from the tab bar's More */
+            .cp-sidebar { top: auto; right: 0; width: auto; max-height: 80vh; z-index: 1050; padding-top: 12px;
+                          border-right: 0; border-radius: 20px 20px 0 0; transform: translateY(105%);
+                          transition: transform .3s cubic-bezier(.2,.8,.2,1); padding-bottom: env(safe-area-inset-bottom); }
+            .cp-sidebar.open { transform: translateY(0); box-shadow: 0 0 0 100vmax rgba(0,0,0,.4); }
+            .cp-sidebar::before { content: ''; position: absolute; top: 6px; left: 50%; width: 42px; height: 4px;
+                                  margin-left: -21px; border-radius: 2px; background: #d1d5db; }
+            .cp-sidebar a.cp-nav-item { padding-top: .65rem; padding-bottom: .65rem; }
+            #sidebarToggle { display: none !important; }
             .cp-body { margin-left: 0; }
         }
     </style>
@@ -297,6 +304,12 @@
     </div>
 </div>
 @endif
+
+@include('partials.bottom-nav', ['items' => [
+    ['label' => 'Home',       'icon' => 'bi-house-door-fill', 'url' => route('client-portal.dashboard'), 'active' => request()->routeIs('client-portal.dashboard')],
+    ['label' => 'Statements', 'icon' => 'bi-wallet2',         'url' => route('client-portal.accounts'),  'active' => request()->routeIs('client-portal.accounts', 'client-portal.savings*', 'client-portal.loan*', 'client-portal.fd*')],
+    ['label' => 'Activity',   'icon' => 'bi-clock-history',   'url' => route('client-portal.activity'),  'active' => request()->routeIs('client-portal.activity')],
+], 'menu' => "document.getElementById('cpSidebar').classList.toggle('open')"])
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @include('partials.fingerprint-prompt')

@@ -45,9 +45,15 @@
 
         /* Hamburger toggle for mobile */
         @media(max-width:767px) {
-            .gp-sidebar { display: none; position: fixed; top: 48px; left: 0; height: calc(100vh - 48px);
-                          z-index: 99; box-shadow: 2px 0 8px rgba(0,0,0,.15); }
-            .gp-sidebar.open { display: block; }
+            /* Menu = bottom sheet opened from the tab bar's More */
+            .gp-sidebar { display: block; position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: auto;
+                          min-height: 0; max-height: 80vh; overflow-y: auto; z-index: 1050; padding: 14px 0 calc(1rem + env(safe-area-inset-bottom));
+                          border-radius: 20px 20px 0 0; transform: translateY(105%); transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+            .gp-sidebar.open { transform: translateY(0); box-shadow: 0 0 0 100vmax rgba(0,0,0,.4); }
+            .gp-sidebar::before { content: ''; position: absolute; top: 6px; left: 50%; width: 42px; height: 4px;
+                                  margin-left: -21px; border-radius: 2px; background: #d1d5db; }
+            .gp-sidebar a.nav-item { padding-top: .65rem; padding-bottom: .65rem; }
+            #sidebarToggle { display: none !important; }
         }
     </style>
     @stack('styles')
@@ -119,6 +125,11 @@
         <i class="bi bi-arrow-left-right"></i> Switch Portal
     </a>
     @endif
+    <div class="px-3 pt-3 d-md-none">
+        <form method="POST" action="{{ route('logout') }}">@csrf
+            <button type="submit" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-box-arrow-right me-1"></i>Sign out</button>
+        </form>
+    </div>
 </nav>
 @endauth
 
@@ -134,6 +145,17 @@
 </main>
 
 </div>{{-- end gp-body --}}
+
+@auth
+@php
+    $gpTabs = auth()->user()->hasRole('group_leader')
+        ? [['label' => 'Home',    'icon' => 'bi-house-door-fill', 'url' => route('group-portal.leader'),         'active' => request()->routeIs('group-portal.leader')],
+           ['label' => 'Members', 'icon' => 'bi-people-fill',     'url' => route('group-portal.leader.members'), 'active' => request()->routeIs('group-portal.leader.members')]]
+        : [['label' => 'Home',       'icon' => 'bi-house-door-fill', 'url' => route('group-portal.member'),           'active' => request()->routeIs('group-portal.member')],
+           ['label' => 'Statements', 'icon' => 'bi-receipt',         'url' => route('group-portal.member.statement'), 'active' => request()->routeIs('group-portal.member.statement')]];
+@endphp
+@include('partials.bottom-nav', ['items' => $gpTabs, 'menu' => "document.getElementById('gpSidebar').classList.toggle('open')"])
+@endauth
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @include('partials.fingerprint-prompt')
