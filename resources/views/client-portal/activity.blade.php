@@ -3,46 +3,56 @@
 @section('content')
 
 <div class="mb-4">
-    <h5 class="fw-bold mb-0">Transactions</h5>
-    <div class="text-muted small">All savings activity across your linked accounts.</div>
+    <h5 class="fw-bold mb-0">Transaction History</h5>
+    <div class="text-muted small">All savings activity across your accounts, newest first.</div>
 </div>
 
 <div class="card">
+    <div class="card-header">Transaction History</div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-dark">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
                 <tr>
                     <th class="ps-3">Date</th>
                     <th>Account</th>
                     <th>Type</th>
-                    <th>Notes</th>
-                    <th class="text-end">Amount</th>
-                    <th class="text-end pe-3">Balance After</th>
+                    <th>Description</th>
+                    <th>Reference</th>
+                    <th class="text-end text-danger">Debit (&minus;)</th>
+                    <th class="text-end text-success">Credit (+)</th>
+                    <th class="text-end pe-3 fw-semibold">Balance</th>
                 </tr>
             </thead>
-            <tbody>
-            @forelse($transactions as $tx)
-            <tr>
-                <td class="ps-3 small">{{ $tx->transaction_date->format('d M Y') }}</td>
-                <td class="small text-muted">{{ $tx->savingsAccount->account_number }}</td>
-                <td>
-                    @php $cls = match($tx->transaction_type) { 'deposit'=>'bg-success','withdrawal'=>'bg-danger','interest'=>'bg-primary',default=>'bg-secondary' }; @endphp
-                    <span class="badge {{ $cls }}">{{ ucfirst($tx->transaction_type) }}</span>
-                </td>
-                <td class="text-muted small">{{ $tx->description ?? '—' }}</td>
-                <td class="text-end fw-semibold font-monospace {{ $tx->transaction_type === 'withdrawal' ? 'text-danger' : 'text-success' }}">
-                    {{ $tx->transaction_type === 'withdrawal' ? '-' : '+' }}{{ number_format($tx->amount, 0) }}
-                </td>
-                <td class="text-end pe-3 font-monospace small">{{ number_format($tx->balance_after, 0) }}</td>
-            </tr>
+            <tbody class="small">
+            @forelse($transactions as $txn)
+                @php
+                    $isCredit = in_array($txn->transaction_type, ['deposit', 'interest']) ||
+                                ($txn->transaction_type === 'transfer' && $txn->balance_after > $txn->balance_before);
+                @endphp
+                <tr>
+                    <td class="ps-3 text-nowrap">{{ $txn->transaction_date->format('d M Y') }}</td>
+                    <td class="text-nowrap">
+                        <a href="{{ route('client-portal.savings', $txn->savingsAccount) }}" class="text-decoration-none font-monospace">{{ $txn->savingsAccount->account_number }}</a>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ $isCredit ? 'success' : 'danger' }} bg-opacity-10 text-{{ $isCredit ? 'success' : 'danger' }}">
+                            {{ ucfirst(str_replace('_',' ',$txn->transaction_type)) }}
+                        </span>
+                    </td>
+                    <td class="text-muted">{{ $txn->description ?? '—' }}</td>
+                    <td class="text-muted font-monospace small">{{ $txn->reference ?? '—' }}</td>
+                    <td class="text-end text-danger">@if(!$isCredit) {{ number_format($txn->amount, $dp) }} @else — @endif</td>
+                    <td class="text-end text-success">@if($isCredit) {{ number_format($txn->amount, $dp) }} @else — @endif</td>
+                    <td class="text-end pe-3 fw-semibold {{ $txn->balance_after < 0 ? 'text-danger' : '' }}">{{ number_format($txn->balance_after, $dp) }}</td>
+                </tr>
             @empty
-            <tr><td colspan="7" class="text-center text-muted py-5">No transactions yet.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">No transactions.</td></tr>
             @endforelse
             </tbody>
         </table>
     </div>
     @if($transactions->hasPages())
-    <div class="card-footer">{{ $transactions->withQueryString()->links() }}</div>
+    <div class="card-footer bg-white">{{ $transactions->withQueryString()->links() }}</div>
     @endif
 </div>
 

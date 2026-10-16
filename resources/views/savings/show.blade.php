@@ -120,65 +120,7 @@
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">Transaction History</div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th class="ps-3">#</th>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Reference</th>
-                    <th class="text-end text-danger">Debit (&minus;)</th>
-                    <th class="text-end text-success">Credit (+)</th>
-                    <th class="text-end pe-3 fw-semibold">Balance</th>
-                </tr>
-            </thead>
-            @php $debitTotal = 0; $creditTotal = 0; @endphp
-            <tbody class="small">
-            @forelse($saving->transactions as $i => $txn)
-                @php
-                    $isCredit = in_array($txn->transaction_type, ['deposit', 'interest']) ||
-                                ($txn->transaction_type === 'transfer' && $txn->balance_after > $txn->balance_before);
-                    if ($isCredit) { $creditTotal += $txn->amount; } else { $debitTotal += $txn->amount; }
-                @endphp
-                <tr>
-                    <td class="ps-3">{{ $i + 1 }}</td>
-                    <td>{{ $txn->transaction_date->format('d M Y') }}</td>
-                    <td>
-                        <span class="badge bg-{{ $isCredit ? 'success' : 'danger' }} bg-opacity-10 text-{{ $isCredit ? 'success' : 'danger' }}">
-                            {{ ucfirst(str_replace('_',' ',$txn->transaction_type)) }}
-                        </span>
-                    </td>
-                    <td class="text-muted">{{ $txn->description ?? '—' }}</td>
-                    <td class="text-muted font-monospace small">{{ $txn->reference ?? '—' }}</td>
-                    <td class="text-end text-danger">
-                        @if(!$isCredit) {{ number_format($txn->amount, $dp) }} @else — @endif
-                    </td>
-                    <td class="text-end text-success">
-                        @if($isCredit) {{ number_format($txn->amount, $dp) }} @else — @endif
-                    </td>
-                    <td class="text-end pe-3 fw-semibold {{ $txn->balance_after < 0 ? 'text-overdrawn' : '' }}">{{ number_format($txn->balance_after, $dp) }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="8" class="text-center text-muted py-4">No transactions.</td></tr>
-            @endforelse
-            </tbody>
-            @if($saving->transactions->isNotEmpty())
-            <tfoot class="table-light fw-bold small">
-                <tr>
-                    <td colspan="5" class="ps-3">Totals</td>
-                    <td class="text-end text-danger">{{ number_format($debitTotal, $dp) }}</td>
-                    <td class="text-end text-success">{{ number_format($creditTotal, $dp) }}</td>
-                    <td class="text-end pe-3 {{ $saving->is_overdrawn ? 'text-overdrawn' : '' }}">{{ number_format($saving->balance, $dp) }}</td>
-                </tr>
-            </tfoot>
-            @endif
-        </table>
-    </div>
-</div>
+@include('savings._transactions')
 
 {{-- Mark Dormant Modal --}}
 @can('deposit savings')
@@ -314,37 +256,5 @@
 </div>
 @endrole
 
-@php $firstSavTx = $saving->transactions->min('transaction_date'); @endphp
-<div class="modal fade" id="savingsStatementModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <form method="GET" action="{{ route('savings.statement-pdf', $saving) }}" class="modal-content" onsubmit="setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('savingsStatementModal'))?.hide(), 400)">
-            <div class="modal-header">
-                <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-1 text-primary"></i>Statement — {{ $saving->account_number }} · {{ $saving->client->name ?? '' }}</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-2">
-                    <div class="col-6">
-                        <label class="form-label small fw-semibold">From</label>
-                        <input type="date" name="from_date" class="form-control" value="{{ $firstSavTx ? \Carbon\Carbon::parse($firstSavTx)->toDateString() : optional($saving->opened_date)->toDateString() }}">
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label small fw-semibold">To</label>
-                        <input type="date" name="to_date" class="form-control" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}">
-                    </div>
-                </div>
-                <div class="d-flex flex-wrap gap-1 mt-2">
-                    @foreach(['This month' => [now()->startOfMonth(), today()], 'Last month' => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()], 'Last 3 months' => [now()->subMonthsNoOverflow(3)->startOfMonth(), today()], 'This year' => [now()->startOfYear(), today()]] as $label => [$f, $t])
-                        <button type="button" class="btn btn-light btn-sm py-0" onclick="this.form.from_date.value='{{ $f->toDateString() }}';this.form.to_date.value='{{ $t->toDateString() }}'">{{ $label }}</button>
-                    @endforeach
-                </div>
-                <div class="form-text mt-2">Opening balance at the start date, every transaction in the period, and the closing balance at the end date.</div>
-            </div>
-            <div class="modal-footer">
-                <button type="submit" name="format" value="excel" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
-                <button type="submit" name="format" value="pdf" class="btn btn-danger"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
-            </div>
-        </form>
-    </div>
-</div>
+@include('savings._statement-modal', ['statementUrl' => route('savings.statement-pdf', $saving)])
 @endsection

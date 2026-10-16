@@ -174,13 +174,13 @@ class ClientPortalController extends Controller
         $client  = $this->activeClient();
         abort_if((int) $savingsAccount->client_id !== (int) $client->id, 403);
 
-        $savingsAccount->load('product');
-        $transactions = $savingsAccount->transactions()
-            ->orderByDesc('transaction_date')
-            ->orderByDesc('id')
-            ->paginate(30);
+        // Same data as the staff savings page: every transaction oldest first with its running balance
+        $savingsAccount->load([
+            'client', 'product',
+            'transactions' => fn ($q) => $q->reorder('transaction_date', 'asc')->orderBy('id', 'asc'),
+        ]);
 
-        return view('client-portal.savings', compact('client', 'clients', 'savingsAccount', 'transactions'));
+        return view('client-portal.savings', compact('client', 'clients', 'savingsAccount'));
     }
 
     public function loanStatement(Loan $loan)
@@ -189,13 +189,12 @@ class ClientPortalController extends Controller
         $client  = $this->activeClient();
         abort_if((int) $loan->client_id !== (int) $client->id, 403);
 
-        $loan->load('product', 'schedules');
-        $repayments       = $loan->repayments()->orderByDesc('payment_date')->orderByDesc('id')->get();
-        $schedule         = $loan->schedules()->orderBy('due_date')->get();
+        // Same data as the staff loan statement
+        $loan->load(['client', 'product', 'schedules', 'repayments' => fn ($q) => $q->orderBy('payment_date')->orderBy('id')]);
         $currentPenalty   = $this->loanService->calculatePenaltyPublic($loan);
         $penaltyBreakdown = $this->loanService->penaltyBreakdown($loan);
 
-        return view('client-portal.loan', compact('client', 'clients', 'loan', 'repayments', 'schedule', 'currentPenalty', 'penaltyBreakdown'));
+        return view('client-portal.loan', compact('client', 'clients', 'loan', 'currentPenalty', 'penaltyBreakdown'));
     }
 
     public function fdStatement(FixedDeposit $fixedDeposit)
@@ -209,51 +208,23 @@ class ClientPortalController extends Controller
         return view('client-portal.fd', compact('client', 'clients', 'fixedDeposit'));
     }
 
-    public function savingsStatementPdf(SavingsAccount $savingsAccount)
+    public function savingsStatementPdf(Request $request, SavingsAccount $savingsAccount)
     {
-        $clients = $this->linkedClients();
-        $client  = $this->activeClient();
+        $this->linkedClients();
+        $client = $this->activeClient();
         abort_if((int) $savingsAccount->client_id !== (int) $client->id, 403);
 
-        $savingsAccount->load('product');
-        $transactions = $savingsAccount->transactions()
-            ->orderByDesc('transaction_date')
-            ->orderByDesc('id')
-            ->get();
-
-        $pendingInterest = $savingsAccount->product->interest_method === 'tiered'
-            ? $this->savingsService->previewAccruedInterest($savingsAccount)
-            : 0;
-
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.savings-statement', [
-            'account'            => $savingsAccount,
-            'client'             => $client,
-            'transactions'       => $transactions,
-            'fromDate'           => null,
-            'toDate'             => null,
-            'pendingInterest'    => $pendingInterest,
-        ])->setPaper('a4', 'portrait');
-
-        return $pdf->download("savings-statement-{$savingsAccount->account_number}.pdf");
+        // Exactly the statement staff export: chosen period, opening and closing balance, PDF or Excel
+        return app(\App\Http\Controllers\SavingsAccountController::class)->statementPdf($request, $savingsAccount);
     }
 
     public function loanStatementPdf(Loan $loan)
     {
-        $clients = $this->linkedClients();
-        $client  = $this->activeClient();
+        $this->linkedClients();
+        $client = $this->activeClient();
         abort_if((int) $loan->client_id !== (int) $client->id, 403);
 
-        $loan->load('product', 'schedules');
-        $repayments       = $loan->repayments()->orderByDesc('payment_date')->orderByDesc('id')->get();
-        $schedule         = $loan->schedules()->orderBy('due_date')->get();
-        $currentPenalty   = $this->loanService->calculatePenaltyPublic($loan);
-        $penaltyBreakdown = $this->loanService->penaltyBreakdown($loan);
-
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.loan-statement', compact(
-            'client', 'loan', 'repayments', 'schedule', 'currentPenalty', 'penaltyBreakdown'
-        ))->setPaper('a4', 'portrait');
-
-        return $pdf->download("loan-statement-{$loan->loan_number}.pdf");
+        return app(\App\Http\Controllers\LoanController::class)->statementPdf($loan);
     }
 
     public function fdStatementPdf(FixedDeposit $fixedDeposit)
