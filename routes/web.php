@@ -147,6 +147,8 @@ Route::middleware('auth')->group(function () {
         ->name('clients.segment.update')->middleware('permission:edit clients');
     Route::patch('clients/{client}/relationship-manager', [ClientController::class, 'updateRelationshipManager'])
         ->name('clients.rm.update')->middleware('permission:edit clients');
+    Route::post('clients/{client}/merge', [ClientController::class, 'merge'])
+        ->name('clients.merge')->middleware('permission:delete clients');
     Route::post('clients/{client}/invite', [ClientController::class, 'invite'])
         ->name('clients.invite')->middleware('permission:edit clients');
     Route::post('clients/{client}/invite-members', [ClientController::class, 'inviteGroupMembers'])

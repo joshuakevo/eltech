@@ -57,6 +57,11 @@
         <a href="{{ route('clients.edit', $client) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
         @endcan
         @can('delete clients')
+        @unless($client->isGroup())
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#mergeClientModal" title="Bring a duplicate record of this member into this one">
+            <i class="bi bi-intersect"></i> Merge duplicate
+        </button>
+        @endunless
         <button type="button" class="btn btn-outline-danger btn-sm"
                 data-bs-toggle="modal" data-bs-target="#deleteClientModal">
             <i class="bi bi-trash"></i> Delete
@@ -64,6 +69,57 @@
         @endcan
     </div>
 </div>
+
+@can('delete clients')
+@unless($client->isGroup())
+<div class="modal fade" id="mergeClientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form method="POST" action="{{ route('clients.merge', $client) }}" class="modal-content">
+            @csrf
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="bi bi-intersect me-1 text-primary"></i>Merge a duplicate into {{ $client->client_number }} {{ $client->name }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">Everything on the duplicate — savings accounts, loans, deposits, shares, journal tags, notes — moves to <strong>{{ $client->name }}</strong>.
+                    Accounts keep their own numbers and balances, so they stay <strong>separate accounts</strong> under this member. No money moves and no journals are posted. The duplicate record is then removed.</p>
+                @if($mergeCandidates->isNotEmpty())
+                <div class="small fw-semibold mb-1">Possible duplicates</div>
+                <div class="list-group mb-3">
+                    @foreach($mergeCandidates as $mc)
+                    <label class="list-group-item list-group-item-action d-flex gap-2 align-items-start py-2">
+                        <input class="form-check-input mt-1" type="radio" name="pick" value="{{ $mc->client_number }}" onchange="this.form.source_number.value=this.value">
+                        <div class="flex-fill small">
+                            <div><span class="font-monospace fw-semibold">{{ $mc->client_number }}</span> {{ $mc->name }} @if($mc->phone)<span class="text-muted">· {{ $mc->phone }}</span>@endif</div>
+                            <div class="text-muted">
+                                @forelse($mc->savingsAccounts as $sa){{ $sa->account_number }} ({{ $sa->product->name ?? 'Savings' }}) {{ number_format($sa->balance, $dp) }}@if(!$loop->last) · @endif @empty No savings accounts @endforelse
+                                @if($mc->loans->isNotEmpty()) · {{ $mc->loans->count() }} loan(s): {{ $mc->loans->pluck('loan_number')->implode(', ') }}@endif
+                            </div>
+                        </div>
+                    </label>
+                    @endforeach
+                </div>
+                @endif
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold">Duplicate member number</label>
+                        <input type="text" name="source_number" class="form-control font-monospace" placeholder="e.g. GK00086" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold">Type MERGE to confirm</label>
+                        <input type="text" name="confirm" class="form-control" autocomplete="off" required pattern="MERGE">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-intersect me-1"></i>Merge into {{ $client->client_number }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endunless
+@endcan
 
 @can('delete clients')
 @php

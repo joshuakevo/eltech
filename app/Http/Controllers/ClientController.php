@@ -214,7 +214,44 @@ class ClientController extends Controller
         $segments = \App\Models\ClientSegment::where('is_active', true)->orderBy('name')->get();
         $relationshipManagers = $this->staffUsers();
 
-        return view('clients.show', compact('client', 'paymentSourceAccounts', 'segments', 'relationshipManagers'));
+        // Possible duplicates for "Merge duplicate": other individual members sharing a name word (4+ letters)
+        $mergeCandidates = collect();
+        if (!$client->isGroup() && auth()->user()->can('delete clients')) {
+            $words = collect(preg_split('/[^a-z]+/i', strtolower($client->name)))->filter(fn ($w) => strlen($w) >= 4)->unique();
+            if ($words->isNotEmpty()) {
+                $mergeCandidates = Client::where('id', '!=', $client->id)
+                    ->whereDoesntHave('group')
+                    ->where(fn ($q) => $words->each(fn ($w) => $q->orWhere('name', 'like', "%{$w}%")))
+                    ->with(['savingsAccounts.product', 'loans'])
+                    ->orderBy('client_number')->limit(15)->get();
+            }
+        }
+
+        return view('clients.show', compact('client', 'paymentSourceAccounts', 'segments', 'relationshipManagers', 'mergeCandidates'));
+    }
+
+    /** Merge a duplicate member record into this one (its accounts move here and stay separate accounts). */
+    public function merge(Request $request, Client $client, \App\Services\ClientMergeService $merger)
+    {
+        $request->validate([
+            'source_number' => 'required|string',
+            'confirm'       => 'required|in:MERGE',
+        ], ['confirm.in' => 'Type MERGE to confirm.']);
+
+        $source = Client::where('client_number', trim($request->source_number))->first();
+        if (!$source) {
+            return back()->with('error', "No member with number {$request->source_number}.");
+        }
+
+        try {
+            $moved = $merger->merge($client, $source);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $what = collect($moved)->map(fn ($n, $t) => $n . ' ' . str_replace('_', ' ', $t))->implode(', ');
+        return redirect()->route('clients.show', $client)
+            ->with('success', "{$source->client_number} {$source->name} merged into this member" . ($what ? " — moved {$what}." : '.'));
     }
 
     public function updateSegment(Request $request, Client $client)
