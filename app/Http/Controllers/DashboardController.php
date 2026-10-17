@@ -101,7 +101,8 @@ class DashboardController extends Controller
             'recovered'   => (float) LoanRepayment::where('payment_date', '>=', $monthStart)->sum('amount'),
             'new_accounts' => SavingsAccount::where('opened_date', '>=', $monthStart)
                 ->whereDoesntHave('transactions', fn ($q) => $q->where('description', 'like', self::OPENING_DESC))->count(),
-            'new_members' => Client::where('created_at', '>=', $monthStart)->count(),
+            // Joined this month — members transferred from the old system keep their old joining date (or none)
+            'new_members' => Client::where('joining_date', '>=', $monthStart)->where('joining_date', '<=', today())->count(),
         ];
 
         // ── 6-month activity trend (opening balances excluded) ──
