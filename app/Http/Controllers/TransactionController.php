@@ -847,6 +847,15 @@ class TransactionController extends Controller
     {
         $desc = strtolower($transaction->description ?? '');
 
+        // Savings interest runs are undone as a whole (journal + every member's statement row) from Running Interest
+        if ($transaction->module === 'savings_interest') {
+            $msg = 'This is a savings interest run. Undo it from Accounting → Running Interest — that deletes the journal and every member\'s interest row together.';
+            if ($isDestroy) {
+                throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+            }
+            throw ValidationException::withMessages(['reversal_reason' => $msg]);
+        }
+
         if ($transaction->module === 'loan_correction') {
             $correction = \App\Models\LoanCorrection::find($transaction->module_id);
             if ($correction && $correction->status === 'applied') {

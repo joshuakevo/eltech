@@ -12,6 +12,7 @@ class SavingsProduct extends Model
     protected $fillable = [
         'name', 'minimum_balance', 'withdrawal_fee', 'interest_rate', 'interest_method', 'interest_frequency',
         'savings_liability_account_id', 'interest_expense_account_id', 'is_active',
+        'interest_run_method', 'interest_bands',
     ];
 
     protected $casts = [
@@ -19,6 +20,7 @@ class SavingsProduct extends Model
         'withdrawal_fee'  => 'float',
         'interest_rate'   => 'float',
         'is_active'       => 'boolean',
+        'interest_bands'  => 'array',
     ];
 
     public function savingsAccounts()

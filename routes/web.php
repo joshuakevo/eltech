@@ -526,6 +526,16 @@ Route::middleware('auth')->group(function () {
     });
 
     // ── Savings Interest Tiers ──────────────────────────────────────────
+    // Accounting → Running Interest (savings interest runs per product)
+    Route::middleware('permission:run savings interest')->group(function () {
+        Route::get('savings-interest', [\App\Http\Controllers\SavingsInterestController::class, 'index'])->name('savings-interest.index');
+        Route::post('savings-interest/{product}/run', [\App\Http\Controllers\SavingsInterestController::class, 'run'])->name('savings-interest.run');
+        Route::post('savings-interest/{product}/bands', [\App\Http\Controllers\SavingsInterestController::class, 'saveBands'])->name('savings-interest.bands');
+        Route::post('savings-interest/{product}/special', [\App\Http\Controllers\SavingsInterestController::class, 'saveSpecial'])->name('savings-interest.special');
+        Route::get('savings-interest/runs/{run}', [\App\Http\Controllers\SavingsInterestController::class, 'show'])->name('savings-interest.show');
+        Route::delete('savings-interest/runs/{run}', [\App\Http\Controllers\SavingsInterestController::class, 'undo'])->name('savings-interest.undo');
+    });
+
     Route::middleware('permission:manage savings interest tiers')->group(function () {
         Route::get('savings-interest-tiers', [SavingsInterestTierController::class, 'edit'])->name('savings-interest-tiers.edit');
         Route::put('savings-interest-tiers', [SavingsInterestTierController::class, 'update'])->name('savings-interest-tiers.update');

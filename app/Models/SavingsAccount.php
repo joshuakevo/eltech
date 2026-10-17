@@ -12,7 +12,7 @@ class SavingsAccount extends Model
 
     protected $fillable = [
         'client_id', 'product_id', 'account_number', 'balance', 'status', 'opened_date', 'created_by',
-        'last_interest_date',
+        'last_interest_date', 'interest_rate_override',
     ];
 
     protected $casts = [
