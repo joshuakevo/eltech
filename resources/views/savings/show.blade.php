@@ -104,14 +104,6 @@
             <div class="fw-bold fs-5">{{ number_format($saving->product->minimum_balance, $dp) }}</div>
         </div>
     </div>
-    @if($saving->product->interest_method !== 'tiered')
-    <div class="col">
-        <div class="stat-card text-center">
-            <div class="text-muted small">Interest Rate</div>
-            <div class="fw-bold fs-5">{{ $saving->product->interest_rate }}% / yr</div>
-        </div>
-    </div>
-    @endif
     <div class="col">
         <div class="stat-card text-center">
             <div class="text-muted small">Status</div>
