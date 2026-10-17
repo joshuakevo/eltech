@@ -63,6 +63,8 @@
                         data-rate="{{ $p->interest_rate }}"
                         data-method="{{ $p->interest_method }}"
                         data-months="{{ $p->term_months }}"
+                        data-step="{{ \App\Models\Loan::stepMonthsFor($p->repayment_frequency ?? 'monthly') }}"
+                        data-frequency="{{ \App\Models\Loan::FREQUENCIES[$p->repayment_frequency ?? 'monthly'][0] ?? 'Monthly' }}"
                         @selected(old('loan_product_id')==$p->id)>
                         {{ $p->name }} ({{ $p->interest_rate }}% {{ ucfirst($p->interest_method) }}, {{ $p->term_months }}m)
                     </option>
@@ -76,7 +78,7 @@
             <label class="form-label mb-1">Principal Amount <span class="text-danger">*</span></label>
             <div class="input-group input-group-sm">
                 <span class="input-group-text text-muted">{{ \App\Models\SystemSetting::get('currency', 'UGX') }}</span>
-                <input type="number" name="principal"
+                <input type="number" name="principal" id="principalInput"
                        class="form-control @error('principal') is-invalid @enderror"
                        step="0.01" min="1" value="{{ old('principal') }}" required>
             </div>
@@ -121,6 +123,21 @@
         <span class="me-3">Rate: <strong id="pRate">—</strong>%</span>
         <span class="me-3">Method: <strong id="pMethod">—</strong></span>
         <span>Term: <strong id="pTerm">—</strong> months</span>
+    </div>
+
+    {{-- Live installment (same formulas as the repayment schedule) --}}
+    <div id="installmentCard" class="mt-2 rounded-3 p-3 text-white" style="display:none;background:linear-gradient(135deg,#1d4ed8 0%,#0f2444 100%)">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <div class="small text-white-50 text-uppercase" style="letter-spacing:.06em;font-size:.68rem" id="icLabel">Monthly installment</div>
+                <div class="fw-bold" style="font-size:1.9rem;line-height:1.1" id="icAmount">—</div>
+                <div class="small text-white-50" id="icNote"></div>
+            </div>
+            <div class="col-6 col-md-2"><div class="small text-white-50">Installments</div><div class="fw-semibold fs-5" id="icCount">—</div></div>
+            <div class="col-6 col-md-2"><div class="small text-white-50">Principal</div><div class="fw-semibold fs-6" id="icPrincipal">—</div></div>
+            <div class="col-6 col-md-2"><div class="small text-white-50">Total interest</div><div class="fw-semibold fs-6" id="icInterest">—</div></div>
+            <div class="col-6 col-md-2"><div class="small text-white-50">Total repayable</div><div class="fw-semibold fs-6" id="icTotal">—</div></div>
+        </div>
     </div>
 </div>
 
@@ -229,6 +246,46 @@ document.getElementById('interestRate').addEventListener('input', function () {
     }
 });
 
+// ── Live installment: same formulas as LoanService::buildScheduleRows ──
+function updateInstallment() {
+    const card = document.getElementById('installmentCard');
+    const opt  = document.getElementById('productSelect').selectedOptions[0];
+    const P    = parseFloat(document.getElementById('principalInput').value);
+    const rate = parseFloat(document.getElementById('interestRate').value || opt?.dataset.rate);
+    const term = parseInt(document.getElementById('termMonths').value || opt?.dataset.months, 10);
+    const method = document.getElementById('interestMethod').value || opt?.dataset.method;
+    const step = parseInt(opt?.dataset.step || '1', 10);
+    if (!P || P <= 0 || isNaN(rate) || !term || !method) { card.style.display = 'none'; return; }
+
+    const periods = Math.floor(term / step);
+    if (periods < 1) { card.style.display = 'none'; return; }
+    const r = rate / 100;
+    let installment, totalInterest, note = '';
+    if (method === 'flat') {
+        totalInterest = P * r * (term / 12);
+        installment   = (P + totalInterest) / periods;
+        note = 'Same amount every time';
+    } else {
+        const pr = r / (12 / step);
+        installment   = pr === 0 ? P / periods : P * (pr * Math.pow(1 + pr, periods)) / (Math.pow(1 + pr, periods) - 1);
+        totalInterest = installment * periods - P;
+        const firstInterest = P * pr;
+        note = 'First: ' + fmt(installment - firstInterest) + ' principal + ' + fmt(firstInterest) + ' interest';
+    }
+    const freq = opt?.dataset.frequency || 'Monthly';
+    document.getElementById('icLabel').textContent     = (step === 1 ? 'Monthly' : freq) + ' installment';
+    document.getElementById('icAmount').textContent    = fmt(installment);
+    document.getElementById('icNote').textContent      = note;
+    document.getElementById('icCount').textContent     = periods + (step > 1 ? ' × ' + step + ' mo' : '');
+    document.getElementById('icPrincipal').textContent = fmt(P);
+    document.getElementById('icInterest').textContent  = fmt(totalInterest);
+    document.getElementById('icTotal').textContent     = fmt(P + totalInterest);
+    card.style.display = '';
+}
+function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+['principalInput', 'interestRate', 'termMonths'].forEach(id => document.getElementById(id).addEventListener('input', updateInstallment));
+document.getElementById('interestMethod').addEventListener('change', updateInstallment);
+
 // ── Product select fills step-2 defaults ─────────────────────────────
 document.getElementById('productSelect').addEventListener('change', function () {
     const opt = this.options[this.selectedIndex];
@@ -247,6 +304,8 @@ document.getElementById('productSelect').addEventListener('change', function () 
         summary.style.display = 'none';
     }
 });
+document.getElementById('productSelect').addEventListener('change', updateInstallment);
+document.addEventListener('DOMContentLoaded', updateInstallment);
 
 // ── Guarantors ────────────────────────────────────────────────────────
 let gIndex = 0;
