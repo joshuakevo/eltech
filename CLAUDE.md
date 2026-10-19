@@ -71,6 +71,9 @@ php artisan migrate:fresh --seed  # Full reset
 - Snapshots store **raw** attributes (`getAttributes()`): casting dates through JSON shifts them by the timezone.
 - **Compare ids as integers** (`(int) $a === (int) $b`): the production DB driver returns foreign-key columns as strings (only primary keys are cast), so strict `===` on ids passes locally but fails in production.
 
+## Loan Penalties
+- Flat penalty per missed installment (`LoanPenaltyTier` by installment amount), worked out live in `LoanService::calculatePenalty` / `penaltyBreakdown` (unpaid installments due before the as-at date). **Only installments due after the 31/07/2026 transfer count** — earlier ones belong to the old system. Paid last in a repayment (`penalty_paid`). Report: Loan Reports → Loan Penalties (`loan-reports.penalties`, date range: incurred / paid / outstanding, Excel/PDF).
+
 ## Loan Balance Corrections
 - "Correct Balance" pop-up on the loan page (`loans/_correction.blade.php`, permission `correct loans`), logic in `LoanCorrectionService`.
 - Inputs: as-at date (default 31/07/2026 transfer date), correct outstanding principal and interest at that date. Interest field defaults to the current figure (current + interest repaid since); "use this" fills the loan-terms calculation.

@@ -567,11 +567,15 @@ class LoanService
         return $this->calculatePenalty($loan, $asOfDate);
     }
 
-    /** Returns per-installment penalty amounts keyed by schedule ID, as of a given date (default today). */
+    /**
+     * Returns per-installment penalty amounts keyed by schedule ID, as of a given date (default today).
+     * Penalties only arise on installments due after the 31/07/2026 transfer; earlier ones were the old system's.
+     */
     public function penaltyBreakdown(Loan $loan, ?string $asOfDate = null): array
     {
         $overdueSchedules = $loan->schedules()
             ->where('due_date', '<', $asOfDate ?? now()->toDateString())
+            ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)   // installments up to the transfer belong to the old system
             ->where('status', '!=', 'paid')
             ->get();
         if ($overdueSchedules->isEmpty()) return [];
@@ -590,6 +594,7 @@ class LoanService
     {
         $overdueSchedules = $loan->schedules()
             ->where('due_date', '<', $asOfDate ?? now()->toDateString())
+            ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)   // installments up to the transfer belong to the old system
             ->where('status', '!=', 'paid')
             ->get();
         if ($overdueSchedules->isEmpty()) return 0;
