@@ -11,7 +11,7 @@ class LoanRepayment extends Model
 
     protected $fillable = [
         'loan_id', 'payment_date', 'amount', 'principal_paid', 'interest_paid',
-        'penalty_paid', 'payment_method', 'payment_source_account_id', 'reference', 'received_by', 'transaction_id', 'notes',
+        'penalty_paid', 'payment_method', 'payment_source_account_id', 'reference', 'received_by', 'transaction_id', 'savings_transaction_id', 'notes',
     ];
 
     protected $casts = [

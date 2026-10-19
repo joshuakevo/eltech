@@ -847,6 +847,22 @@ class TransactionController extends Controller
     {
         $desc = strtolower($transaction->description ?? '');
 
+        // A savings withdrawal that paid a loan repayment is removed together with that repayment, from the repayment's journal
+        if ($transaction->module === 'savings') {
+            $links = app(\App\Services\LoanRecoveryLinkService::class);
+            foreach (SavingsTransaction::where('transaction_id', $transaction->id)->get() as $st) {
+                if (($rep = $links->repaymentFor($st)) && $rep->transaction_id) {
+                    $repTx = Transaction::find($rep->transaction_id);
+                    $msg = "This withdrawal paid a loan repayment of " . number_format((float) $rep->amount, 2) . " on " . $rep->payment_date->format('d M Y')
+                        . ". Delete or reverse the loan repayment journal " . ($repTx->reference ?? '') . " instead — this withdrawal is removed with it.";
+                    if ($isDestroy) {
+                        throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+                    }
+                    throw ValidationException::withMessages(['reversal_reason' => $msg]);
+                }
+            }
+        }
+
         // Savings interest runs are undone as a whole (journal + every member's statement row) from Running Interest
         if ($transaction->module === 'savings_interest') {
             $msg = 'This is a savings interest run. Undo it from Accounting → Running Interest — that deletes the journal and every member\'s interest row together.';
@@ -1079,6 +1095,10 @@ class TransactionController extends Controller
         $loan = Loan::find($transaction->module_id);
         if (!$loan) return;
 
+        // Paid from savings: the withdrawal that funded it goes too, or the money leaves the member's savings for nothing
+        $links = app(\App\Services\LoanRecoveryLinkService::class);
+        $funding = $links->fundingWithdrawal($repayment);
+
         $loan->update([
             'outstanding_principal' => $loan->outstanding_principal + $repayment->principal_paid,
             'outstanding_interest'  => $loan->outstanding_interest  + $repayment->interest_paid,
@@ -1120,6 +1140,10 @@ class TransactionController extends Controller
         }
 
         $repayment->delete();
+
+        if ($funding) {
+            $links->removeWithdrawal($funding, "its repayment on {$loan->loan_number} (journal {$transaction->reference}) was removed");
+        }
     }
 
     // ── Savings — deposit / withdrawal / transfer ─────────────────────────────

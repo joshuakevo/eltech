@@ -470,6 +470,7 @@ class LoanInterestService
             'reference'      => 'LR-' . $loan->loan_number . '-' . $date->format('Ymd') . '-' . now()->format('His') . substr((string) microtime(true), -3),
             'notes'          => 'Run Loans recovery',
         ]);
+        $repayment->update(['savings_transaction_id' => $withdrawal->id]);
         $this->savings->recalculateLedger($account->fresh());
 
         $out['recovered']     = $amount;

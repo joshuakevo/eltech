@@ -253,6 +253,10 @@ Route::middleware('auth')->group(function () {
         ->name('loans.run.process')->middleware(['permission:run loans', 'permission:repay loans']);
     Route::post('loans/run/undo', [LoanController::class, 'runUndo'])
         ->name('loans.run.undo')->middleware(['permission:run loans', 'permission:repay loans']);
+    Route::get('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'index'])
+        ->name('loans.orphan-recoveries')->middleware('permission:correct loans');
+    Route::delete('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'destroy'])
+        ->name('loans.orphan-recoveries.destroy')->middleware('permission:correct loans');
     Route::get('loans/reset', [LoanController::class, 'resetForm'])
         ->name('loans.reset')->middleware('permission:correct loans');
     Route::post('loans/reset', [LoanController::class, 'resetExecute'])

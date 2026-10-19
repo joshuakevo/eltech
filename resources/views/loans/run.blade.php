@@ -14,7 +14,10 @@
         <div class="text-muted small">Charge interest for the days since the last charge, then recover the installment from savings.</div>
     </div>
     @can('correct loans')
+    <div class="d-flex gap-2">
+    <a href="{{ route('loans.orphan-recoveries') }}" class="btn btn-outline-warning btn-sm"><i class="bi bi-link-45deg me-1"></i>Leftover recoveries…</a>
     <a href="{{ route('loans.reset') }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset repayments…</a>
+    </div>
     @endcan
 </div>
 

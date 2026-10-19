@@ -532,10 +532,11 @@ class LoanController extends Controller
         }
 
         // Deduct from savings account if payment method is savings
+        $withdrawal = null;
         if ($request->payment_method === 'savings' && $request->savings_account_id) {
             $savingsAccount = SavingsAccount::findOrFail($request->savings_account_id);
             try {
-                $this->savingsService->withdraw(
+                $withdrawal = $this->savingsService->withdraw(
                     $savingsAccount,
                     $request->amount,
                     $request->payment_date,
@@ -549,7 +550,10 @@ class LoanController extends Controller
             }
         }
 
-        $this->loanService->processRepayment($loan, $request->all());
+        $repayment = $this->loanService->processRepayment($loan, $request->all());
+        if ($withdrawal) {
+            $repayment->update(['savings_transaction_id' => $withdrawal->id]);
+        }
 
         return redirect()->route('loans.show', $loan)->with('success', 'Repayment processed successfully.');
     }
