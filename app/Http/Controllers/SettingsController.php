@@ -128,7 +128,54 @@ class SettingsController extends Controller
             });
         $products = \App\Models\LoanProduct::where('name', '!=', 'Locked-Up Loans')->orderBy('name')->get();
 
-        return view('settings.loan-interest-methods', compact('loans', 'products'));
+        // Running loans whose own method differs from their product's (e.g. switched to reducing but still on "… (Flat)")
+        $mismatched = \App\Models\Loan::with('client', 'product')
+            ->whereIn('status', ['active', 'defaulted'])
+            ->whereHas('product', fn ($q) => $q->where('name', '!=', 'Locked-Up Loans'))
+            ->get()
+            ->filter(fn ($l) => $l->product && $l->interest_method !== $l->product->interest_method)
+            ->each(fn ($l) => $l->setAttribute('target_product', $this->matchingProduct($l, $products)))
+            ->sortBy('loan_number')->values();
+
+        return view('settings.loan-interest-methods', compact('loans', 'products', 'mismatched'));
+    }
+
+    /**
+     * The product a loan should sit on for its own interest method: same name apart from "(Flat)" / "(Reducing)",
+     * that method, and the same receivable / interest / penalty accounts — so moving it changes no balances.
+     */
+    private function matchingProduct(\App\Models\Loan $loan, $products = null): ?\App\Models\LoanProduct
+    {
+        $current = $loan->product;
+        if (!$current || $loan->interest_method === $current->interest_method) {
+            return null;
+        }
+        $base = fn ($name) => strtolower(trim(preg_replace('/\((flat|reducing)[^)]*\)/i', '', $name)));
+        $products ??= \App\Models\LoanProduct::where('name', '!=', 'Locked-Up Loans')->get();
+
+        return $products->first(fn ($p) => (int) $p->id !== (int) $current->id
+            && $p->is_active
+            && $p->interest_method === $loan->interest_method
+            && $base($p->name) === $base($current->name)
+            && (int) $p->receivable_account_id === (int) $current->receivable_account_id
+            && (int) $p->interest_income_account_id === (int) $current->interest_income_account_id
+            && (int) $p->penalty_income_account_id === (int) $current->penalty_income_account_id);
+    }
+
+    /** Moves ticked loans to the product matching their method (label only — accounts are identical, no journal). */
+    public function moveLoansToMatchingProduct(Request $request)
+    {
+        $request->validate(['move_ids' => 'required|array|min:1', 'move_ids.*' => 'integer']);
+        $moved = 0;
+        foreach (\App\Models\Loan::with('product')->whereIn('id', $request->move_ids)->get() as $loan) {
+            if ($target = $this->matchingProduct($loan)) {
+                $from = $loan->product->name;
+                $loan->update(['loan_product_id' => $target->id]);
+                \App\Models\AuditLog::record('loan_product_moved', "Moved {$loan->loan_number} from {$from} to {$target->name} (matches its {$loan->interest_method} method; same accounts, no journal)", 'loans');
+                $moved++;
+            }
+        }
+        return redirect()->route('settings.loan-interest-methods')->with('success', "{$moved} loan(s) moved to the product matching their interest method.");
     }
 
     /**
@@ -158,6 +205,12 @@ class SettingsController extends Controller
             foreach ($loans as $loan) {
                 $loan->update(['interest_method' => 'reducing']);
                 \App\Models\AuditLog::record('loan_interest_method', "Changed {$loan->loan_number} interest method from flat to reducing", 'loans');
+                // …and onto the matching "(Reducing)" product when there is one with the same accounts
+                if ($target = $this->matchingProduct($loan->fresh('product'))) {
+                    $from = $loan->product->name ?? '';
+                    $loan->update(['loan_product_id' => $target->id]);
+                    \App\Models\AuditLog::record('loan_product_moved', "Moved {$loan->loan_number} from {$from} to {$target->name} (same accounts, no journal)", 'loans');
+                }
             }
             foreach ($products as $product) {
                 $product->update(['interest_method' => 'reducing']);

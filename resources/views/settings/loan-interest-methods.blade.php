@@ -81,6 +81,39 @@
     </div>
 </form>
 
+{{-- Loans whose method doesn't match their product's name/method --}}
+<form method="POST" action="{{ route('settings.loan-interest-methods.move') }}" class="mt-4" onsubmit="return confirm('Move the ticked loans to the product matching their interest method? Only the product label changes — the accounts are the same, no journal.')">
+    @csrf
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-arrow-left-right me-1 text-primary"></i>Loans on a product with a different method <span class="badge bg-secondary-subtle text-secondary ms-1">{{ $mismatched->count() }}</span></span>
+            @if($mismatched->whereNotNull('target_product')->isNotEmpty())
+            <button class="btn btn-sm btn-primary"><i class="bi bi-check2-circle me-1"></i>Move ticked</button>
+            @endif
+        </div>
+        <div class="card-body py-2 small text-muted">A loan switched to reducing still shows its old product (e.g. "Standard Loans (Flat)"). Moving it to the matching product fixes the label everywhere. Only offered when the target product uses the same receivable, interest and penalty accounts.</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light"><tr><th class="ps-3"><input type="checkbox" class="form-check-input" checked onclick="document.querySelectorAll('.mv-loan').forEach(c => c.checked = this.checked)"></th><th>Loan</th><th>Member</th><th>Loan method</th><th>Current product</th><th class="pe-3">Move to</th></tr></thead>
+                <tbody class="small">
+                @forelse($mismatched as $l)
+                    <tr>
+                        <td class="ps-3">@if($l->target_product)<input type="checkbox" name="move_ids[]" value="{{ $l->id }}" class="form-check-input mv-loan" checked>@endif</td>
+                        <td class="font-monospace"><a href="{{ route('loans.show', $l) }}">{{ $l->loan_number }}</a></td>
+                        <td>{{ $l->client->name ?? '' }}</td>
+                        <td>{{ ucfirst($l->interest_method) }}</td>
+                        <td>{{ $l->product->name }} <span class="text-muted">({{ $l->product->interest_method }})</span></td>
+                        <td class="pe-3">{!! $l->target_product ? '<strong>' . e($l->target_product->name) . '</strong>' : '<span class="text-muted">no matching product with the same accounts</span>' !!}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" class="text-center text-muted py-3">Every running loan's method matches its product.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
 @push('scripts')
 <script>
 document.getElementById('lmAll')?.addEventListener('change', e => {
