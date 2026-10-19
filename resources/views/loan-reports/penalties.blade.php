@@ -10,9 +10,6 @@
         <div class="text-muted small">{{ \Carbon\Carbon::parse($from)->format('d M Y') }} – {{ \Carbon\Carbon::parse($to)->format('d M Y') }} · flat penalty per missed installment (Loan Penalty Tiers)</div>
     </div>
     <div class="d-flex gap-2">
-    @can('correct loans')
-    <a href="{{ route('loans.import-penalties') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Import penalties (31 Jul)</a>
-    @endcan
     <div class="dropdown">
         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Export</button>
         <ul class="dropdown-menu dropdown-menu-end">

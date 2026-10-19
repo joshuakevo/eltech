@@ -37,6 +37,9 @@
         @if(in_array($loan->status, ['active', 'defaulted', 'closed']))
             <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#correctLoanModal"><i class="bi bi-wrench-adjustable"></i> Correct Balance</button>
         @endif
+        @if(in_array($loan->status, ['active', 'defaulted', 'closed']))
+            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#penaltyBfModal"><i class="bi bi-exclamation-octagon"></i> Penalty b/f{{ $loan->penalty_bf_imported !== null ? ': ' . number_format($loan->penalty_bf_imported, 0) : '' }}</button>
+        @endif
         @if($loan->isLockedUp() && $loan->status !== 'closed')
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#activateLoanModal"><i class="bi bi-arrow-repeat"></i> Move to active loans</button>
         @endif
@@ -196,6 +199,9 @@
 
 @include('loans._correction')
 @include('loans._lockup')
+@can('correct loans')
+    @include('loans._penalty-bf')
+@endcan
 @if($loan->isLockedUp() && $loan->status !== 'closed')
     @include('loans._activate')
 @endif

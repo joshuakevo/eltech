@@ -121,6 +121,26 @@ class PenaltyImportController extends Controller
             ->with('success', "Penalties brought forward on {$count} loan(s) — " . number_format($total, 2) . '.');
     }
 
+    /** Add / edit one loan's penalty owed at 31/07/2026. Still owed = the new figure minus what has already been paid. */
+    public function setForLoan(Request $request, Loan $loan)
+    {
+        $data = $request->validate(['amount' => 'required|numeric|min:0', 'note' => 'nullable|string|max:200']);
+        $amount = round((float) $data['amount'], 2);
+        $paid   = round((float) $loan->repayments()->sum('penalty_bf_paid'), 2);
+        if ($amount + 0.005 < $paid) {
+            return back()->with('error', 'The member has already paid ' . number_format($paid, 2) . ' of this penalty — it can\'t be set lower than that.');
+        }
+        $before = $loan->penalty_bf_imported;
+        $loan->update([
+            'penalty_bf_imported'     => ($amount > 0 || $paid > 0) ? $amount : null,
+            'penalty_brought_forward' => round(max(0, $amount - $paid), 2),
+        ]);
+        AuditLog::record('penalty_brought_forward', "{$loan->loan_number}: penalty at 31/07/2026 " . ($before === null ? 'set to ' : 'changed from ' . number_format((float) $before, 2) . ' to ')
+            . number_format($amount, 2) . (!empty($data['note']) ? " — {$data['note']}" : ''), 'loans');
+
+        return back()->with('success', 'Penalty brought forward saved: ' . number_format($amount, 2) . ' (still owed ' . number_format(max(0, $amount - $paid), 2) . ').');
+    }
+
     public function cancel()
     {
         session()->forget(self::SESSION);

@@ -259,6 +259,7 @@ Route::middleware('auth')->group(function () {
         Route::post('loans/import-penalties/preview', [\App\Http\Controllers\PenaltyImportController::class, 'preview'])->name('loans.import-penalties.preview');
         Route::post('loans/import-penalties/confirm', [\App\Http\Controllers\PenaltyImportController::class, 'confirm'])->name('loans.import-penalties.confirm');
         Route::post('loans/import-penalties/cancel', [\App\Http\Controllers\PenaltyImportController::class, 'cancel'])->name('loans.import-penalties.cancel');
+        Route::post('loans/{loan}/penalty-bf', [\App\Http\Controllers\PenaltyImportController::class, 'setForLoan'])->name('loans.penalty-bf');
     });
     Route::get('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'index'])
         ->name('loans.orphan-recoveries')->middleware('permission:correct loans');
