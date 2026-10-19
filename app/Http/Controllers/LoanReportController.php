@@ -75,7 +75,7 @@ class LoanReportController extends Controller
             ->groupBy('loan_id')->selectRaw('loan_id, SUM(penalty_paid) as paid')->pluck('paid', 'loan_id');
 
         $loans = Loan::with('client.relationshipManager', 'client.segment', 'product')
-            ->where(fn ($q) => $q->whereIn('status', ['active', 'defaulted'])->orWhereIn('id', $paidInRange->keys()))
+            ->where(fn ($q) => $q->whereIn('status', ['active', 'defaulted'])->orWhereIn('id', $paidInRange->keys())->orWhere('penalty_brought_forward', '>', 0))
             ->when($request->search, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn ($c) => $c->where('name', 'like', "%{$request->search}%"))))
             ->when($request->rm_id, fn ($q) => $q->whereHas('client', fn ($c) => $c->where('relationship_manager_id', $request->rm_id)))

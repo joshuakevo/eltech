@@ -328,12 +328,13 @@ class LoanService
     public function amountOwed(Loan $loan, string $date): float
     {
         $penalty = $this->calculatePenalty($loan, $date);
+        $stored = max(0, (float) $loan->outstanding_principal) + max(0, (float) $loan->outstanding_interest);
         if ($loan->isLockedUp()) {
-            return round((float) $loan->outstanding_principal + (float) $loan->outstanding_interest + $penalty, 2);
+            return round($stored + $penalty, 2);
         }
         $open = $loan->schedules()->whereIn('status', ['pending', 'partial', 'overdue'])->get();
         if ($open->isEmpty()) {
-            return round((float) $loan->outstanding_principal + (float) $loan->outstanding_interest + $penalty, 2);
+            return round($stored + $penalty, 2);
         }
         $principal = $open->sum(fn ($s) => max(0, (float) $s->principal_due - (float) $s->principal_paid));
         $interest  = $open->filter(fn ($s) => !$loan->isDayBasedInterest() || $s->interest_charged)

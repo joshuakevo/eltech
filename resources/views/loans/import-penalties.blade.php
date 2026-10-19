@@ -50,7 +50,7 @@
                     <td>{{ $r['client'] }} <span class="text-muted">{{ $r['client_number'] }}</span></td>
                     <td>{{ $r['status'] }}</td>
                     <td class="text-end">{{ number_format($r['amount'], $dp) }}</td>
-                    <td class="pe-3">{!! $r['issue'] ? '<span class="text-danger">' . e($r['issue']) . '</span>' : '<span class="text-success">OK</span>' !!}</td>
+                    <td class="pe-3">{!! $r['issue'] ? '<span class="text-danger">' . e($r['issue']) . '</span>' : '<span class="text-success">OK</span>' . (($r['action'] ?? '') === 'closed' ? ' <span class="text-muted">— on closed loan</span>' : (($r['action'] ?? '') === 'create' ? ' <span class="text-muted">— new closed penalty record</span>' : '')) !!}</td>
                 </tr>
             @endforeach
             </tbody>

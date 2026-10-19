@@ -56,6 +56,8 @@ class PenaltyImportController extends Controller
             $amount   = (float) str_replace([',', ' '], '', (string) ($r['penalty'] ?? ''));
             $issue = null;
             $loan  = null;
+            $action = 'running';
+            $createFor = null;
 
             if ($loanNo !== '') {
                 $loan = Loan::with('client')->where('loan_number', $loanNo)->first();
@@ -66,25 +68,31 @@ class PenaltyImportController extends Controller
                     $issue = "No member {$clientNo}";
                 } else {
                     $running = Loan::with('client')->where('client_id', $client->id)->whereIn('status', ['active', 'defaulted'])->get();
-                    $issue = match (true) {
-                        $running->isEmpty()    => "{$clientNo} has no running loan",
-                        $running->count() > 1  => "{$clientNo} has {$running->count()} running loans — give the loan_number",
-                        default                => null,
-                    };
+                    $issue = $running->count() > 1 ? "{$clientNo} has {$running->count()} running loans — give the loan_number" : null;
                     $loan = $running->count() === 1 ? $running->first() : null;
+                    if ($running->isEmpty()) {
+                        // Loan closed: on their latest closed loan, or a closed penalty-only record if no loan was transferred
+                        $loan = Loan::with('client')->where('client_id', $client->id)->where('status', 'closed')->orderByDesc('disbursement_date')->orderByDesc('id')->first();
+                        $action = $loan ? 'closed' : 'create';
+                        $createFor = $loan ? null : $client;
+                    }
                 }
             }
             if (!$issue && $amount <= 0) {
                 $issue = 'Penalty must be more than 0';
             }
-            if (!$issue && $loan->penalty_bf_imported !== null) {
+            if (!$issue && $action === 'create' && Loan::withTrashed()->where('loan_number', 'PEN-' . strtoupper($createFor->client_number))->exists()) {
+                $issue = 'Already imported (penalty record PEN-' . strtoupper($createFor->client_number) . ') — skipped';
+            }
+            if (!$issue && $loan && $loan->penalty_bf_imported !== null) {
                 $issue = 'Already imported (' . number_format((float) $loan->penalty_bf_imported, 2) . ') — skipped';
             }
 
             $rows[] = [
-                'line' => $line, 'loan_id' => $loan?->id, 'loan_number' => $loan->loan_number ?? $loanNo,
-                'client' => $loan->client->name ?? ($r['name'] ?? ''), 'client_number' => $loan->client->client_number ?? $clientNo,
-                'status' => $loan->status ?? '', 'amount' => round($amount, 2), 'issue' => $issue,
+                'line' => $line, 'loan_id' => $loan?->id, 'action' => $action, 'client_id' => $createFor?->id ?? $loan?->client_id,
+                'loan_number' => $loan->loan_number ?? ($action === 'create' && $createFor ? 'PEN-' . strtoupper($createFor->client_number) . ' (new)' : $loanNo),
+                'client' => $loan->client->name ?? $createFor->name ?? ($r['name'] ?? ''), 'client_number' => $loan->client->client_number ?? $createFor->client_number ?? $clientNo,
+                'status' => $loan->status ?? ($action === 'create' ? 'closed (penalty only)' : ''), 'amount' => round($amount, 2), 'issue' => $issue,
             ];
         }
         fclose($fh);
@@ -104,7 +112,28 @@ class PenaltyImportController extends Controller
         $count = 0;
         $total = 0.0;
         DB::transaction(function () use ($ok, &$count, &$total) {
+            $product = \App\Models\LoanProduct::where('name', 'Locked-Up Loans')->first();
             foreach ($ok as $r) {
+                if (($r['action'] ?? '') === 'create') {
+                    // No loan was transferred (closed in the old system): a closed penalty-only record, no principal, no journal
+                    $client = Client::find($r['client_id']);
+                    $number = 'PEN-' . strtoupper($client->client_number);
+                    if (!$client || !$product || Loan::withTrashed()->where('loan_number', $number)->exists()) {
+                        continue;
+                    }
+                    Loan::create([
+                        'loan_number' => $number, 'client_id' => $client->id, 'loan_product_id' => $product->id,
+                        'principal' => 0, 'interest_rate' => 0, 'interest_method' => 'flat', 'repayment_frequency' => 'monthly',
+                        'term_months' => 0, 'disbursement_date' => '2026-07-31',
+                        'outstanding_principal' => 0, 'outstanding_interest' => 0, 'outstanding_penalty' => 0,
+                        'penalty_brought_forward' => $r['amount'], 'penalty_bf_imported' => $r['amount'],
+                        'status' => 'closed', 'created_by' => auth()->id(),
+                        'notes' => 'Loan closed in the old system before the 31/07/2026 transfer — penalty still owed, brought forward.',
+                    ]);
+                    $count++;
+                    $total += $r['amount'];
+                    continue;
+                }
                 $loan = Loan::lockForUpdate()->find($r['loan_id']);
                 if (!$loan || $loan->penalty_bf_imported !== null) {
                     continue;

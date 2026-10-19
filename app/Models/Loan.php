@@ -135,6 +135,14 @@ class Loan extends Model
      * just reduce outstanding_principal/outstanding_interest directly until the
      * loan closes.
      */
+    /** Can take a repayment: active loans, Locked-Up loans (defaulted), and closed loans still owing a penalty brought forward. */
+    public function acceptsRepayment(): bool
+    {
+        return $this->status === 'active'
+            || ($this->isLockedUp() && $this->status === 'defaulted')
+            || ($this->status === 'closed' && (float) $this->penalty_brought_forward > 0.005);
+    }
+
     public function isLockedUp(): bool
     {
         return optional($this->product)->name === 'Locked-Up Loans';
