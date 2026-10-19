@@ -455,7 +455,7 @@ class LoanInterestService
         $out['available'] = $available;
         $out['account']   = $account->account_number;
 
-        $total  = (float) $loan->outstanding_principal + (float) $loan->outstanding_interest + (float) $loan->outstanding_penalty;
+        $total  = $this->loans->amountOwed($loan, $date->toDateString());
         $amount = round(min($expected, $available, $total), 2);
         if ($amount < 1) {
             $out['note'] = 'Insufficient savings';

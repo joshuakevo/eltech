@@ -318,6 +318,32 @@ class LoanService
      * Process a loan repayment — schedule-based allocation:
      * per-installment (interest → principal) in due order, then penalty last.
      */
+    /**
+     * The most a repayment on $date can be applied to — exactly what processRepayment() allocates:
+     * Locked-Up: principal + interest; day-based: principal + interest already charged and unpaid + carried
+     * interest (projected interest on uncharged installments is not owed); otherwise the schedule's unpaid
+     * principal and interest; plus penalty as at the date. Early settlement adds days of interest on top
+     * (see calculateEarlySettlement).
+     */
+    public function amountOwed(Loan $loan, string $date): float
+    {
+        $penalty = $loan->isLockedUp() ? 0.0 : $this->calculatePenalty($loan, $date);
+        if ($loan->isLockedUp()) {
+            return round((float) $loan->outstanding_principal + (float) $loan->outstanding_interest, 2);
+        }
+        $open = $loan->schedules()->whereIn('status', ['pending', 'partial', 'overdue'])->get();
+        if ($open->isEmpty()) {
+            return round((float) $loan->outstanding_principal + (float) $loan->outstanding_interest + $penalty, 2);
+        }
+        $principal = $open->sum(fn ($s) => max(0, (float) $s->principal_due - (float) $s->principal_paid));
+        $interest  = $open->filter(fn ($s) => !$loan->isDayBasedInterest() || $s->interest_charged)
+            ->sum(fn ($s) => max(0, (float) $s->interest_due - (float) $s->interest_paid));
+        if ($loan->isDayBasedInterest()) {
+            $interest += max(0, (float) $loan->interest_carried);
+        }
+        return round($principal + $interest + $penalty, 2);
+    }
+
     public function processRepayment(Loan $loan, array $data): LoanRepayment
     {
         return DB::transaction(function () use ($loan, $data) {
@@ -431,6 +457,12 @@ class LoanService
             if ($remaining > 0 && $penaltyDue > 0) {
                 $penaltyPaid = min($remaining, $penaltyDue);
                 $remaining  -= $penaltyPaid;
+            }
+
+            // Never record more than was applied: the extra would be taken from the member and posted nowhere
+            if ($remaining > 0.01) {
+                throw new \InvalidArgumentException('This repayment is ' . number_format($remaining, 2) . ' more than ' . $loan->loan_number
+                    . ' owes on ' . Carbon::parse($data['payment_date'])->format('d M Y') . ' (' . number_format($amount - $remaining, 2) . '). Enter at most that amount.');
             }
 
             // Post journal

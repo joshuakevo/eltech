@@ -257,6 +257,8 @@ Route::middleware('auth')->group(function () {
         ->name('loans.orphan-recoveries')->middleware('permission:correct loans');
     Route::delete('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'destroy'])
         ->name('loans.orphan-recoveries.destroy')->middleware('permission:correct loans');
+    Route::post('loans/orphan-recoveries/overpaid', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'fixOverpaid'])
+        ->name('loans.orphan-recoveries.overpaid')->middleware('permission:correct loans');
     Route::get('loans/reset', [LoanController::class, 'resetForm'])
         ->name('loans.reset')->middleware('permission:correct loans');
     Route::post('loans/reset', [LoanController::class, 'resetExecute'])

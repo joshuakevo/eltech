@@ -13,8 +13,29 @@ class LoanRecoveryCleanupController extends Controller
 
     public function index()
     {
-        $orphans = $this->links->orphans();
-        return view('loans.orphan-recoveries', compact('orphans'));
+        $orphans  = $this->links->orphans();
+        $overpaid = $this->links->overpaid();
+        return view('loans.orphan-recoveries', compact('orphans', 'overpaid'));
+    }
+
+    public function fixOverpaid(Request $request)
+    {
+        $request->validate(['repayment_ids' => 'required|array|min:1', 'repayment_ids.*' => 'integer']);
+        $total = 0.0;
+        $n = 0;
+        foreach (\App\Models\LoanRepayment::with('loan')->whereIn('id', $request->repayment_ids)->get() as $r) {
+            try {
+                $fixed = $this->links->fixOverpaid($r);
+            } catch (\RuntimeException $e) {
+                return redirect()->route('loans.orphan-recoveries')->with('error', $e->getMessage());
+            }
+            if ($fixed > 0) {
+                $total += $fixed;
+                $n++;
+            }
+        }
+        return redirect()->route('loans.orphan-recoveries')
+            ->with('success', "Corrected {$n} overpaid repayment(s) — " . number_format($total, 2) . " back on members' savings.");
     }
 
     public function destroy(Request $request)

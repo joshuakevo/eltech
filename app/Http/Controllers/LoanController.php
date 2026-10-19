@@ -525,13 +525,16 @@ class LoanController extends Controller
             }
             $request->merge(['amount' => $quote['total'], 'settle' => true, 'notes' => trim(($request->notes ? $request->notes . ' — ' : '') . "Early settlement: interest {$quote['days']} days from " . \Carbon\Carbon::parse($quote['from'])->format('d M Y'))]);
         } else {
-            $total = $loan->outstanding_principal + $loan->outstanding_interest + $loan->outstanding_penalty;
-            if ($request->amount > $total + 0.01) {
-                return back()->withErrors(['amount' => 'Repayment cannot exceed total outstanding balance.'])->withInput();
+            $owed = $this->loanService->amountOwed($loan, $request->payment_date);
+            if ($request->amount > $owed + 0.01) {
+                return back()->withErrors(['amount' => 'On ' . \Carbon\Carbon::parse($request->payment_date)->format('d M Y') . ' this loan owes ' . number_format($owed, 2)
+                    . ' (principal + interest charged so far + penalty). Enter at most that, or use Early Settlement to close it.'])->withInput();
             }
         }
 
         // Deduct from savings account if payment method is savings
+        // Withdrawal and repayment are saved together or not at all
+        \Illuminate\Support\Facades\DB::beginTransaction();
         $withdrawal = null;
         if ($request->payment_method === 'savings' && $request->savings_account_id) {
             $savingsAccount = SavingsAccount::findOrFail($request->savings_account_id);
@@ -546,13 +549,23 @@ class LoanController extends Controller
                     loanRecovery: true   // may use the whole balance, down to 0
                 );
             } catch (\InvalidArgumentException $e) {
+                \Illuminate\Support\Facades\DB::rollBack();
                 return back()->with('error', 'Savings withdrawal failed: ' . $e->getMessage())->withInput();
             }
         }
 
-        $repayment = $this->loanService->processRepayment($loan, $request->all());
-        if ($withdrawal) {
-            $repayment->update(['savings_transaction_id' => $withdrawal->id]);
+        try {
+            $repayment = $this->loanService->processRepayment($loan, $request->all());
+            if ($withdrawal) {
+                $repayment->update(['savings_transaction_id' => $withdrawal->id]);
+            }
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            if ($e instanceof \InvalidArgumentException) {
+                return back()->withErrors(['amount' => $e->getMessage()])->withInput();
+            }
+            throw $e;
         }
 
         return redirect()->route('loans.show', $loan)->with('success', 'Repayment processed successfully.');

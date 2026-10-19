@@ -12,8 +12,39 @@
     </div>
 </div>
 
+@if($overpaid->isNotEmpty())
+<form method="POST" action="{{ route('loans.orphan-recoveries.overpaid') }}" class="mb-4" onsubmit="return confirm('Correct the ticked repayments? Each is lowered to what was applied and the extra goes back on the member\'s savings.')">
+    @csrf
+    <div class="card border-danger">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-exclamation-triangle text-danger me-1"></i>{{ $overpaid->count() }} overpaid repayment(s) — recorded for more than was applied ({{ number_format($overpaid->sum('excess'), $dp) }} extra)</span>
+            <button class="btn btn-sm btn-danger"><i class="bi bi-wrench me-1"></i>Correct ticked</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light"><tr><th class="ps-3"></th><th>Date</th><th>Member</th><th>Loan</th><th class="text-end">Recorded</th><th class="text-end">Applied</th><th class="text-end">Extra</th><th class="pe-3">Paid from</th></tr></thead>
+                <tbody class="small">
+                @foreach($overpaid as $r)
+                    <tr>
+                        <td class="ps-3"><input type="checkbox" name="repayment_ids[]" value="{{ $r->id }}" class="form-check-input" checked></td>
+                        <td class="text-nowrap">{{ $r->payment_date->format('d M Y') }}</td>
+                        <td>{{ $r->loan->client->name ?? '—' }} <span class="text-muted">{{ $r->loan->client->client_number ?? '' }}</span></td>
+                        <td>@if($r->loan)<a href="{{ route('loans.show', $r->loan) }}" class="font-monospace">{{ $r->loan->loan_number }}</a>@endif</td>
+                        <td class="text-end">{{ number_format($r->amount, $dp) }}</td>
+                        <td class="text-end">{{ number_format($r->amount - $r->excess, $dp) }}</td>
+                        <td class="text-end fw-semibold text-danger">{{ number_format($r->excess, $dp) }}</td>
+                        <td class="pe-3">{{ $r->funding ? ($r->funding->savingsAccount->account_number ?? 'savings') . ' — extra goes back' : ucfirst($r->payment_method) . ' — amount corrected only' }}</td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+@endif
+
 @if($orphans->isEmpty())
-    <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>Everything is consistent — every loan recovery withdrawal has its repayment.</div>
+    <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>Every loan recovery withdrawal has its repayment.</div>
 @else
 <form method="POST" action="{{ route('loans.orphan-recoveries.destroy') }}" onsubmit="return confirm('Remove the ticked withdrawals? The money goes back on the members\' savings and their withdrawal journals are deleted.')">
     @csrf @method('DELETE')

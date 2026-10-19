@@ -143,6 +143,61 @@ class LoanRecoveryLinkService
         return $orphans;
     }
 
+    /** Repayments recorded for more than was applied to principal + interest + penalty (the extra was posted nowhere). */
+    public function overpaid(): Collection
+    {
+        return LoanRepayment::with('loan.client')
+            ->whereRaw('amount - (principal_paid + interest_paid + penalty_paid) > 0.01')
+            ->orderBy('payment_date')->get()
+            ->each(function ($r) {
+                $r->setAttribute('excess', round((float) $r->amount - (float) $r->principal_paid - (float) $r->interest_paid - (float) $r->penalty_paid, 2));
+                $r->setAttribute('funding', $this->fundingWithdrawal($r));
+            });
+    }
+
+    /**
+     * Brings an overpaid repayment down to what was applied, and its savings withdrawal (statement row + journal)
+     * down by the same amount, so the extra goes back on the member's savings and cash agrees with the repayment.
+     */
+    public function fixOverpaid(LoanRepayment $repayment): float
+    {
+        $excess = round((float) $repayment->amount - (float) $repayment->principal_paid - (float) $repayment->interest_paid - (float) $repayment->penalty_paid, 2);
+        if ($excess <= 0.01) {
+            return 0.0;
+        }
+
+        return DB::transaction(function () use ($repayment, $excess) {
+            $withdrawal = $this->fundingWithdrawal($repayment);   // matched on the current amount, so look it up first
+            $old = (float) $repayment->amount;
+            $repayment->update(['amount' => round($old - $excess, 2)]);
+
+            if ($withdrawal) {
+                $wOld = (float) $withdrawal->amount;
+                $withdrawal->update(['amount' => round($wOld - $excess, 2)]);
+                if ($withdrawal->transaction_id && ($tx = Transaction::with('lines')->find($withdrawal->transaction_id))) {
+                    $dr = $tx->lines->first(fn ($l) => abs((float) $l->debit - $wOld) < 0.01);
+                    $cr = $tx->lines->first(fn ($l) => abs((float) $l->credit - $wOld) < 0.01);
+                    if (!$dr || !$cr) {
+                        throw new \RuntimeException("Withdrawal journal {$tx->reference} doesn't have the expected lines — fix it by hand.");
+                    }
+                    $dr->update(['debit' => round($wOld - $excess, 2)]);
+                    $cr->update(['credit' => round($wOld - $excess, 2)]);
+                }
+                $repayment->update(['savings_transaction_id' => $withdrawal->id]);
+                if ($withdrawal->savingsAccount) {
+                    $this->savings->recalculateLedger($withdrawal->savingsAccount);
+                }
+            }
+
+            AuditLog::record('loan_repayment_overpayment_fixed',
+                'Repayment on ' . ($repayment->loan->loan_number ?? '?') . " of {$repayment->payment_date->format('d M Y')}: " . number_format($old, 2) . ' → ' . number_format($old - $excess, 2)
+                . ' (only that was applied); ' . ($withdrawal ? number_format($excess, 2) . ' returned to ' . ($withdrawal->savingsAccount->account_number ?? 'savings') : 'no savings withdrawal'),
+                'loans');
+
+            return $excess;
+        });
+    }
+
     private function withdrawalsFor(Loan $loan): Collection
     {
         $desc = self::PREFIX . $loan->loan_number;
