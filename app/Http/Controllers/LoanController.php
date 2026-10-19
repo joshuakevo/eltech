@@ -39,9 +39,10 @@ class LoanController extends Controller
 
         // Date of the latest repayment / recovery on each loan
         $withLastPaid = fn($q) => $q->withMax(['repayments as last_paid_date' => fn($r) => $r->reorder()], 'payment_date');
+        // Pending applications (not disbursed yet) first, newest application on top
         $sorted = fn($q) => $request->sort === 'last_paid'
-            ? $q->orderByRaw('last_paid_date IS NOT NULL')->orderBy('last_paid_date')->orderBy('loan_number')
-            : $q->orderByDesc('disbursement_date');
+            ? $q->orderByRaw("status = 'pending' DESC")->orderByRaw('last_paid_date IS NOT NULL')->orderBy('last_paid_date')->orderBy('loan_number')
+            : $q->orderByRaw("status = 'pending' DESC")->orderByDesc('disbursement_date')->orderByDesc('id');
 
         $totalOutstanding = (clone $filtered)->sum('outstanding_principal');
         $totalInterest    = (clone $filtered)->sum('outstanding_interest');
