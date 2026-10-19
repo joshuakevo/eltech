@@ -421,6 +421,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('loan-reports')->name('loan-reports.')->middleware('permission:view loan reports')->group(function () {
         Route::get('disbursements', [LoanReportController::class, 'disbursements'])->name('disbursements');
         Route::get('recoveries', [LoanReportController::class, 'recoveries'])->name('recoveries');
+        Route::get('penalties', [LoanReportController::class, 'penalties'])->name('penalties');
         Route::post('recoveries/{loan}/comment', [LoanReportController::class, 'addComment'])->name('add-comment');
     });
 

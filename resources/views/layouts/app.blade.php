@@ -482,6 +482,7 @@
         <div class="collapse nav-sub {{ request()->routeIs($loanReportRoutes) ? 'show' : '' }}" id="loanReportMenu">
             <a href="{{ route('loan-reports.disbursements') }}" class="nav-link-item {{ request()->routeIs('loan-reports.disbursements') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Loan Disbursements</a>
             <a href="{{ route('loan-reports.recoveries') }}"    class="nav-link-item {{ request()->routeIs('loan-reports.recoveries') ? 'active' : '' }}"><i class="bi bi-chat-square-text"></i> Loan Recoveries</a>
+            <a href="{{ route('loan-reports.penalties') }}"     class="nav-link-item {{ request()->routeIs('loan-reports.penalties') ? 'active' : '' }}"><i class="bi bi-exclamation-octagon"></i> Loan Penalties</a>
             <a href="{{ route('reports.loan-portfolio') }}"     class="nav-link-item {{ request()->routeIs('reports.loan-portfolio') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Loan Portfolio</a>
             <a href="{{ route('reports.loan-aging') }}"         class="nav-link-item {{ request()->routeIs('reports.loan-aging') ? 'active' : '' }}"><i class="bi bi-clock-history"></i> Loan Aging</a>
         </div>

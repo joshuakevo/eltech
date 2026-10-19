@@ -62,6 +62,74 @@ class LoanReportController extends Controller
         return view('loan-reports.disbursements', compact('loans', 'totalPrincipal', 'totalCount'));
     }
 
+    /**
+     * Loan penalties for a date range, per loan: installments missed (due before the end date, unpaid), the penalty
+     * incurred in the range (installments that fell due in it), penalty paid in the range (repayments) and the
+     * penalty outstanding at the end date. Penalty = flat amount per missed installment (Loan Penalty Tiers).
+     */
+    public function penalties(Request $request, \App\Services\LoanService $loanService)
+    {
+        $from = $request->from_date ?: now()->startOfMonth()->toDateString();
+        $to   = $request->to_date ?: now()->toDateString();
+        $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
+
+        $paidInRange = \App\Models\LoanRepayment::whereBetween('payment_date', [$from, $to])->where('penalty_paid', '>', 0)
+            ->groupBy('loan_id')->selectRaw('loan_id, SUM(penalty_paid) as paid')->pluck('paid', 'loan_id');
+
+        $loans = Loan::with('client.relationshipManager', 'client.segment', 'product')
+            ->when($lockedUpProductId, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_product_id', '!=', $lockedUpProductId)->orWhereNull('loan_product_id')))
+            ->where(fn ($q) => $q->whereIn('status', ['active', 'defaulted'])->orWhereIn('id', $paidInRange->keys()))
+            ->when($request->search, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_number', 'like', "%{$request->search}%")
+                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', "%{$request->search}%"))))
+            ->when($request->rm_id, fn ($q) => $q->whereHas('client', fn ($c) => $c->where('relationship_manager_id', $request->rm_id)))
+            ->when($request->segment_id, fn ($q) => $q->whereHas('client', fn ($c) => $c->where('segment_id', $request->segment_id)))
+            ->get();
+
+        $rows = collect();
+        foreach ($loans as $loan) {
+            $breakdown = $loanService->penaltyBreakdown($loan, $to);      // missed installments as at the end date
+            $dueDates  = $breakdown ? $loan->schedules()->whereIn('id', array_keys($breakdown))->pluck('due_date', 'id') : collect();
+            $incurred  = 0.0;
+            $missedInRange = 0;
+            foreach ($breakdown as $id => $amount) {
+                $due = \Carbon\Carbon::parse($dueDates[$id])->toDateString();
+                if ($due >= $from) {
+                    $incurred += $amount;
+                    $missedInRange++;
+                }
+            }
+            $outstanding = round(array_sum($breakdown), 2);
+            $paid = round((float) ($paidInRange[$loan->id] ?? 0), 2);
+            if ($outstanding <= 0 && $paid <= 0) {
+                continue;
+            }
+            $rows->push((object) [
+                'loan' => $loan, 'missed' => count($breakdown), 'missed_in_range' => $missedInRange,
+                'oldest_due' => $dueDates->min(), 'incurred' => round($incurred, 2), 'paid' => $paid, 'outstanding' => $outstanding,
+            ]);
+        }
+        $rows = $rows->sortByDesc('outstanding')->values();
+        $totals = ['incurred' => $rows->sum('incurred'), 'paid' => $rows->sum('paid'), 'outstanding' => $rows->sum('outstanding'), 'missed' => $rows->sum('missed')];
+
+        if ($request->format === 'excel') {
+            $out = [["Loan penalties {$from} to {$to}"], [], ['Loan #', 'Client', 'Client #', 'Segment', 'RM', 'Product', 'Missed installments', 'Missed in period', 'Oldest missed', 'Penalty incurred (period)', 'Penalty paid (period)', "Penalty outstanding at {$to}"]];
+            foreach ($rows as $r) {
+                $out[] = [$r->loan->loan_number, $r->loan->client->name ?? '', $r->loan->client->client_number ?? '', $r->loan->client->segment->name ?? '', $r->loan->client->relationshipManager->name ?? '',
+                    $r->loan->product->name ?? '', $r->missed, $r->missed_in_range, $r->oldest_due ? \Carbon\Carbon::parse($r->oldest_due)->toDateString() : '', $r->incurred, $r->paid, $r->outstanding];
+            }
+            $out[] = ['', '', 'TOTAL', '', '', '', $totals['missed'], '', '', $totals['incurred'], $totals['paid'], $totals['outstanding']];
+            return $this->csvDownload($out, "loan-penalties-{$from}-to-{$to}");
+        }
+        if ($request->format === 'pdf') {
+            return Pdf::loadView('pdf.loan-reports.penalties', compact('rows', 'totals', 'from', 'to'))->setPaper('a4', 'landscape')
+                ->download("loan-penalties-{$from}-to-{$to}.pdf");
+        }
+
+        $relationshipManagers = User::where('is_relationship_manager', true)->orderBy('name')->get();
+        $segments = \App\Models\ClientSegment::orderBy('name')->get();
+        return view('loan-reports.penalties', compact('rows', 'totals', 'from', 'to', 'relationshipManagers', 'segments'));
+    }
+
     public function recoveries(Request $request)
     {
         $filtered = Loan::with('client.relationshipManager', 'comments')
