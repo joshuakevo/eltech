@@ -327,9 +327,9 @@ class LoanService
      */
     public function amountOwed(Loan $loan, string $date): float
     {
-        $penalty = $loan->isLockedUp() ? 0.0 : $this->calculatePenalty($loan, $date);
+        $penalty = $this->calculatePenalty($loan, $date);
         if ($loan->isLockedUp()) {
-            return round((float) $loan->outstanding_principal + (float) $loan->outstanding_interest, 2);
+            return round((float) $loan->outstanding_principal + (float) $loan->outstanding_interest + $penalty, 2);
         }
         $open = $loan->schedules()->whereIn('status', ['pending', 'partial', 'overdue'])->get();
         if ($open->isEmpty()) {
@@ -458,6 +458,8 @@ class LoanService
                 $penaltyPaid = min($remaining, $penaltyDue);
                 $remaining  -= $penaltyPaid;
             }
+            // Penalty brought forward from the old system (31/07/2026) is collected before newer penalties
+            $bfPaid = round(min($penaltyPaid, max(0, (float) $loan->penalty_brought_forward)), 2);
 
             // Never record more than was applied: the extra would be taken from the member and posted nowhere
             if ($remaining > 0.01) {
@@ -479,6 +481,7 @@ class LoanService
                 'principal_paid'           => $principalPaid,
                 'interest_paid'            => $interestPaid,
                 'penalty_paid'             => $penaltyPaid,
+                'penalty_bf_paid'          => $bfPaid,
                 'payment_method'           => $data['payment_method'] ?? 'direct',
                 'payment_source_account_id'=> $paymentSourceAccountId,
                 'reference'                => $data['reference'] ?? null,
@@ -496,6 +499,7 @@ class LoanService
                 'outstanding_principal' => max(0, $newPrincipal),
                 'outstanding_interest'  => max(0, $newInterest),
                 'outstanding_penalty'   => $newPenalty,
+                'penalty_brought_forward' => round(max(0, (float) $loan->penalty_brought_forward - $bfPaid), 2),
             ]);
 
             if ($newPrincipal <= 0.01 && $newInterest <= 0.01 && $newPenalty <= 0.01) {
@@ -529,11 +533,12 @@ class LoanService
         if ($loan->isLockedUp()) {
             // No schedule to walk — the manually-tracked balance is already
             // the full amount owed, with nothing further accruing.
+            $penalty = $this->calculatePenalty($loan, $date);   // only an old-system penalty brought forward
             return [
                 'principal' => round($principal, 2),
                 'interest'  => round($loan->outstanding_interest, 2),
-                'penalty'   => 0.0,
-                'total'     => round($principal + $loan->outstanding_interest, 2),
+                'penalty'   => $penalty,
+                'total'     => round($principal + $loan->outstanding_interest + $penalty, 2),
             ];
         }
 
@@ -590,14 +595,19 @@ class LoanService
         return $breakdown;
     }
 
+    /**
+     * Penalty owed as at a date: flat amount per installment missed since the transfer
+     * + the penalty brought forward from the old system that is still unpaid.
+     */
     protected function calculatePenalty(Loan $loan, ?string $asOfDate = null): float
     {
+        $broughtForward = max(0, (float) $loan->penalty_brought_forward);
         $overdueSchedules = $loan->schedules()
             ->where('due_date', '<', $asOfDate ?? now()->toDateString())
             ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)   // installments up to the transfer belong to the old system
             ->where('status', '!=', 'paid')
             ->get();
-        if ($overdueSchedules->isEmpty()) return 0;
+        if ($overdueSchedules->isEmpty()) return round($broughtForward, 2);
 
         $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
 
@@ -606,7 +616,7 @@ class LoanService
             $penalty += $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
         }
 
-        return round($penalty, 2);
+        return round($penalty + $broughtForward, 2);
     }
 
     /**

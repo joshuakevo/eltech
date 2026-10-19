@@ -71,13 +71,10 @@ class LoanReportController extends Controller
     {
         $from = $request->from_date ?: now()->startOfMonth()->toDateString();
         $to   = $request->to_date ?: now()->toDateString();
-        $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
-
         $paidInRange = \App\Models\LoanRepayment::whereBetween('payment_date', [$from, $to])->where('penalty_paid', '>', 0)
             ->groupBy('loan_id')->selectRaw('loan_id, SUM(penalty_paid) as paid')->pluck('paid', 'loan_id');
 
         $loans = Loan::with('client.relationshipManager', 'client.segment', 'product')
-            ->when($lockedUpProductId, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_product_id', '!=', $lockedUpProductId)->orWhereNull('loan_product_id')))
             ->where(fn ($q) => $q->whereIn('status', ['active', 'defaulted'])->orWhereIn('id', $paidInRange->keys()))
             ->when($request->search, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn ($c) => $c->where('name', 'like', "%{$request->search}%"))))
@@ -98,7 +95,8 @@ class LoanReportController extends Controller
                     $missedInRange++;
                 }
             }
-            $outstanding = round(array_sum($breakdown), 2);
+            $broughtForward = round(max(0, (float) $loan->penalty_brought_forward), 2);   // old system, owed at 31/07/2026
+            $outstanding = round(array_sum($breakdown) + $broughtForward, 2);
             $paid = round((float) ($paidInRange[$loan->id] ?? 0), 2);
             if ($outstanding <= 0 && $paid <= 0) {
                 continue;
@@ -106,18 +104,19 @@ class LoanReportController extends Controller
             $rows->push((object) [
                 'loan' => $loan, 'missed' => count($breakdown), 'missed_in_range' => $missedInRange,
                 'oldest_due' => $dueDates->min(), 'incurred' => round($incurred, 2), 'paid' => $paid, 'outstanding' => $outstanding,
+                'brought_forward' => $broughtForward,
             ]);
         }
         $rows = $rows->sortByDesc('outstanding')->values();
-        $totals = ['incurred' => $rows->sum('incurred'), 'paid' => $rows->sum('paid'), 'outstanding' => $rows->sum('outstanding'), 'missed' => $rows->sum('missed')];
+        $totals = ['incurred' => $rows->sum('incurred'), 'paid' => $rows->sum('paid'), 'outstanding' => $rows->sum('outstanding'), 'missed' => $rows->sum('missed'), 'brought_forward' => $rows->sum('brought_forward')];
 
         if ($request->format === 'excel') {
-            $out = [["Loan penalties {$from} to {$to}"], [], ['Loan #', 'Client', 'Client #', 'Segment', 'RM', 'Product', 'Missed installments', 'Missed in period', 'Oldest missed', 'Penalty incurred (period)', 'Penalty paid (period)', "Penalty outstanding at {$to}"]];
+            $out = [["Loan penalties {$from} to {$to}"], [], ['Loan #', 'Client', 'Client #', 'Segment', 'RM', 'Product', 'Missed installments', 'Missed in period', 'Oldest missed', 'Brought forward 31/07/2026 (unpaid)', 'Penalty incurred (period)', 'Penalty paid (period)', "Penalty outstanding at {$to}"]];
             foreach ($rows as $r) {
                 $out[] = [$r->loan->loan_number, $r->loan->client->name ?? '', $r->loan->client->client_number ?? '', $r->loan->client->segment->name ?? '', $r->loan->client->relationshipManager->name ?? '',
-                    $r->loan->product->name ?? '', $r->missed, $r->missed_in_range, $r->oldest_due ? \Carbon\Carbon::parse($r->oldest_due)->toDateString() : '', $r->incurred, $r->paid, $r->outstanding];
+                    $r->loan->product->name ?? '', $r->missed, $r->missed_in_range, $r->oldest_due ? \Carbon\Carbon::parse($r->oldest_due)->toDateString() : '', $r->brought_forward, $r->incurred, $r->paid, $r->outstanding];
             }
-            $out[] = ['', '', 'TOTAL', '', '', '', $totals['missed'], '', '', $totals['incurred'], $totals['paid'], $totals['outstanding']];
+            $out[] = ['', '', 'TOTAL', '', '', '', $totals['missed'], '', '', $totals['brought_forward'], $totals['incurred'], $totals['paid'], $totals['outstanding']];
             return $this->csvDownload($out, "loan-penalties-{$from}-to-{$to}");
         }
         if ($request->format === 'pdf') {

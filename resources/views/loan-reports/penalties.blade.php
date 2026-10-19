@@ -9,12 +9,17 @@
         <h4 class="fw-bold mb-0">Loan Penalties</h4>
         <div class="text-muted small">{{ \Carbon\Carbon::parse($from)->format('d M Y') }} – {{ \Carbon\Carbon::parse($to)->format('d M Y') }} · flat penalty per missed installment (Loan Penalty Tiers)</div>
     </div>
+    <div class="d-flex gap-2">
+    @can('correct loans')
+    <a href="{{ route('loans.import-penalties') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Import penalties (31 Jul)</a>
+    @endcan
     <div class="dropdown">
         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-download me-1"></i>Export</button>
         <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="{{ request()->fullUrlWithQuery(['format' => 'pdf', 'from_date' => $from, 'to_date' => $to]) }}"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Export PDF</a></li>
             <li><a class="dropdown-item" href="{{ request()->fullUrlWithQuery(['format' => 'excel', 'from_date' => $from, 'to_date' => $to]) }}"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Export Excel (CSV)</a></li>
         </ul>
+    </div>
     </div>
 </div>
 
@@ -82,7 +87,7 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light"><tr>
                 <th class="ps-3">Loan #</th><th>Client</th><th>RM</th>
-                <th class="text-end">Missed</th><th>Oldest missed</th>
+                <th class="text-end">Missed</th><th>Oldest missed</th><th class="text-end" title="Penalty owed at the 31/07/2026 transfer, still unpaid">Brought fwd</th>
                 <th class="text-end">Incurred (period)</th><th class="text-end">Paid (period)</th><th class="text-end pe-3">Outstanding</th>
             </tr></thead>
             <tbody class="small">
@@ -93,17 +98,19 @@
                     <td>{{ $r->loan->client->relationshipManager->name ?? '—' }}</td>
                     <td class="text-end">{{ $r->missed }}@if($r->missed_in_range)<div class="text-muted" style="font-size:.72rem">{{ $r->missed_in_range }} in period</div>@endif</td>
                     <td class="text-nowrap">{{ $r->oldest_due ? \Carbon\Carbon::parse($r->oldest_due)->format('d M Y') : '—' }}</td>
+                    <td class="text-end">{{ $r->brought_forward > 0 ? number_format($r->brought_forward, $dp) : '—' }}</td>
                     <td class="text-end">{{ $r->incurred > 0 ? number_format($r->incurred, $dp) : '—' }}</td>
                     <td class="text-end text-success">{{ $r->paid > 0 ? number_format($r->paid, $dp) : '—' }}</td>
                     <td class="text-end pe-3 fw-semibold text-danger">{{ $r->outstanding > 0 ? number_format($r->outstanding, $dp) : '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="text-center text-muted py-4">No penalties for this period.</td></tr>
+                <tr><td colspan="9" class="text-center text-muted py-4">No penalties for this period.</td></tr>
             @endforelse
             </tbody>
             @if($rows->isNotEmpty())
             <tfoot class="table-light fw-bold small"><tr>
                 <td colspan="3" class="ps-3">Total</td><td class="text-end">{{ $totals['missed'] }}</td><td></td>
+                <td class="text-end">{{ number_format($totals['brought_forward'], $dp) }}</td>
                 <td class="text-end">{{ number_format($totals['incurred'], $dp) }}</td>
                 <td class="text-end text-success">{{ number_format($totals['paid'], $dp) }}</td>
                 <td class="text-end pe-3 text-danger">{{ number_format($totals['outstanding'], $dp) }}</td>

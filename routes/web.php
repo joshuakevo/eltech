@@ -253,6 +253,13 @@ Route::middleware('auth')->group(function () {
         ->name('loans.run.process')->middleware(['permission:run loans', 'permission:repay loans']);
     Route::post('loans/run/undo', [LoanController::class, 'runUndo'])
         ->name('loans.run.undo')->middleware(['permission:run loans', 'permission:repay loans']);
+    Route::middleware('permission:correct loans')->group(function () {
+        Route::get('loans/import-penalties', [\App\Http\Controllers\PenaltyImportController::class, 'form'])->name('loans.import-penalties');
+        Route::get('loans/import-penalties/template', [\App\Http\Controllers\PenaltyImportController::class, 'template'])->name('loans.import-penalties.template');
+        Route::post('loans/import-penalties/preview', [\App\Http\Controllers\PenaltyImportController::class, 'preview'])->name('loans.import-penalties.preview');
+        Route::post('loans/import-penalties/confirm', [\App\Http\Controllers\PenaltyImportController::class, 'confirm'])->name('loans.import-penalties.confirm');
+        Route::post('loans/import-penalties/cancel', [\App\Http\Controllers\PenaltyImportController::class, 'cancel'])->name('loans.import-penalties.cancel');
+    });
     Route::get('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'index'])
         ->name('loans.orphan-recoveries')->middleware('permission:correct loans');
     Route::delete('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'destroy'])

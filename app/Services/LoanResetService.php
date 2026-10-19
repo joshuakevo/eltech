@@ -192,6 +192,8 @@ class LoanResetService
 
         LoanInterestCharge::where('loan_id', $loan->id)->delete();
         LoanRun::where('loan_id', $loan->id)->delete();
+        // Old-system penalty those repayments paid is owed again
+        $loan->forceFill(['penalty_brought_forward' => round((float) $loan->penalty_brought_forward + $g['repayments']->sum('penalty_bf_paid'), 2)])->save();
 
         if ($plan['locked_up']) {
             $loan->forceFill([

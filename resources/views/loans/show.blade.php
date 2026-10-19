@@ -114,8 +114,10 @@
                 <div class="stat-card text-center">
                     <div class="text-muted small">Accrued Penalty</div>
                     <div class="fw-bold fs-5 text-danger">{{ number_format($currentPenalty, $dp) }}</div>
-                    @if($currentPenalty > 0)
-                    <div style="font-size:.68rem" class="text-muted">{{ $loan->product->penalty_rate }}%/day on overdue</div>
+                    @if($loan->penalty_brought_forward > 0)
+                    <div style="font-size:.68rem" class="text-muted">incl. {{ number_format($loan->penalty_brought_forward, $dp) }} brought forward (31 Jul)</div>
+                    @elseif($currentPenalty > 0)
+                    <div style="font-size:.68rem" class="text-muted">flat per missed installment</div>
                     @endif
                 </div>
             </div>

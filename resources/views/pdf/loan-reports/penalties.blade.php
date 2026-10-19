@@ -18,7 +18,7 @@
     <h2>{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }} — Loan Penalties</h2>
     <div class="muted">{{ \Carbon\Carbon::parse($from)->format('d M Y') }} – {{ \Carbon\Carbon::parse($to)->format('d M Y') }} · {{ $rows->count() }} loans · outstanding {{ number_format($totals['outstanding'], $dp) }} · incurred {{ number_format($totals['incurred'], $dp) }} · paid {{ number_format($totals['paid'], $dp) }}</div>
     <table>
-        <thead><tr><th>Loan #</th><th>Client</th><th>Client #</th><th>RM</th><th class="r">Missed</th><th>Oldest missed</th><th class="r">Incurred (period)</th><th class="r">Paid (period)</th><th class="r">Outstanding</th></tr></thead>
+        <thead><tr><th>Loan #</th><th>Client</th><th>Client #</th><th>RM</th><th class="r">Missed</th><th>Oldest missed</th><th class="r">Brought fwd</th><th class="r">Incurred (period)</th><th class="r">Paid (period)</th><th class="r">Outstanding</th></tr></thead>
         <tbody>
         @foreach($rows as $r)
             <tr>
@@ -28,13 +28,14 @@
                 <td>{{ $r->loan->client->relationshipManager->name ?? '' }}</td>
                 <td class="r">{{ $r->missed }}</td>
                 <td>{{ $r->oldest_due ? \Carbon\Carbon::parse($r->oldest_due)->format('d M Y') : '' }}</td>
+                <td class="r">{{ number_format($r->brought_forward, $dp) }}</td>
                 <td class="r">{{ number_format($r->incurred, $dp) }}</td>
                 <td class="r">{{ number_format($r->paid, $dp) }}</td>
                 <td class="r">{{ number_format($r->outstanding, $dp) }}</td>
             </tr>
         @endforeach
         </tbody>
-        <tfoot><tr><td colspan="4">Total</td><td class="r">{{ $totals['missed'] }}</td><td></td><td class="r">{{ number_format($totals['incurred'], $dp) }}</td><td class="r">{{ number_format($totals['paid'], $dp) }}</td><td class="r">{{ number_format($totals['outstanding'], $dp) }}</td></tr></tfoot>
+        <tfoot><tr><td colspan="4">Total</td><td class="r">{{ $totals['missed'] }}</td><td></td><td class="r">{{ number_format($totals['brought_forward'], $dp) }}</td><td class="r">{{ number_format($totals['incurred'], $dp) }}</td><td class="r">{{ number_format($totals['paid'], $dp) }}</td><td class="r">{{ number_format($totals['outstanding'], $dp) }}</td></tr></tfoot>
     </table>
     <p class="muted">Generated {{ now()->format('d M Y H:i') }}</p>
 </body>

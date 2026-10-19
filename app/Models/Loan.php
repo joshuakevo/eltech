@@ -31,6 +31,7 @@ class Loan extends Model
         'loan_number', 'client_id', 'loan_product_id', 'principal', 'interest_rate',
         'interest_method', 'repayment_frequency', 'term_months', 'disbursement_date', 'maturity_date',
         'outstanding_principal', 'outstanding_interest', 'outstanding_penalty',
+        'penalty_brought_forward', 'penalty_bf_imported',
         'interest_accrued_to', 'interest_carried', 'installment_amount',
         'application_fee', 'application_fee_rate', 'application_fee_method',
         'management_fee', 'management_fee_rate', 'management_fee_method',
