@@ -99,9 +99,16 @@
                 @endif
                 <form method="POST" action="{{ route('savings-interest.special', $product) }}" class="row g-1">
                     @csrf
-                    <div class="col-7"><input name="account_number" class="form-control form-control-sm font-monospace" placeholder="Account no." required></div>
-                    <div class="col-3"><input name="rate" type="number" step="0.01" min="0" max="100" class="form-control form-control-sm" placeholder="%" required></div>
-                    <div class="col-2"><button class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-plus"></i></button></div>
+                    <div class="col-12">
+                        <select name="account_number" class="form-select form-select-sm ts-select" required>
+                            <option value="">Search member by name, number or account…</option>
+                            @foreach($pickAccounts as $pa)
+                                <option value="{{ $pa->account_number }}">{{ $pa->client->name ?? '—' }} · {{ $pa->client->client_number ?? '' }} · {{ $pa->account_number }} · {{ number_format($pa->balance, 0) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-8"><input name="rate" type="number" step="0.01" min="0" max="100" class="form-control form-control-sm" placeholder="Special rate % p.a." required></div>
+                    <div class="col-4"><button class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-plus"></i> Add</button></div>
                 </form>
             </div>
         </div>

@@ -32,6 +32,10 @@ class SavingsInterestController extends Controller
             $bands      = $this->runs->bands($product);
             $tiers      = SavingsInterestTier::orderBy('min_balance')->get();
             $specials   = SavingsAccount::with('client')->where('product_id', $product->id)->whereNotNull('interest_rate_override')->orderBy('account_number')->get();
+            // Picker for a new special rate: the product's active accounts, searchable by member name / number / account
+            $pickAccounts = SavingsAccount::with('client:id,name,client_number')->where('product_id', $product->id)->where('status', 'active')
+                ->whereNull('interest_rate_override')->get(['id', 'client_id', 'account_number', 'balance'])
+                ->sortBy(fn ($a) => $a->client->name ?? '')->values();
             $label = fn ($id) => ($a = \App\Models\Account::find($id)) ? "{$a->account_code} {$a->account_name}" : 'not set';
             try {
                 $expense = $label($this->runs->expenseAccountId($product));
@@ -39,6 +43,7 @@ class SavingsInterestController extends Controller
                 $expense = 'not set — add an interest expense account to the product';
             }
             $posting = ['expense' => $expense, 'liability' => $label($product->savings_liability_account_id)];
+            $data += compact('pickAccounts');
             $data += compact('latest', 'periodEnd', 'from', 'preview', 'history', 'bands', 'tiers', 'specials', 'posting');
         } else {
             $data['groups'] = Group::orderBy('name')->get();
