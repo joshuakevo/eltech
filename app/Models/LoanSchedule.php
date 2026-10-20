@@ -12,6 +12,7 @@ class LoanSchedule extends Model
     protected $fillable = [
         'loan_id', 'installment_no', 'due_date', 'principal_due', 'interest_due',
         'total_due', 'balance_after', 'principal_paid', 'interest_paid', 'interest_charged', 'status',
+        'penalty_charged', 'penalty_paid', 'penalty_charged_on',
     ];
 
     protected $casts = [

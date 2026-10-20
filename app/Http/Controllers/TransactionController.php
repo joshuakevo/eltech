@@ -1111,6 +1111,17 @@ class TransactionController extends Controller
         $remainingPrincipal = $repayment->principal_paid;
         $remainingInterest  = $repayment->interest_paid;
 
+        // Penalty it paid on charged installments is owed again (the charges themselves stay — the installment was late)
+        $penaltyBack = round((float) $repayment->penalty_paid - (float) $repayment->penalty_bf_paid, 2);
+        foreach ($loan->schedules()->where('penalty_paid', '>', 0)->orderByDesc('installment_no')->get() as $s) {
+            if ($penaltyBack <= 0) {
+                break;
+            }
+            $back = round(min($penaltyBack, (float) $s->penalty_paid), 2);
+            $s->update(['penalty_paid' => round((float) $s->penalty_paid - $back, 2)]);
+            $penaltyBack = round($penaltyBack - $back, 2);
+        }
+
         // Unwind from any installment carrying payments, whatever its status: a part-paid
         // installment that has since fallen due is relabelled "overdue" but still holds the money.
         $loan->schedules()

@@ -366,6 +366,8 @@ class LoanInterestService
                 $loan->refresh();
                 $step['recovery'] = $this->recover($loan, $row->due_date->copy());
                 $loan->refresh();
+                // Not fully paid on its due date (savings short): the installment is penalised
+                $step['penalty'] = $this->loans->chargeLatePenalties($loan, $day, true);
                 $this->record($batch, $loan, $date, $row->due_date, $snapshot, $step);
                 $snapshot = $this->snapshot($loan);
                 $result['steps'][] = $step;
@@ -554,7 +556,7 @@ class LoanInterestService
         return [
             // Raw stored values: casting dates to Carbon and back through JSON shifts them by the timezone.
             'loan' => collect($loan->getAttributes())->only(['outstanding_principal', 'outstanding_interest', 'outstanding_penalty', 'status',
-                'interest_accrued_to', 'interest_carried', 'installment_amount'])->all(),
+                'interest_accrued_to', 'interest_carried', 'installment_amount', 'penalty_brought_forward'])->all(),
             'schedules' => $loan->schedules()->orderBy('installment_no')->get()
                 ->map(fn ($s) => collect($s->getAttributes())->except(['id', 'created_at', 'updated_at'])->all())->all(),
             'repayment_ids' => LoanRepayment::where('loan_id', $loan->id)->orderBy('id')->pluck('id')->all(),

@@ -75,7 +75,8 @@ class LoanReportController extends Controller
             ->groupBy('loan_id')->selectRaw('loan_id, SUM(penalty_paid) as paid')->pluck('paid', 'loan_id');
 
         $loans = Loan::with('client.relationshipManager', 'client.segment', 'product')
-            ->where(fn ($q) => $q->whereIn('status', ['active', 'defaulted'])->orWhereIn('id', $paidInRange->keys())->orWhere('penalty_brought_forward', '>', 0))
+            ->where(fn ($q) => $q->whereIn('status', ['active', 'defaulted'])->orWhereIn('id', $paidInRange->keys())->orWhere('penalty_brought_forward', '>', 0)
+                ->orWhereHas('schedules', fn ($s) => $s->whereColumn('penalty_charged', '>', 'penalty_paid')))
             ->when($request->search, fn ($q) => $q->where(fn ($q2) => $q2->where('loan_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn ($c) => $c->where('name', 'like', "%{$request->search}%"))))
             ->when($request->rm_id, fn ($q) => $q->whereHas('client', fn ($c) => $c->where('relationship_manager_id', $request->rm_id)))
@@ -85,12 +86,15 @@ class LoanReportController extends Controller
         $rows = collect();
         foreach ($loans as $loan) {
             $breakdown = $loanService->penaltyBreakdown($loan, $to);      // missed installments as at the end date
-            $dueDates  = $breakdown ? $loan->schedules()->whereIn('id', array_keys($breakdown))->pluck('due_date', 'id') : collect();
+            $scheduleRows = $breakdown ? $loan->schedules()->whereIn('id', array_keys($breakdown))->get(['id', 'due_date', 'penalty_charged_on'])->keyBy('id') : collect();
+            $dueDates  = $scheduleRows->map(fn ($s) => $s->due_date);
             $incurred  = 0.0;
             $missedInRange = 0;
             foreach ($breakdown as $id => $amount) {
-                $due = \Carbon\Carbon::parse($dueDates[$id])->toDateString();
-                if ($due >= $from) {
+                // Incurred in the period: charged in it, or (not charged yet) fell due in it
+                $s = $scheduleRows[$id];
+                $when = $s->penalty_charged_on ? \Carbon\Carbon::parse($s->penalty_charged_on)->toDateString() : \Carbon\Carbon::parse($s->due_date)->toDateString();
+                if ($when >= $from && $when <= $to) {
                     $incurred += $amount;
                     $missedInRange++;
                 }

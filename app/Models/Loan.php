@@ -140,7 +140,14 @@ class Loan extends Model
     {
         return $this->status === 'active'
             || ($this->isLockedUp() && $this->status === 'defaulted')
-            || ($this->status === 'closed' && (float) $this->penalty_brought_forward > 0.005);
+            || ($this->status === 'closed' && $this->penaltyStillOwed() > 0.005);
+    }
+
+    /** Penalty already charged and not paid: brought forward from the old system + charged on installments. */
+    public function penaltyStillOwed(): float
+    {
+        return round(max(0, (float) $this->penalty_brought_forward)
+            + (float) $this->schedules()->selectRaw('COALESCE(SUM(GREATEST(penalty_charged - penalty_paid, 0)), 0) as owed')->value('owed'), 2);
     }
 
     public function isLockedUp(): bool

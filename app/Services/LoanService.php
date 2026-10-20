@@ -355,6 +355,9 @@ class LoanService
                 app(LoanInterestService::class)->convert($loan, Carbon::parse($data['payment_date']));
                 $loan->refresh();
             }
+            // Paid after an installment's due date: that installment is charged its penalty (paid last, below)
+            $this->chargeLatePenalties($loan, $data['payment_date']);
+
             // Early settlement: charge interest by days up to the settlement date first
             if (!empty($data['settle']) && !$loan->isLockedUp() && $loan->isDayBasedInterest()) {
                 app(LoanInterestService::class)->chargeForSettlement($loan, Carbon::parse($data['payment_date']));
@@ -461,6 +464,17 @@ class LoanService
             }
             // Penalty brought forward from the old system (31/07/2026) is collected before newer penalties
             $bfPaid = round(min($penaltyPaid, max(0, (float) $loan->penalty_brought_forward)), 2);
+            $left = round($penaltyPaid - $bfPaid, 2);
+            if ($left > 0) {
+                foreach ($loan->schedules()->whereColumn('penalty_charged', '>', 'penalty_paid')->orderBy('installment_no')->get() as $s) {
+                    if ($left <= 0) {
+                        break;
+                    }
+                    $pay = round(min($left, (float) $s->penalty_charged - (float) $s->penalty_paid), 2);
+                    $s->update(['penalty_paid' => round((float) $s->penalty_paid + $pay, 2)]);
+                    $left = round($left - $pay, 2);
+                }
+            }
 
             // Never record more than was applied: the extra would be taken from the member and posted nowhere
             if ($remaining > 0.01) {
@@ -579,21 +593,59 @@ class LoanService
      */
     public function penaltyBreakdown(Loan $loan, ?string $asOfDate = null): array
     {
-        $overdueSchedules = $loan->schedules()
-            ->where('due_date', '<', $asOfDate ?? now()->toDateString())
+        $asOf = $asOfDate ?? now()->toDateString();
+        $schedules = $loan->schedules()
             ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)   // installments up to the transfer belong to the old system
-            ->where('status', '!=', 'paid')
+            ->where(fn ($q) => $q
+                // charged (late / short) and not fully paid — owed even after the installment itself is paid
+                ->where(fn ($c) => $c->whereColumn('penalty_charged', '>', 'penalty_paid')
+                    ->where(fn ($d) => $d->whereNull('penalty_charged_on')->orWhere('penalty_charged_on', '<=', $asOf)))
+                // overdue and unpaid, not charged yet (charged when the late payment / run comes)
+                ->orWhere(fn ($u) => $u->where('penalty_charged', '<=', 0)->where('due_date', '<', $asOf)->where('status', '!=', 'paid')))
             ->get();
-        if ($overdueSchedules->isEmpty()) return [];
+        if ($schedules->isEmpty()) return [];
 
         $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
 
         $breakdown = [];
-        foreach ($overdueSchedules as $schedule) {
-            $breakdown[$schedule->id] = $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
+        foreach ($schedules as $schedule) {
+            $breakdown[$schedule->id] = (float) $schedule->penalty_charged > 0
+                ? round((float) $schedule->penalty_charged - (float) $schedule->penalty_paid, 2)
+                : $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
         }
 
         return $breakdown;
+    }
+
+    /**
+     * Charges the flat tier penalty, once, on installments not fully paid by their due date:
+     * every unpaid installment due before $date (a late payment), plus — for Run Loans — the installment due
+     * on $date itself when the recovery fell short ($dueToday). Installments up to the transfer are excluded.
+     * The penalty stays owed until paid, even after the installment is paid.
+     */
+    public function chargeLatePenalties(Loan $loan, string $date, bool $dueToday = false): float
+    {
+        if ($loan->isLockedUp()) {
+            return 0.0;
+        }
+        $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
+        $charged = 0.0;
+        $rows = $loan->schedules()
+            ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)
+            ->where('due_date', $dueToday ? '<=' : '<', $date)
+            ->where('status', '!=', 'paid')
+            ->where('penalty_charged', '<=', 0)
+            ->get();
+        foreach ($rows as $s) {
+            $amount = $this->resolvePenaltyTierAmount((float) $s->total_due, $tiers);
+            if ($amount <= 0) {
+                continue;
+            }
+            $on = $s->due_date->toDateString() === $date ? $date : $s->due_date->copy()->addDay()->toDateString();
+            $s->update(['penalty_charged' => $amount, 'penalty_charged_on' => $on]);
+            $charged += $amount;
+        }
+        return $charged;
     }
 
     /**
@@ -603,21 +655,7 @@ class LoanService
     protected function calculatePenalty(Loan $loan, ?string $asOfDate = null): float
     {
         $broughtForward = max(0, (float) $loan->penalty_brought_forward);
-        $overdueSchedules = $loan->schedules()
-            ->where('due_date', '<', $asOfDate ?? now()->toDateString())
-            ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)   // installments up to the transfer belong to the old system
-            ->where('status', '!=', 'paid')
-            ->get();
-        if ($overdueSchedules->isEmpty()) return round($broughtForward, 2);
-
-        $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
-
-        $penalty = 0;
-        foreach ($overdueSchedules as $schedule) {
-            $penalty += $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
-        }
-
-        return round($penalty + $broughtForward, 2);
+        return round(array_sum($this->penaltyBreakdown($loan, $asOfDate)) + $broughtForward, 2);
     }
 
     /**
