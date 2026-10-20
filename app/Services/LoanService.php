@@ -642,7 +642,7 @@ class LoanService
                 continue;
             }
             $on = $s->due_date->toDateString() === $date ? $date : $s->due_date->copy()->addDay()->toDateString();
-            $s->update(['penalty_charged' => $amount, 'penalty_charged_on' => $on]);
+            $s->update(['penalty_charged' => $amount, 'penalty_charged_on' => $on, 'penalty_source' => $dueToday && $on === $date ? 'run' : 'late']);
             $charged += $amount;
         }
         return $charged;

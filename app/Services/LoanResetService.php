@@ -207,7 +207,7 @@ class LoanResetService
             foreach ($loan->schedules()->get() as $s) {
                 $s->forceFill([
                     'principal_paid' => 0, 'interest_paid' => 0, 'interest_charged' => false,
-                    'penalty_charged' => 0, 'penalty_paid' => 0, 'penalty_charged_on' => null,
+                    'penalty_charged' => 0, 'penalty_paid' => 0, 'penalty_charged_on' => null, 'penalty_source' => null,
                     'status' => $s->due_date->toDateString() < $today ? 'overdue' : 'pending',
                 ])->save();
             }
