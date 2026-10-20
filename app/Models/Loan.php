@@ -147,7 +147,7 @@ class Loan extends Model
     public function penaltyStillOwed(): float
     {
         return round(max(0, (float) $this->penalty_brought_forward)
-            + (float) $this->schedules()->selectRaw('COALESCE(SUM(GREATEST(penalty_charged - penalty_paid, 0)), 0) as owed')->value('owed'), 2);
+            + (float) $this->schedules()->reorder()->selectRaw('COALESCE(SUM(GREATEST(penalty_charged - penalty_paid, 0)), 0) as owed')->value('owed'), 2);   // reorder: the relation sorts by installment_no, which MySQL rejects next to SUM()
     }
 
     public function isLockedUp(): bool
