@@ -155,7 +155,7 @@ class PenaltyImportController extends Controller
     {
         $data = $request->validate(['amount' => 'required|numeric|min:0', 'note' => 'nullable|string|max:200']);
         $amount = round((float) $data['amount'], 2);
-        $paid   = round((float) $loan->repayments()->sum('penalty_bf_paid'), 2);
+        $paid   = round((float) $loan->repayments()->reorder()->sum('penalty_bf_paid'), 2);
         if ($amount + 0.005 < $paid) {
             return back()->with('error', 'The member has already paid ' . number_format($paid, 2) . ' of this penalty — it can\'t be set lower than that.');
         }

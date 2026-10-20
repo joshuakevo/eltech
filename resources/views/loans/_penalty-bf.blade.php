@@ -1,6 +1,6 @@
 {{-- Penalty owed at the 31/07/2026 transfer (old system): add / edit (permission: correct loans) --}}
 @php
-    $bfPaid = round((float) $loan->repayments()->sum('penalty_bf_paid'), 2);
+    $bfPaid = round((float) $loan->repayments()->reorder()->sum('penalty_bf_paid'), 2);
 @endphp
 <div class="modal fade" id="penaltyBfModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
