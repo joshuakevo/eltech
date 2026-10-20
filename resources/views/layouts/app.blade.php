@@ -356,12 +356,17 @@
             </a>
             @endcan
             @can('view loans')
-            <a href="{{ route('loans.index') }}" class="nav-link-item {{ request()->routeIs('loans.*') ? 'active' : '' }}">
+            <a href="{{ route('loans.index') }}" class="nav-link-item {{ request()->routeIs('loans.*') && !request()->routeIs('loans.calculator', 'loans.run', 'loans.lockups.*') ? 'active' : '' }}">
                 <i class="bi bi-cash-stack"></i> Loans
                 @php $pendingLoans = $navCounts['pending_loans']; @endphp
                 @if($pendingLoans > 0)
                     <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $pendingLoans }}</span>
                 @endif
+            </a>
+            @endcan
+            @can('view loans')
+            <a href="{{ route('loans.calculator') }}" class="nav-link-item {{ request()->routeIs('loans.calculator') ? 'active' : '' }}">
+                <i class="bi bi-calculator"></i> Schedule Generator
             </a>
             @endcan
             @can('run loans')

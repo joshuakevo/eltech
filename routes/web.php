@@ -247,6 +247,8 @@ Route::middleware('auth')->group(function () {
     Route::get('loans', [LoanController::class, 'index'])
         ->name('loans.index')->middleware('permission:view loans');
     Route::get('loans/lockups', [\App\Http\Controllers\LoanLockupController::class, 'index'])->name('loans.lockups.index')->middleware('permission:view loans');
+    Route::get('loans/calculator', [\App\Http\Controllers\LoanCalculatorController::class, 'index'])
+        ->name('loans.calculator')->middleware('permission:view loans');
     Route::get('loans/run', [LoanController::class, 'run'])
         ->name('loans.run')->middleware('permission:run loans');
     Route::post('loans/run', [LoanController::class, 'runProcess'])
