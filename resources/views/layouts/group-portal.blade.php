@@ -186,5 +186,6 @@ document.addEventListener('submit', function (e) {
 });
 </script>
 @include('partials.install-app')
+@include('partials.nav-speed')
 </body>
 </html>

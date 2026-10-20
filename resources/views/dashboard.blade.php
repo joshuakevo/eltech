@@ -39,7 +39,7 @@
 <div class="d-flex justify-content-between align-items-end mb-3">
     <div>
         <h4 class="fw-bold mb-0">Dashboard</h4>
-        <div class="text-muted small">Position as at {{ now()->format('d M Y') }}</div>
+        <div class="text-muted small">Position as at {{ $cachedAt->format('d M Y, H:i') }} · <a href="{{ route('dashboard', ['refresh' => 1]) }}" class="text-decoration-none"><i class="bi bi-arrow-clockwise"></i> Refresh</a></div>
     </div>
 </div>
 

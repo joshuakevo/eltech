@@ -28,6 +28,17 @@ class DashboardController extends Controller
             return app(\App\Http\Controllers\Auth\LoginController::class)->redirectForUser(auth()->user());
         }
 
+        // Organisation-wide figures (same for every user): worked out once and kept for 5 minutes; "Refresh" recalculates
+        if (request()->boolean('refresh')) {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_data');
+        }
+        $data = \Illuminate\Support\Facades\Cache::remember('dashboard_data', 300, fn () => $this->build($insights) + ['cachedAt' => now()]);
+
+        return view('dashboard', $data);
+    }
+
+    private function build(\App\Services\DashboardInsightsService $insights): array
+    {
         // ── Member deposits: each savings product, fixed deposits, group deposits ──
         $palette = ['#2563eb', '#0d9488', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569'];
         $deposits = collect();
@@ -148,12 +159,12 @@ class DashboardController extends Controller
             'feesUnpaid' => $other['fees_unpaid'],
         ]);
 
-        return view('dashboard', compact(
+        return compact(
             'deposits', 'totalDeposits', 'standard', 'lockedUp', 'standardPrincipal',
             'overdueCount', 'maturedCount', 'pendingLoans',
             'loanToDeposit', 'activeMembers', 'borrowers', 'savers',
             'month', 'trend', 'other', 'upcomingMaturities',
             'par', 'luRecovery', 'segments', 'recommendations'
-        ));
+        );
     }
 }

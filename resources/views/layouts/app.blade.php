@@ -225,6 +225,19 @@
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
+@php
+    // Sidebar / topbar badges: one cached lookup a minute instead of several queries on every page
+    $fdAlertDays = (int) \App\Models\SystemSetting::get('fd_alert_days', 7);
+    $navCounts = \Illuminate\Support\Facades\Cache::remember('nav_counts', 60, fn () => [
+        'pending_loans' => \App\Models\Loan::where('status', 'pending')->count(),
+        'lockups'       => \App\Models\LoanLockup::where('status', 'pending')->count(),
+        'fd_alerts'     => \App\Models\FixedDeposit::with('client:id,name')->where('status', 'active')
+            ->whereDate('maturity_date', '<=', today()->addDays($fdAlertDays))->orderBy('maturity_date')->get(),
+    ]);
+    $fdAlerts = $navCounts['fd_alerts'];
+    $fdDue    = $fdAlerts->filter(fn ($f) => $f->maturity_date->lte(today()));
+    $fdSoon   = $fdAlerts->filter(fn ($f) => $f->maturity_date->gt(today()));
+@endphp
 {{-- SIDEBAR --}}
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -345,7 +358,7 @@
             @can('view loans')
             <a href="{{ route('loans.index') }}" class="nav-link-item {{ request()->routeIs('loans.*') ? 'active' : '' }}">
                 <i class="bi bi-cash-stack"></i> Loans
-                @php $pendingLoans = \App\Models\Loan::where('status','pending')->count(); @endphp
+                @php $pendingLoans = $navCounts['pending_loans']; @endphp
                 @if($pendingLoans > 0)
                     <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $pendingLoans }}</span>
                 @endif
@@ -356,7 +369,7 @@
                 <i class="bi bi-calendar2-check"></i> Run Loans
             </a>
             @endcan
-            @php $lockupWaiting = \Illuminate\Support\Facades\Schema::hasTable('loan_lockups') ? \App\Models\LoanLockup::where('status', 'pending')->count() : 0; @endphp
+            @php $lockupWaiting = $navCounts['lockups']; @endphp
             @if(auth()->user()->can('initiate loan lockup') || auth()->user()->hasAnyRole(array_keys(app(\App\Services\LoanLockupService::class)->approverRoles())) || $lockupWaiting)
             @can('view loans')
             <a href="{{ route('loans.lockups.index') }}" class="nav-link-item {{ request()->routeIs('loans.lockups.*') ? 'active' : '' }}">
@@ -378,9 +391,9 @@
             <i class="bi bi-safe-fill"></i> Fixed Deposits
             @can('view fixed-deposits')
                 @php
-                    $fdMenuDays = (int) \App\Models\SystemSetting::get('fd_alert_days', 7);
-                    $fdDueCount = \App\Models\FixedDeposit::where('status','active')->whereDate('maturity_date','<=',today())->count();
-                    $fdSoonCount = \App\Models\FixedDeposit::where('status','active')->whereDate('maturity_date','>',today())->whereDate('maturity_date','<=',today()->addDays($fdMenuDays))->count();
+                    $fdMenuDays = $fdAlertDays;
+                    $fdDueCount = $fdDue->count();
+                    $fdSoonCount = $fdSoon->count();
                 @endphp
                 @if($fdDueCount + $fdSoonCount > 0)<span class="badge {{ $fdDueCount ? 'bg-danger' : 'bg-warning text-dark' }} rounded-pill ms-auto me-1" style="font-size:.62rem" title="{{ $fdDueCount }} matured · {{ $fdSoonCount }} maturing within {{ $fdMenuDays }} days">{{ $fdDueCount + $fdSoonCount }}</span>@endif
             @endcan
@@ -395,7 +408,7 @@
             @can('view fixed-deposits')
             <a href="{{ route('fixed-deposits.index') }}" class="nav-link-item {{ request()->routeIs('fixed-deposits.*') ? 'active' : '' }}">
                 <i class="bi bi-safe-fill"></i> Fixed Deposits
-                @php $maturedFDs = \App\Models\FixedDeposit::where('status','active')->where('maturity_date','<=',now()->toDateString())->count(); @endphp
+                @php $maturedFDs = $fdDue->count(); @endphp
                 @if($maturedFDs > 0)
                     <span class="badge bg-warning text-dark ms-auto rounded-pill" style="font-size:.62rem">{{ $maturedFDs }}</span>
                 @endif
@@ -613,14 +626,7 @@
             </span>
         @endif
         @can('view fixed-deposits')
-        @php
-            // Alert a week before maturity (setting fd_alert_days, default 7) and keep alerting once matured
-            $fdAlertDays = (int) \App\Models\SystemSetting::get('fd_alert_days', 7);
-            $fdAlerts = \App\Models\FixedDeposit::with('client:id,name')->where('status', 'active')
-                ->whereDate('maturity_date', '<=', today()->addDays($fdAlertDays))->orderBy('maturity_date')->get();
-            $fdDue  = $fdAlerts->filter(fn ($f) => $f->maturity_date->lte(today()));
-            $fdSoon = $fdAlerts->filter(fn ($f) => $f->maturity_date->gt(today()));
-        @endphp
+        {{-- Alert a week before maturity (setting fd_alert_days, default 7) and keep alerting once matured — $fdAlerts from the cached lookup above --}}
         <div class="dropdown">
             <button class="btn btn-light position-relative border-0 px-2" data-bs-toggle="dropdown" title="Fixed deposit alerts" style="background:#f9fafb">
                 <i class="bi bi-bell{{ $fdAlerts->count() ? '-fill ' . ($fdDue->count() ? 'text-danger' : 'text-warning') : '' }}" style="font-size:1.05rem"></i>
@@ -806,5 +812,6 @@ function initTomSelect(el) {
 }
 </script>
 @include('partials.install-app')
+@include('partials.nav-speed')
 </body>
 </html>

@@ -10,6 +10,13 @@ class FixedDeposit extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /** Sidebar badges (layouts/app) are cached for a minute — refresh them when this changes. */
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('nav_counts'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('nav_counts'));
+    }
+
     protected $fillable = [
         'client_id', 'savings_account_id', 'product_id', 'deposit_number', 'principal', 'interest_rate',
         'compounding', 'asset_class', 'certificate_reference',

@@ -27,6 +27,13 @@ class Loan extends Model
         return self::FREQUENCIES[$frequency ?: 'monthly'][0] ?? ucfirst((string) $frequency);
     }
 
+    /** Sidebar badges (layouts/app) are cached for a minute — refresh them when this changes. */
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('nav_counts'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('nav_counts'));
+    }
+
     protected $fillable = [
         'loan_number', 'client_id', 'loan_product_id', 'principal', 'interest_rate',
         'interest_method', 'repayment_frequency', 'term_months', 'disbursement_date', 'maturity_date',
