@@ -266,7 +266,7 @@
             $loansGroupActive      = request()->routeIs('loan-products.*', 'loans.*', 'loan-provisions.*');
             $fdGroupActive         = request()->routeIs('fd-products.*', 'fixed-deposits.*');
             $hrGroupActive         = request()->routeIs('employees.*', 'payroll.*');
-            $accountingGroupActive = request()->routeIs('accounts.*', 'transactions.*', 'periods.*', 'savings-interest.*');
+            $accountingGroupActive = request()->routeIs('accounts.*', 'transactions.*', 'periods.*', 'savings-interest.*', 'segments.*');
         @endphp
 
         @canany(['view clients', 'manage shares', 'view groups'])
@@ -455,6 +455,11 @@
             @can('manage financial periods')
             <a href="{{ route('periods.index') }}" class="nav-link-item {{ request()->routeIs('periods.*') ? 'active' : '' }}">
                 <i class="bi bi-calendar2-check"></i> Financial Periods
+            </a>
+            @endcan
+            @can('view transactions')
+            <a href="{{ route('segments.check') }}" class="nav-link-item {{ request()->routeIs('segments.*') ? 'active' : '' }}">
+                <i class="bi bi-tags"></i> Segment Check
             </a>
             @endcan
             @can('run savings interest')

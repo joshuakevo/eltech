@@ -37,7 +37,7 @@
             @forelse($accounts as $account)
                 <tr>
                     <td class="ps-3 font-monospace fw-semibold">{{ $account->account_code }}</td>
-                    <td>{{ $account->account_name }}</td>
+                    <td>{{ $account->account_name }}@if($account->segment)<span class="badge bg-info-subtle text-info ms-1" title="Default segment"><i class="bi bi-tags me-1"></i>{{ $account->segment->name }}</span>@endif</td>
                     <td>
                         @php
                             $tc = match($account->account_type) {

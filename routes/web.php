@@ -545,6 +545,10 @@ Route::middleware('auth')->group(function () {
     });
 
     // ── Savings Interest Tiers ──────────────────────────────────────────
+    // Accounting → Segment Check (journal lines that count under no segment) + tagging lines to a segment
+    Route::get('segment-check', [\App\Http\Controllers\SegmentCheckController::class, 'index'])->name('segments.check')->middleware('permission:view transactions');
+    Route::post('segment-check/assign', [\App\Http\Controllers\SegmentCheckController::class, 'assign'])->name('segments.assign')->middleware('permission:create transactions');
+
     // Accounting → Running Interest (savings interest runs per product)
     Route::middleware('permission:run savings interest')->group(function () {
         Route::get('savings-interest', [\App\Http\Controllers\SavingsInterestController::class, 'index'])->name('savings-interest.index');

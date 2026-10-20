@@ -11,8 +11,14 @@ class Account extends Model
 
     protected $fillable = [
         'account_code', 'account_name', 'account_type', 'parent_id', 'is_active', 'is_payment_source',
-        'default_withdrawal_charge', 'default_institution_charge', 'description',
+        'default_withdrawal_charge', 'default_institution_charge', 'description', 'segment_id',
     ];
+
+    /** Default segment: lines on this account count under it when not tied to a member or tagged on the line. */
+    public function segment()
+    {
+        return $this->belongsTo(ClientSegment::class, 'segment_id');
+    }
 
     protected $casts = [
         'is_active'                   => 'boolean',

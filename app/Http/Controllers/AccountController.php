@@ -23,7 +23,8 @@ class AccountController extends Controller
     public function create()
     {
         $parents = Account::where('is_active', true)->orderBy('account_code')->get();
-        return view('accounts.create', compact('parents'));
+        $segments = \App\Models\ClientSegment::orderBy('name')->get();
+        return view('accounts.create', compact('parents', 'segments'));
     }
 
     public function store(Request $request)
@@ -33,6 +34,7 @@ class AccountController extends Controller
             'account_name'              => 'required|string|max:255',
             'account_type'              => 'required|in:asset,liability,equity,revenue,expense',
             'parent_id'                 => 'nullable|exists:accounts,id',
+            'segment_id'                => 'nullable|exists:client_segments,id',
             'description'               => 'nullable|string',
             'is_active'                   => 'boolean',
             'is_payment_source'           => 'boolean',
@@ -68,7 +70,8 @@ class AccountController extends Controller
     public function edit(Account $account)
     {
         $parents = Account::where('is_active', true)->where('id', '!=', $account->id)->orderBy('account_code')->get();
-        return view('accounts.edit', compact('account', 'parents'));
+        $segments = \App\Models\ClientSegment::orderBy('name')->get();
+        return view('accounts.edit', compact('account', 'parents', 'segments'));
     }
 
     public function update(Request $request, Account $account)
@@ -78,6 +81,7 @@ class AccountController extends Controller
             'account_name'              => 'required|string|max:255',
             'account_type'              => 'required|in:asset,liability,equity,revenue,expense',
             'parent_id'                 => 'nullable|exists:accounts,id',
+            'segment_id'                => 'nullable|exists:client_segments,id',
             'description'               => 'nullable|string',
             'is_active'                   => 'boolean',
             'is_payment_source'           => 'boolean',

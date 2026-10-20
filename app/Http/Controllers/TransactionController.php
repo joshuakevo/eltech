@@ -525,7 +525,13 @@ class TransactionController extends Controller
             }
         }
 
-        return view('transactions.show', compact('transaction', 'editBlockReason', 'linkedClient', 'editableGroupTransaction'));
+        // Segment each line counts under (member → line tag → account default)
+        $lineRows = $transaction->lines->map(fn ($l) => (object) ['account_id' => $l->account_id, 'client_id' => $l->client_id, 'segment_id' => $l->segment_id,
+            'transaction_id' => $transaction->id, 'module' => $transaction->module, 'module_id' => $transaction->module_id]);
+        $lineSegments = collect($this->accountingService->segmentsForLines($lineRows))->values()->all();
+        $segmentNames = \App\Models\ClientSegment::orderBy('name')->pluck('name', 'id');
+
+        return view('transactions.show', compact('transaction', 'editBlockReason', 'linkedClient', 'editableGroupTransaction', 'lineSegments', 'segmentNames'));
     }
 
     public function edit(Transaction $transaction)

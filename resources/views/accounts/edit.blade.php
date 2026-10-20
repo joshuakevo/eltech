@@ -43,6 +43,16 @@
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label fw-semibold">Segment <span class="text-muted fw-normal small">(optional)</span></label>
+                        <select name="segment_id" class="form-select">
+                            <option value="">— Not tied to a segment —</option>
+                            @foreach($segments as $sg)
+                                <option value="{{ $sg->id }}" @selected(old('segment_id', $account->segment_id ?? null) == $sg->id)>{{ $sg->name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="form-text">Postings to this account count under this segment in the segment reports when they aren't for a member and no segment was picked on the line.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label fw-semibold">Description</label>
                         <textarea name="description" class="form-control" rows="2">{{ old('description', $account->description) }}</textarea>
                     </div>

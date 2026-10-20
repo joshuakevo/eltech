@@ -219,12 +219,6 @@ class AccountingService
      */
     protected function getSegmentAccountSums($accountIds, ?string $fromDate, ?string $toDate, int $segmentId): array
     {
-        // Client::pluck() reads straight from the query builder, bypassing Eloquent's
-        // model casts entirely -- depending on the DB driver these ids can come back
-        // as strings. Cast explicitly rather than relying on in_array()'s type
-        // coercion, since $clientId below is compared against this set.
-        $clientIds = Client::where('segment_id', $segmentId)->pluck('id')->map(fn($id) => (int) $id)->all();
-
         $query = TransactionLine::whereIn('transaction_lines.account_id', $accountIds)
             ->join('transactions', 'transaction_lines.transaction_id', '=', 'transactions.id')
             ->select(
@@ -245,17 +239,11 @@ class AccountingService
             return [];
         }
 
-        $clientByTransaction = $this->resolveClientIdsForTransactions($lines);
+        $segments = $this->segmentsForLines($lines);
 
         $sums = [];
-        foreach ($lines as $line) {
-            $clientId = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
-
-            if ($clientId) {
-                if (!in_array((int) $clientId, $clientIds, true)) {
-                    continue;
-                }
-            } elseif ((int) ($line->segment_id ?? 0) !== $segmentId) {
+        foreach ($lines as $i => $line) {
+            if ((int) ($segments[$i] ?? 0) !== $segmentId) {
                 continue;
             }
 
@@ -380,6 +368,31 @@ class AccountingService
      *
      * @return array<int, int|null> transaction_id => client_id
      */
+    /**
+     * The segment each line belongs to (keyed like $lines; null = no segment), in this order:
+     *  1. the member it is for — the line's client, or the client of the loan / savings account / deposit / share it posts to
+     *  2. the segment picked on the line (manual journals, or set afterwards on the journal page / Segment Check)
+     *  3. the account's default segment (Chart of Accounts)
+     * $lines need: account_id, client_id, segment_id, transaction_id, module, module_id.
+     */
+    public function segmentsForLines($lines): array
+    {
+        $clientByTransaction = $this->resolveClientIdsForTransactions($lines);
+        $clientIds = $lines->map(fn ($l) => $l->client_id ?: ($clientByTransaction[$l->transaction_id] ?? null))->filter()->unique()->values();
+        $clientSegment  = $clientIds->isEmpty() ? collect() : Client::withTrashed()->whereIn('id', $clientIds)->pluck('segment_id', 'id');
+        $accountSegment = Account::whereIn('id', $lines->pluck('account_id')->unique())->whereNotNull('segment_id')->pluck('segment_id', 'id');
+
+        $out = [];
+        foreach ($lines as $i => $line) {
+            $clientId = $line->client_id ?: ($clientByTransaction[$line->transaction_id] ?? null);
+            $out[$i] = $clientId
+                ? ($clientSegment[$clientId] ?? null)
+                : ($line->segment_id ?: ($accountSegment[$line->account_id] ?? null));
+            $out[$i] = $out[$i] ? (int) $out[$i] : null;
+        }
+        return $out;
+    }
+
     protected function resolveClientIdsForTransactions($lines): array
     {
         $byModule = $lines->unique('transaction_id')->groupBy('module');

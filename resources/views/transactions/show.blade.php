@@ -82,7 +82,7 @@
                         <tr><th>Account</th><th>Description</th><th>Tag</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr>
                     </thead>
                     <tbody>
-                    @foreach($transaction->lines as $line)
+                    @foreach($transaction->lines as $li => $line)
                         <tr>
                             <td>
                                 <a href="{{ route('accounts.show', $line->account) }}" class="text-decoration-none">
@@ -96,6 +96,8 @@
                                     <span class="badge bg-primary-subtle text-primary"><i class="bi bi-person me-1"></i>{{ $line->client->name }}</span>
                                 @elseif($line->segment)
                                     <span class="badge bg-info-subtle text-info"><i class="bi bi-tags me-1"></i>{{ $line->segment->name }}</span>
+                                @elseif(!empty($lineSegments[$li]))
+                                    <span class="badge bg-light text-secondary border" title="{{ $line->account->segment_id ? 'From the account\'s segment' : 'From the member it posts for' }}"><i class="bi bi-tags me-1"></i>{{ $segmentNames[$lineSegments[$li]] ?? '' }}</span>
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
@@ -113,6 +115,22 @@
                         </tr>
                     </tfoot>
                 </table>
+                @can('create transactions')
+                @php $taggable = $transaction->lines->whereNull('client_id'); @endphp
+                @if($taggable->isNotEmpty())
+                <form method="POST" action="{{ route('segments.assign') }}" class="d-flex flex-wrap align-items-center gap-2 mb-3 small">
+                    @csrf
+                    @foreach($taggable as $tl)<input type="hidden" name="line_ids[]" value="{{ $tl->id }}">@endforeach
+                    <span class="text-muted"><i class="bi bi-tags me-1"></i>Segment for the lines not tied to a member:</span>
+                    <select name="segment_id" class="form-select form-select-sm" style="width:auto">
+                        <option value="">— none —</option>
+                        @foreach($segmentNames as $sid => $sname)<option value="{{ $sid }}" @selected($taggable->pluck('segment_id')->filter()->unique()->count() === 1 && (int) $taggable->pluck('segment_id')->filter()->first() === (int) $sid)>{{ $sname }}</option>@endforeach
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary">Save segment</button>
+                    <span class="text-muted">Changes only the reporting tag — amounts and members' balances are untouched.</span>
+                </form>
+                @endif
+                @endcan
                 @if($transaction->isBalanced())
                     <div class="alert alert-success py-2 mb-0"><i class="bi bi-check-circle me-2"></i>Transaction is balanced.</div>
                 @else
