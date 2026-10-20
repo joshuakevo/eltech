@@ -28,14 +28,6 @@ class LoanPenaltyBackfillService
         $today = $today ?? now()->toDateString();
         $transfer = LoanInterestService::TRANSFER_DATE;
         $tiers = LoanPenaltyTier::orderBy('min_installment')->get();
-        $resolve = function (float $amount) use ($tiers) {
-            foreach ($tiers as $t) {
-                if ($amount >= $t->min_installment && ($t->max_installment === null || $amount <= $t->max_installment)) {
-                    return (float) $t->penalty_amount;
-                }
-            }
-            return 0.0;
-        };
 
         $loans = Loan::with(['client', 'product', 'schedules' => fn ($q) => $q->reorder()->orderBy('installment_no'), 'repayments' => fn ($q) => $q->reorder()->orderBy('payment_date')->orderBy('id')])
             ->whereIn('status', ['active', 'defaulted', 'closed'])
@@ -109,7 +101,7 @@ class LoanPenaltyBackfillService
                 if ($completed !== null && $completed <= $due) {
                     continue;   // fully paid by its due date
                 }
-                $penalty = $resolve((float) $s->total_due);
+                $penalty = app(LoanService::class)->penaltyFor($loan, $s, $tiers);   // tier of the installment at disbursement
                 if ($penalty <= 0) {
                     continue;
                 }

@@ -611,10 +611,22 @@ class LoanService
         foreach ($schedules as $schedule) {
             $breakdown[$schedule->id] = (float) $schedule->penalty_charged > 0
                 ? round((float) $schedule->penalty_charged - (float) $schedule->penalty_paid, 2)
-                : $this->resolvePenaltyTierAmount((float) $schedule->total_due, $tiers);
+                : $this->penaltyFor($loan, $schedule, $tiers);
         }
 
         return $breakdown;
+    }
+
+    /**
+     * Penalty for one missed installment: the tier of the loan's installment **at disbursement** (from its terms —
+     * principal, rate, method, term), not the installment's current amount, which grows when arrears roll into it.
+     * Falls back to the installment's own amount when the terms give none.
+     */
+    public function penaltyFor(Loan $loan, $schedule, ?\Illuminate\Support\Collection $tiers = null): float
+    {
+        $tiers ??= \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
+        $base = app(LoanCorrectionService::class)->termsInstallment($loan) ?? (float) $schedule->total_due;
+        return $this->resolvePenaltyTierAmount((float) $base, $tiers);
     }
 
     /**
@@ -637,7 +649,7 @@ class LoanService
             ->where('penalty_charged', '<=', 0)
             ->get();
         foreach ($rows as $s) {
-            $amount = $this->resolvePenaltyTierAmount((float) $s->total_due, $tiers);
+            $amount = $this->penaltyFor($loan, $s, $tiers);
             if ($amount <= 0) {
                 continue;
             }
