@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
 class AiAssistantService
 {
     public const PRESETS = [
-        'groq'       => ['label' => 'Groq (free tier)',           'base' => 'https://api.groq.com/openai/v1',                              'model' => 'llama-3.3-70b-versatile'],
+        'groq'       => ['label' => 'Groq (free tier)',           'base' => 'https://api.groq.com/openai/v1',                              'model' => 'openai/gpt-oss-120b'],
         'gemini'     => ['label' => 'Google Gemini (free tier)',  'base' => 'https://generativelanguage.googleapis.com/v1beta/openai',     'model' => 'gemini-2.5-flash'],
         'openrouter' => ['label' => 'OpenRouter (free models)',   'base' => 'https://openrouter.ai/api/v1',                                'model' => 'meta-llama/llama-3.3-70b-instruct:free'],
         'custom'     => ['label' => 'Other (OpenAI-compatible)',  'base' => '',                                                            'model' => ''],
@@ -143,6 +143,7 @@ class AiAssistantService
             . "Amounts are in {$currency}. Members are identified by their member number (e.g. MK00163); always refer to a member by that number exactly as given, never guess a name. "
             . "'This week' means Monday to today, 'this month' the 1st to today, unless the user says otherwise. "
             . "Keep answers short and practical: a one-line summary, then the key figures or a short list (at most 10 items), and a brief recommendation when useful. "
+            . "Never do your own arithmetic or percentages when a tool gives 'change', 'change_pct' or 'direction' — quote those exactly (direction 'down' means it fell). "
             . "Use plain text with short bullet points ('- '). If the tools can't answer something, say so.";
     }
 
@@ -236,11 +237,33 @@ class AiAssistantService
             'active_accounts' => SavingsAccount::where('product_id', $p->id)->where('status', 'active')->count(),
             'total_balance_now' => round((float) SavingsAccount::where('product_id', $p->id)->where('status', 'active')->sum('balance')),
         ])->all();
+        $now  = $this->flows($from, $to);
+        $prev = $this->flows($prevFrom->toDateString(), $prevTo->toDateString());
+        // Comparisons are worked out here so the model never does the arithmetic
+        $compare = function (float $cur, float $old) {
+            $pct = $old != 0.0 ? round(($cur - $old) / abs($old) * 100) : null;
+            return ['this_period' => round($cur), 'previous_period' => round($old), 'change' => round($cur - $old),
+                'direction' => $cur > $old ? 'up' : ($cur < $old ? 'down' : 'same'), 'change_pct' => $pct];
+        };
+        $products = collect(array_keys($now + $prev))->sort()->values();
+        $byProduct = $products->mapWithKeys(fn ($p) => [$p => [
+            'deposits'    => $compare((float) ($now[$p]['deposit']['amount'] ?? 0), (float) ($prev[$p]['deposit']['amount'] ?? 0)),
+            'withdrawals' => $compare((float) ($now[$p]['withdrawal']['amount'] ?? 0), (float) ($prev[$p]['withdrawal']['amount'] ?? 0)),
+            'net_flow'    => $compare((float) (($now[$p]['deposit']['amount'] ?? 0) + ($now[$p]['interest']['amount'] ?? 0) - ($now[$p]['withdrawal']['amount'] ?? 0)),
+                (float) (($prev[$p]['deposit']['amount'] ?? 0) + ($prev[$p]['interest']['amount'] ?? 0) - ($prev[$p]['withdrawal']['amount'] ?? 0))),
+            'transactions_this_period' => ['deposits' => $now[$p]['deposit']['count'] ?? 0, 'withdrawals' => $now[$p]['withdrawal']['count'] ?? 0],
+        ]])->all();
+        $sum = fn ($set, $type) => (float) collect($set)->sum(fn ($x) => $x[$type]['amount'] ?? 0);
         return [
-            'period' => compact('from', 'to'), 'flows' => $this->flows($from, $to),
-            'previous_period' => ['from' => $prevFrom->toDateString(), 'to' => $prevTo->toDateString(), 'flows' => $this->flows($prevFrom->toDateString(), $prevTo->toDateString())],
+            'period' => compact('from', 'to'), 'previous_period' => ['from' => $prevFrom->toDateString(), 'to' => $prevTo->toDateString()],
+            'all_products' => [
+                'deposits' => $compare($sum($now, 'deposit'), $sum($prev, 'deposit')),
+                'withdrawals' => $compare($sum($now, 'withdrawal'), $sum($prev, 'withdrawal')),
+                'net_flow' => $compare($sum($now, 'deposit') + $sum($now, 'interest') - $sum($now, 'withdrawal'), $sum($prev, 'deposit') + $sum($prev, 'interest') - $sum($prev, 'withdrawal')),
+            ],
+            'by_product' => $byProduct,
             'balances_by_product' => $balances,
-            'note' => 'Opening balances from the old system are excluded from flows.',
+            'note' => 'Changes and percentages are already calculated (use them as given). Opening balances from the old system are excluded.',
         ];
     }
 
