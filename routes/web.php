@@ -524,6 +524,9 @@ Route::middleware('auth')->group(function () {
         Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo');
         Route::delete('settings/logo', [SettingsController::class, 'removeLogo'])->name('settings.logo.remove');
         Route::post('settings/reconcile', [SettingsController::class, 'reconcile'])->name('settings.reconcile');
+        Route::get('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'settings'])->name('settings.ai');
+        Route::post('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'saveSettings'])->name('settings.ai.save');
+        Route::post('settings/ai/test', [\App\Http\Controllers\AiAssistantController::class, 'test'])->name('settings.ai.test');
         Route::get('settings/loan-interest-methods', [SettingsController::class, 'loanInterestMethods'])->name('settings.loan-interest-methods');
         Route::post('settings/loan-interest-methods', [SettingsController::class, 'applyLoanInterestMethods'])->name('settings.loan-interest-methods.apply');
         Route::post('settings/loan-interest-methods/move', [SettingsController::class, 'moveLoansToMatchingProduct'])->name('settings.loan-interest-methods.move');
@@ -547,6 +550,10 @@ Route::middleware('auth')->group(function () {
     });
 
     // ── Savings Interest Tiers ──────────────────────────────────────────
+    // Floating AI assistant (read-only questions about the data)
+    Route::post('ai/chat', [\App\Http\Controllers\AiAssistantController::class, 'chat'])->name('ai.chat')->middleware(['permission:use ai assistant', 'throttle:20,1']);
+    Route::post('ai/reset', [\App\Http\Controllers\AiAssistantController::class, 'reset'])->name('ai.reset')->middleware('permission:use ai assistant');
+
     // Accounting → Segment Check (journal lines that count under no segment) + tagging lines to a segment
     Route::get('segment-check', [\App\Http\Controllers\SegmentCheckController::class, 'index'])->name('segments.check')->middleware('permission:view transactions');
     Route::post('segment-check/assign', [\App\Http\Controllers\SegmentCheckController::class, 'assign'])->name('segments.assign')->middleware('permission:create transactions');

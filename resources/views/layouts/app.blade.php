@@ -864,5 +864,10 @@ function initTomSelect(el) {
 </script>
 @include('partials.install-app')
 @include('partials.nav-speed')
+@auth
+@if(auth()->user()->can('use ai assistant') && \App\Models\SystemSetting::get('ai_enabled', 0))
+    @include('partials.ai-assistant')
+@endif
+@endauth
 </body>
 </html>

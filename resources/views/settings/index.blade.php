@@ -171,6 +171,20 @@ $groupIcons = [
     </div>
 </div>
 
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-stars text-primary"></i>
+        <span>AI Assistant</span>
+        @if(\App\Models\SystemSetting::get('ai_enabled', 0))<span class="badge bg-success-subtle text-success ms-1">On</span>@else<span class="badge bg-secondary-subtle text-secondary ms-1">Off</span>@endif
+    </div>
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <p class="text-muted small mb-0 flex-grow-1" style="max-width:720px">
+            The floating <strong>Ask</strong> button: staff ask about savings, loans, deposits and members in plain language. Read-only; uses a free AI provider (e.g. Groq) — set the provider and key here.
+        </p>
+        <a href="{{ route('settings.ai') }}" class="btn btn-outline-primary"><i class="bi bi-gear me-2"></i>Set up</a>
+    </div>
+</div>
+
 {{-- Locked-Up Loans Data Check --}}
 <div class="card mt-4 border-warning">
     <div class="card-header d-flex align-items-center gap-2">
