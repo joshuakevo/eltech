@@ -20,7 +20,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Clients
             'view clients', 'create clients', 'edit clients', 'delete clients',
-            'run savings interest', 'use ai assistant',
+            'run savings interest', 'use ai assistant', 'send emails',
 
             // Accounts / Chart of Accounts
             'view accounts', 'create accounts', 'edit accounts',

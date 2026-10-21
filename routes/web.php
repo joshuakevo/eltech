@@ -459,6 +459,13 @@ Route::middleware('auth')->group(function () {
         Route::post('send-sms/subscribe', [SmsSubscriptionController::class, 'store'])->name('send-sms.subscribe');
     });
 
+    // ── Send Email (CRM) ───────────────────────────────────────────────
+    Route::middleware('permission:send emails')->group(function () {
+        Route::get('send-email', [\App\Http\Controllers\SendEmailController::class, 'index'])->name('send-email.index');
+        Route::post('send-email', [\App\Http\Controllers\SendEmailController::class, 'send'])->name('send-email.send');
+        Route::get('send-email/reports', [\App\Http\Controllers\SendEmailController::class, 'reports'])->name('send-email.reports');
+    });
+
     // ── Mobile Money (admin approval of client-initiated withdrawals) ──
     Route::prefix('mobile-money')->name('mobile-money.')->middleware('permission:approve mobile money')->group(function () {
         Route::get('/', [MobileMoneyController::class, 'index'])->name('index');

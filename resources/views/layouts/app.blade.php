@@ -303,9 +303,9 @@
         @endcanany
 
         @php
-            $crmGroupActive = request()->routeIs('crm.*', 'send-statements.*', 'send-sms.*');
+            $crmGroupActive = request()->routeIs('crm.*', 'send-statements.*', 'send-sms.*', 'send-email.*');
         @endphp
-        @canany(['view crm', 'send statements', 'send sms'])
+        @canany(['view crm', 'send statements', 'send sms', 'send emails'])
         <button class="nav-collapse-btn" data-bs-toggle="collapse" data-bs-target="#crmMenu" aria-expanded="{{ $crmGroupActive ? 'true' : 'false' }}">
             <i class="bi bi-person-lines-fill"></i> CRM
             <i class="bi bi-chevron-right chevron"></i>
@@ -327,6 +327,11 @@
             @can('send sms')
             <a href="{{ route('send-sms.index') }}" class="nav-link-item {{ request()->routeIs('send-sms.*') ? 'active' : '' }}">
                 <i class="bi bi-chat-dots-fill"></i> Send SMS
+            </a>
+            @endcan
+            @can('send emails')
+            <a href="{{ route('send-email.index') }}" class="nav-link-item {{ request()->routeIs('send-email.*') ? 'active' : '' }}">
+                <i class="bi bi-envelope-paper"></i> Send Email
             </a>
             @endcan
         </div>
