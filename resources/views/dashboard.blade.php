@@ -43,6 +43,22 @@
     </div>
 </div>
 
+{{-- Lock-ups waiting for this user's approval --}}
+@php
+    $lkService = app(\App\Services\LoanLockupService::class);
+    $myLk = auth()->user()->hasAnyRole(array_keys($lkService->approverRoles()))
+        ? \App\Models\LoanLockup::with('loan:id,loan_number,client_id', 'loan.client:id,name')->where('status', 'pending')->get()
+            ->filter(fn ($l) => $lkService->rolesUserCanApprove($l, auth()->user()))->values()
+        : collect();
+@endphp
+@if($myLk->isNotEmpty())
+<div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2 py-2">
+    <span><i class="bi bi-shield-lock-fill me-1"></i><strong>{{ $myLk->count() }} loan lock-up{{ $myLk->count() > 1 ? 's' : '' }} waiting for your approval:</strong>
+        {{ $myLk->take(3)->map(fn ($l) => ($l->loan->client->name ?? '') . ' (' . ($l->loan->loan_number ?? '') . ')')->implode(', ') }}{{ $myLk->count() > 3 ? ' and ' . ($myLk->count() - 3) . ' more' : '' }}</span>
+    <a href="{{ route('loans.lockups.index') }}" class="btn btn-sm btn-danger">Review &amp; approve</a>
+</div>
+@endif
+
 {{-- ── Headline ─────────────────────────────────────────────────────────── --}}
 <div class="row g-3 mb-3">
     <div class="col-6 col-xl-3">

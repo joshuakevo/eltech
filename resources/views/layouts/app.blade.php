@@ -231,10 +231,17 @@
     $navCounts = \Illuminate\Support\Facades\Cache::remember('nav_counts', 60, fn () => [
         'pending_loans' => \App\Models\Loan::where('status', 'pending')->count(),
         'lockups'       => \App\Models\LoanLockup::where('status', 'pending')->count(),
+        'lockup_list'   => \App\Models\LoanLockup::with(['loan:id,loan_number,client_id,outstanding_principal', 'loan.client:id,name,client_number', 'requester:id,name'])
+            ->where('status', 'pending')->orderBy('created_at')->get(),
         'fd_alerts'     => \App\Models\FixedDeposit::with('client:id,name')->where('status', 'active')
             ->whereDate('maturity_date', '<=', today()->addDays($fdAlertDays))->orderBy('maturity_date')->get(),
     ]);
     $fdAlerts = $navCounts['fd_alerts'];
+    // Lock-up requests waiting for THIS user's approval (an approver role not yet approved, not the requester, not approved by them already)
+    $lockupService = app(\App\Services\LoanLockupService::class);
+    $myLockups = auth()->user()->hasAnyRole(array_keys($lockupService->approverRoles()))
+        ? collect($navCounts['lockup_list'] ?? [])->filter(fn ($l) => $lockupService->rolesUserCanApprove($l, auth()->user()))->values()
+        : collect();
     $fdDue    = $fdAlerts->filter(fn ($f) => $f->maturity_date->lte(today()));
     $fdSoon   = $fdAlerts->filter(fn ($f) => $f->maturity_date->gt(today()));
 @endphp
@@ -379,7 +386,8 @@
             @can('view loans')
             <a href="{{ route('loans.lockups.index') }}" class="nav-link-item {{ request()->routeIs('loans.lockups.*') ? 'active' : '' }}">
                 <i class="bi bi-lock"></i> Lock-up Approvals
-                @if($lockupWaiting)<span class="badge bg-warning text-dark rounded-pill ms-auto" style="font-size:.62rem">{{ $lockupWaiting }}</span>@endif
+                @if($myLockups->count())<span class="badge bg-danger rounded-pill ms-auto" style="font-size:.62rem" title="Waiting for your approval">{{ $myLockups->count() }}</span>
+                @elseif($lockupWaiting)<span class="badge bg-warning text-dark rounded-pill ms-auto" style="font-size:.62rem">{{ $lockupWaiting }}</span>@endif
             </a>
             @endcan
             @endif
@@ -635,6 +643,39 @@
                 <i class="bi bi-diagram-3 me-1"></i>{{ auth()->user()->branch->name }}
             </span>
         @endif
+        @if($myLockups->count())
+        <div class="dropdown">
+            <button class="btn btn-light position-relative border-0 px-2" data-bs-toggle="dropdown" title="Lock-ups waiting for your approval" style="background:#fef2f2">
+                <i class="bi bi-shield-lock-fill text-danger" style="font-size:1.05rem"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.6rem">{{ $myLockups->count() }}</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow p-0" style="width:360px;font-size:.82rem">
+                <div class="px-3 py-2 border-bottom fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-shield-lock-fill me-1 text-danger"></i>Waiting for your approval</span>
+                    <span class="badge bg-danger rounded-pill">{{ $myLockups->count() }}</span>
+                </div>
+                <div style="max-height:360px;overflow:auto">
+                @foreach($myLockups->take(10) as $lk)
+                    <div class="px-3 py-2 border-bottom">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ route('loans.show', $lk->loan_id) }}" class="fw-semibold text-decoration-none text-truncate me-2">{{ $lk->loan->client->name ?? '—' }}</a>
+                            <span class="fw-semibold">{{ number_format($lk->loan->outstanding_principal ?? 0, 0) }}</span>
+                        </div>
+                        <div class="text-muted" style="font-size:.72rem">
+                            <span class="font-monospace">{{ $lk->loan->loan_number ?? '' }}</span> · lock up from {{ $lk->lockup_date?->format('d M Y') }} · asked by {{ $lk->requester->name ?? '—' }} {{ $lk->created_at?->diffForHumans() }}
+                        </div>
+                        @if($lk->reason)<div class="text-muted fst-italic text-truncate" style="font-size:.72rem" title="{{ $lk->reason }}">“{{ $lk->reason }}”</div>@endif
+                        <div class="d-flex gap-2 mt-1">
+                            <form method="POST" action="{{ route('loans.lockups.approve', $lk) }}" onsubmit="return confirm('Approve locking up {{ $lk->loan->loan_number ?? '' }}?')">@csrf<button class="btn btn-success btn-sm py-0">Approve</button></form>
+                            <a href="{{ route('loans.lockups.index') }}" class="btn btn-outline-secondary btn-sm py-0">Review</a>
+                        </div>
+                    </div>
+                @endforeach
+                </div>
+                <a href="{{ route('loans.lockups.index') }}" class="d-block text-center py-2 small text-decoration-none border-top">All lock-up approvals</a>
+            </div>
+        </div>
+        @endif
         @can('view fixed-deposits')
         {{-- Alert a week before maturity (setting fd_alert_days, default 7) and keep alerting once matured — $fdAlerts from the cached lookup above --}}
         <div class="dropdown">
@@ -751,7 +792,7 @@
         $tabs = $tabs->take(4);
     }
 @endphp
-@include('partials.bottom-nav', ['items' => $tabs->all(), 'menu' => 'toggleSidebar()', 'menuBadge' => $lockupWaiting ?? 0])
+@include('partials.bottom-nav', ['items' => $tabs->all(), 'menu' => 'toggleSidebar()', 'menuBadge' => $myLockups->count()])
 @endauth
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
