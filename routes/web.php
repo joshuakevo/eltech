@@ -340,6 +340,11 @@ Route::middleware('auth')->group(function () {
 
     // ── Savings Accounts ──────────────────────────────────────────────
     // NOTE: savings/create must come before savings/{saving}
+    Route::middleware('role:super_admin')->group(function () {
+        Route::get('savings/opening-check', [\App\Http\Controllers\OpeningBalanceCheckController::class, 'index'])->name('savings.opening-check');
+        Route::post('savings/opening-check/link', [\App\Http\Controllers\OpeningBalanceCheckController::class, 'link'])->name('savings.opening-check.link');
+        Route::delete('savings/opening-check/{row}', [\App\Http\Controllers\OpeningBalanceCheckController::class, 'remove'])->name('savings.opening-check.remove');
+    });
     Route::get('savings/import-opening', [\App\Http\Controllers\SavingsOpeningImportController::class, 'form'])->name('savings.import-opening')->middleware('permission:create savings');
     Route::get('savings/import-opening/template', [\App\Http\Controllers\SavingsOpeningImportController::class, 'template'])->name('savings.import-opening.template')->middleware('permission:create savings');
     Route::post('savings/import-opening/preview', [\App\Http\Controllers\SavingsOpeningImportController::class, 'preview'])->name('savings.import-opening.preview')->middleware('permission:create savings');
