@@ -595,13 +595,14 @@ class LoanService
     {
         $asOf = $asOfDate ?? now()->toDateString();
         $schedules = $loan->schedules()
-            ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)   // installments up to the transfer belong to the old system
             ->where(fn ($q) => $q
-                // charged (late / short) and not fully paid — owed even after the installment itself is paid
+                // charged (late / short / overdue periods) and not fully paid — owed even after the installment itself is paid
                 ->where(fn ($c) => $c->whereColumn('penalty_charged', '>', 'penalty_paid')
                     ->where(fn ($d) => $d->whereNull('penalty_charged_on')->orWhere('penalty_charged_on', '<=', $asOf)))
-                // overdue and unpaid, not charged yet (charged when the late payment / run comes)
-                ->orWhere(fn ($u) => $u->where('penalty_charged', '<=', 0)->where('due_date', '<', $asOf)->where('status', '!=', 'paid')))
+                // overdue and unpaid, not charged yet (charged when the late payment / run comes);
+                // installments up to the transfer belong to the old system
+                ->orWhere(fn ($u) => $u->where('penalty_charged', '<=', 0)->where('due_date', '<', $asOf)->where('status', '!=', 'paid')
+                    ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)))
             ->get();
         if ($schedules->isEmpty()) return [];
 
@@ -627,6 +628,46 @@ class LoanService
         $tiers ??= \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
         $base = app(LoanCorrectionService::class)->termsInstallment($loan) ?? (float) $schedule->total_due;
         return $this->resolvePenaltyTierAmount((float) $base, $tiers);
+    }
+
+    /**
+     * A loan past maturity and still owing principal is penalised once per period (each due day after maturity —
+     * the days Run Loans charges the overdue interest) when less than one installment (the installment at
+     * disbursement) was paid in principal + interest since the previous period. The amount is the disbursement
+     * installment's tier and is added to the last installment's penalty_charged (paid last like any penalty); the
+     * period is logged in loan_overdue_penalties (one per loan + date). Returns the row, or null when not charged.
+     */
+    public function chargeOverduePeriodPenalty(Loan $loan, string $periodDate, string $previousDate, string $source = 'run'): ?\App\Models\LoanOverduePenalty
+    {
+        if ($loan->isLockedUp() || (float) $loan->outstanding_principal <= 0.01 || $periodDate <= LoanInterestService::TRANSFER_DATE) {
+            return null;
+        }
+        $last = $loan->schedules()->reorder()->orderByDesc('installment_no')->first();
+        if (!$last || $last->due_date->toDateString() >= $periodDate) {
+            return null;   // not past maturity yet — normal installment penalties apply
+        }
+        if (\App\Models\LoanOverduePenalty::where('loan_id', $loan->id)->whereDate('period_date', $periodDate)->exists()) {
+            return null;
+        }
+        $installment = app(LoanCorrectionService::class)->termsInstallment($loan) ?? (float) $last->total_due;
+        $paid = (float) $loan->repayments()->reorder()->where('payment_date', '>', $previousDate)->where('payment_date', '<=', $periodDate)
+            ->sum(DB::raw('principal_paid + interest_paid'));
+        if ($paid + 0.01 >= $installment) {
+            return null;   // paid at least an installment in the period
+        }
+        $amount = $this->penaltyFor($loan, $last);
+        if ($amount <= 0) {
+            return null;
+        }
+        $last->update([
+            'penalty_charged'    => round((float) $last->penalty_charged + $amount, 2),
+            'penalty_charged_on' => $last->penalty_charged_on ?: $periodDate,
+            'penalty_source'     => $last->penalty_source ?: 'overdue',
+        ]);
+        return \App\Models\LoanOverduePenalty::create([
+            'loan_id' => $loan->id, 'loan_schedule_id' => $last->id, 'period_date' => $periodDate, 'amount' => $amount,
+            'paid_in_period' => round($paid, 2), 'source' => $source, 'created_by' => auth()->id(),
+        ]);
     }
 
     /**

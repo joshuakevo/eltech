@@ -384,6 +384,11 @@ class LoanInterestService
                     $loan->refresh();
                     $step['recovery'] = $this->recover($loan, $date->copy());
                     $loan->refresh();
+                    // Past maturity: less than an installment paid since the last due day → this period's penalty
+                    $overduePenalty = $this->loans->chargeOverduePeriodPenalty($loan, $date->toDateString(), $step['from'], 'run');
+                    $step['penalty'] = $overduePenalty->amount ?? 0;
+                    $step['overdue_penalty_id'] = $overduePenalty->id ?? null;
+                    $loan->refresh();
                     $this->record($batch, $loan, $date, $date, $snapshot, $step);
                     $snapshot = $this->snapshot($loan);
                     $result['steps'][] = $step;
@@ -577,6 +582,7 @@ class LoanInterestService
             'savings_transaction_id' => $rec['savings_tx_id'] ?? null, 'withdrawal_transaction_id' => $rec['withdrawal_tx'] ?? null,
             'savings_account_id' => $rec['account_id'] ?? null,
             'accrued' => $step['accrued'] ?? 0, 'recovered' => $rec['recovered'] ?? 0,
+            'overdue_penalty_id' => $step['overdue_penalty_id'] ?? null,
             'snapshot' => $snapshot, 'created_by' => auth()->id(),
         ]);
     }
@@ -626,6 +632,9 @@ class LoanInterestService
             }
             if ($run->interest_charge_id) {
                 LoanInterestCharge::whereKey($run->interest_charge_id)->delete();
+            }
+            if ($run->overdue_penalty_id) {
+                \App\Models\LoanOverduePenalty::whereKey($run->overdue_penalty_id)->delete();   // schedule penalty restored from the snapshot below
             }
 
             $loan->schedules()->delete();

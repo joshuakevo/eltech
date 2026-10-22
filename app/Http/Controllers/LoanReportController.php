@@ -90,12 +90,23 @@ class LoanReportController extends Controller
             $dueDates  = $scheduleRows->map(fn ($s) => $s->due_date);
             $incurred  = 0.0;
             $missedInRange = 0;
+            // Overdue-period penalties (loans past maturity) are dated by their own period
+            $overdue = \App\Models\LoanOverduePenalty::where('loan_id', $loan->id)->get();
+            $lastId = $overdue->isNotEmpty() ? (int) $loan->schedules()->reorder()->orderByDesc('installment_no')->value('id') : 0;
             foreach ($breakdown as $id => $amount) {
-                // Incurred in the period: charged in it, or (not charged yet) fell due in it
+                // Incurred in the period: charged in it, or (not charged yet) fell due in it; overdue-period amounts
+                // sit on the last installment and are dated by their own period below
                 $s = $scheduleRows[$id];
+                $own = (int) $id === $lastId ? max(0, $amount - (float) $overdue->sum('amount')) : $amount;
                 $when = $s->penalty_charged_on ? \Carbon\Carbon::parse($s->penalty_charged_on)->toDateString() : \Carbon\Carbon::parse($s->due_date)->toDateString();
-                if ($when >= $from && $when <= $to) {
-                    $incurred += $amount;
+                if ($own > 0 && $when >= $from && $when <= $to) {
+                    $incurred += $own;
+                    $missedInRange++;
+                }
+            }
+            foreach ($overdue as $op) {
+                if ($op->period_date->toDateString() >= $from && $op->period_date->toDateString() <= $to) {
+                    $incurred += $op->amount;
                     $missedInRange++;
                 }
             }

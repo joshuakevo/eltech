@@ -24,6 +24,35 @@
 </div>
 @endif
 
+@if($overdue->isNotEmpty())
+<div class="card mb-3 border-danger">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span><strong>{{ $overdue->count() }}</strong> overdue-period penalties on <strong>{{ $overdue->pluck('loan.id')->unique()->count() }}</strong> loans past maturity · <strong>{{ number_format($overdue->sum('penalty'), $dp) }}</strong></span>
+        @if($plan->isEmpty())
+        <form method="POST" action="{{ route('loans.penalty-backfill.apply') }}" onsubmit="return confirm('Charge {{ $overdue->count() }} overdue-period penalties ({{ number_format($overdue->sum('penalty'), $dp) }})?')">@csrf<button class="btn btn-sm btn-danger"><i class="bi bi-check2-circle me-1"></i>Charge these penalties</button></form>
+        @endif
+    </div>
+    <div class="card-body py-2 small text-muted">Loans that ran past maturity still owing: one penalty for each monthly due day after maturity where less than one installment was paid since the previous one.</div>
+    <div class="table-responsive" style="max-height:50vh">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th class="ps-3">Loan</th><th>Member</th><th>Due day</th><th class="text-end">Paid in period</th><th class="text-end">Installment</th><th class="text-end pe-3">Penalty</th></tr></thead>
+            <tbody class="small">
+            @foreach($overdue as $r)
+                <tr>
+                    <td class="ps-3 font-monospace"><a href="{{ route('loans.show', $r->loan) }}">{{ $r->loan->loan_number }}</a> <span class="text-muted">matured {{ $r->loan->schedules->first()->due_date->format('d M Y') }}</span></td>
+                    <td>{{ $r->loan->client->name ?? '' }} <span class="text-muted">{{ $r->loan->client->client_number ?? '' }}</span></td>
+                    <td class="text-nowrap">{{ \Carbon\Carbon::parse($r->period)->format('d M Y') }}</td>
+                    <td class="text-end">{{ number_format($r->paid, $dp) }}</td>
+                    <td class="text-end">{{ number_format($r->installment, $dp) }}</td>
+                    <td class="text-end pe-3 fw-semibold">{{ number_format($r->penalty, $dp) }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
 <div class="card">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <span><strong>{{ $plan->count() }}</strong> penalties on <strong>{{ $plan->pluck('loan.id')->unique()->count() }}</strong> loans · <strong>{{ number_format($plan->sum('penalty'), $dp) }}</strong></span>

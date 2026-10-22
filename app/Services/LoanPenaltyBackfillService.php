@@ -116,9 +116,66 @@ class LoanPenaltyBackfillService
         return $rows->sortBy(fn ($r) => $r->loan->loan_number . '|' . str_pad($r->schedule->installment_no, 4, '0', STR_PAD_LEFT))->values();
     }
 
+    /**
+     * Overdue periods since the transfer on loans past maturity and still owing: each due day after maturity
+     * (maturity + n × the repayment step) up to yesterday, where less than one installment was paid in the period
+     * and no overdue penalty is recorded yet. Today's period is left to Run Loans.
+     */
+    public function planOverdue(?string $today = null): Collection
+    {
+        $today = $today ?? now()->toDateString();
+        $transfer = LoanInterestService::TRANSFER_DATE;
+        $svc = app(LoanService::class);
+        $terms = app(LoanCorrectionService::class);
+        $rows = collect();
+        $loans = Loan::with(['client', 'product', 'schedules' => fn ($q) => $q->reorder()->orderByDesc('installment_no')])
+            ->whereIn('status', ['active', 'defaulted'])->where('outstanding_principal', '>', 0.01)->get()
+            ->reject(fn ($l) => $l->isLockedUp());
+        foreach ($loans as $loan) {
+            $last = $loan->schedules->first();
+            if (!$last || $last->due_date->toDateString() >= $today) {
+                continue;
+            }
+            $step = Loan::stepMonthsFor($loan->repayment_frequency ?? 'monthly');
+            $installment = $terms->termsInstallment($loan) ?? (float) $last->total_due;
+            $done = \App\Models\LoanOverduePenalty::where('loan_id', $loan->id)->pluck('period_date')->map(fn ($d) => Carbon::parse($d)->toDateString())->all();
+            $prev = $last->due_date->copy();
+            for ($k = 1; $k <= 600; $k++) {
+                $period = $last->due_date->copy()->addMonthsNoOverflow($k * $step);
+                if ($period->toDateString() >= $today) {
+                    break;
+                }
+                if ($period->toDateString() > $transfer && !in_array($period->toDateString(), $done, true)) {
+                    $paid = (float) $loan->repayments()->reorder()->where('payment_date', '>', $prev->toDateString())->where('payment_date', '<=', $period->toDateString())
+                        ->sum(DB::raw('principal_paid + interest_paid'));
+                    if ($paid + 0.01 < $installment) {
+                        $rows->push((object) [
+                            'loan' => $loan, 'period' => $period->toDateString(), 'previous' => $prev->toDateString(),
+                            'paid' => round($paid, 2), 'installment' => round($installment, 2), 'penalty' => $svc->penaltyFor($loan, $last),
+                        ]);
+                    }
+                }
+                $prev = $period;
+            }
+        }
+        return $rows->sortBy(fn ($r) => $r->loan->loan_number . '|' . $r->period)->values();
+    }
+
     public function apply(): array
     {
         $plan = $this->plan();
+        $overdue = $this->planOverdue();
+        $svc = app(LoanService::class);
+        $overdueCharged = 0.0;
+        DB::transaction(function () use ($overdue, $svc, &$overdueCharged) {
+            foreach ($overdue as $r) {
+                $row = $svc->chargeOverduePeriodPenalty($r->loan->fresh(), $r->period, $r->previous, 'backfill');
+                $overdueCharged += $row->amount ?? 0;
+            }
+            if ($overdue->isNotEmpty()) {
+                AuditLog::record('penalty_backfill_overdue', 'Charged ' . $overdue->count() . ' overdue-period penalties (' . number_format($overdueCharged, 2) . ') on loans past maturity, 31/07/2026 → ' . now()->toDateString(), 'loans');
+            }
+        });
         DB::transaction(function () use ($plan) {
             foreach ($plan as $r) {
                 LoanSchedule::whereKey($r->schedule->id)->where('penalty_charged', '<=', 0)->update([
@@ -129,21 +186,45 @@ class LoanPenaltyBackfillService
             }
             AuditLog::record('penalty_backfill', 'Charged ' . $plan->count() . ' penalties (' . number_format($plan->sum('penalty'), 2) . ') on installments paid late / short / unpaid between 31/07/2026 and ' . now()->toDateString() . ' across ' . $plan->pluck('loan.id')->unique()->count() . ' loans', 'loans');
         });
-        return ['count' => $plan->count(), 'total' => $plan->sum('penalty'), 'loans' => $plan->pluck('loan.id')->unique()->count()];
+        return ['count' => $plan->count() + $overdue->count(), 'total' => $plan->sum('penalty') + $overdueCharged,
+            'loans' => $plan->pluck('loan.id')->merge($overdue->pluck('loan.id'))->unique()->count()];
     }
 
     /** Removes back-filled charges that haven't been paid (paid ones are kept). */
     public function undo(): int
     {
-        $n = LoanSchedule::where('penalty_source', 'backfill')->where('penalty_paid', '<=', 0)
-            ->update(['penalty_charged' => 0, 'penalty_charged_on' => null, 'penalty_source' => null]);
-        AuditLog::record('penalty_backfill_undone', "Removed {$n} back-filled penalties (unpaid ones)", 'loans');
-        return $n;
+        return DB::transaction(function () {
+            $n = 0;
+            // Overdue-period catch-up: take each amount back off the last installment (never below what was paid)
+            foreach (\App\Models\LoanOverduePenalty::where('source', 'backfill')->get() as $op) {
+                // always on the loan's last installment (schedule ids change when Run Loans undo restores a snapshot)
+                $s = LoanSchedule::where('loan_id', $op->loan_id)->orderByDesc('installment_no')->first();
+                if ($s && (float) $s->penalty_charged - $op->amount + 0.005 < (float) $s->penalty_paid) {
+                    continue;   // already paid — keep it
+                }
+                if ($s) {
+                    $s->update(['penalty_charged' => round(max(0, (float) $s->penalty_charged - $op->amount), 2)]);
+                }
+                $op->delete();
+                $n++;
+            }
+            // Installment catch-up (unpaid ones); an overdue-period amount still on the same installment stays
+            foreach (LoanSchedule::where('penalty_source', 'backfill')->where('penalty_paid', '<=', 0)->get() as $s) {
+                $isLast = (int) LoanSchedule::where('loan_id', $s->loan_id)->max('installment_no') === (int) $s->installment_no;
+                $keep = $isLast ? (float) \App\Models\LoanOverduePenalty::where('loan_id', $s->loan_id)->sum('amount') : 0.0;
+                $s->update(['penalty_charged' => $keep, 'penalty_charged_on' => $keep > 0 ? $s->penalty_charged_on : null, 'penalty_source' => $keep > 0 ? 'overdue' : null]);
+                $n++;
+            }
+            AuditLog::record('penalty_backfill_undone', "Removed {$n} back-filled penalties (unpaid ones)", 'loans');
+            return $n;
+        });
     }
 
     public function appliedCount(): array
     {
         $q = LoanSchedule::where('penalty_source', 'backfill');
-        return ['count' => (clone $q)->count(), 'total' => (float) (clone $q)->sum('penalty_charged'), 'paid' => (float) (clone $q)->sum('penalty_paid')];
+        $o = \App\Models\LoanOverduePenalty::where('source', 'backfill');
+        return ['count' => (clone $q)->count() + (clone $o)->count(), 'total' => (float) (clone $q)->sum('penalty_charged') + (float) (clone $o)->sum('amount'),
+            'paid' => (float) (clone $q)->sum('penalty_paid')];
     }
 }

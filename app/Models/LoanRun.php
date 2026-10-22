@@ -5,7 +5,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LoanRun extends Model {
     protected $fillable = [
-        'batch', 'loan_id', 'run_date', 'due_date', 'loan_schedule_id', 'interest_charge_id', 'repayment_id',
+        'batch', 'loan_id', 'run_date', 'due_date', 'loan_schedule_id', 'interest_charge_id', 'overdue_penalty_id', 'repayment_id',
         'repayment_transaction_id', 'savings_transaction_id', 'withdrawal_transaction_id', 'savings_account_id',
         'accrued', 'recovered', 'snapshot', 'status', 'created_by', 'undone_at', 'undone_by',
     ];

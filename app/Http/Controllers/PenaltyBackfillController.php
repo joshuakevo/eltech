@@ -13,16 +13,20 @@ class PenaltyBackfillController extends Controller
     public function index(Request $request)
     {
         $plan = $this->backfill->plan();
+        $overdue = $this->backfill->planOverdue();
         if ($request->get('format') === 'excel') {
             $rows = [['Loan #', 'Member', 'Member #', 'Installment', 'Due', 'Paid off', 'Penalty']];
             foreach ($plan as $r) {
                 $rows[] = [$r->loan->loan_number, $r->loan->client->name ?? '', $r->loan->client->client_number ?? '', $r->schedule->installment_no, $r->due, $r->completed ?? 'still unpaid', $r->penalty];
             }
-            $rows[] = ['', '', '', '', '', 'TOTAL', $plan->sum('penalty')];
+            foreach ($overdue as $r) {
+                $rows[] = [$r->loan->loan_number, $r->loan->client->name ?? '', $r->loan->client->client_number ?? '', 'past maturity', $r->period, 'paid ' . $r->paid . ' of ' . $r->installment . ' since ' . $r->previous, $r->penalty];
+            }
+            $rows[] = ['', '', '', '', '', 'TOTAL', $plan->sum('penalty') + $overdue->sum('penalty')];
             return $this->csvDownload($rows, 'penalty-backfill-preview-' . now()->toDateString());
         }
         $applied = $this->backfill->appliedCount();
-        return view('loans.penalty-backfill', compact('plan', 'applied'));
+        return view('loans.penalty-backfill', compact('plan', 'overdue', 'applied'));
     }
 
     public function apply()
