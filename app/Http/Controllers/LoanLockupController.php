@@ -27,16 +27,13 @@ class LoanLockupController extends Controller
             'lockup_date' => ['required', 'date', 'before_or_equal:today'],
             'reason'      => 'required|string|max:500',
         ]);
-        $lockup = $this->lockups->request($loan, $data['lockup_date'], $data['reason']);
+        $this->lockups->request($loan, $data['lockup_date'], $data['reason']);
+        // No automatic email: a super admin sends reminders from the Lock-up Approvals page when needed
 
-        // Email the approvers straight away (a mail problem never blocks the request)
-        $mail = $this->lockups->remindApprovers($lockup, true);
-        $note = $mail['sent'] ? ' Emailed ' . implode(', ', $mail['sent']) . '.' : ' (No approver could be emailed — use "Remind approvers" on the Lock-up Approvals page.)';
-
-        return redirect()->route('loans.show', $loan)->with('success', 'Lock-up request sent for approval by a ' . implode(' and a ', $this->lockups->approverRoles()) . '.' . $note);
+        return redirect()->route('loans.show', $loan)->with('success', 'Lock-up request sent for approval by a ' . implode(' and a ', $this->lockups->approverRoles()) . '.');
     }
 
-    /** Emails the approvers still to act on one request — at most once every 30 minutes. */
+    /** Emails the approvers still to act on one request — super admin only, at most once every 30 minutes. */
     public function remind(LoanLockup $lockup)
     {
         if ($lockup->status !== 'pending') {

@@ -299,8 +299,8 @@ Route::middleware('auth')->group(function () {
         ->name('loans.guarantors.destroy')->middleware('permission:create loans');
     // Four-eyes lock-up: request (initiate loan lockup) → approvals (approver roles, checked in the service)
     Route::post('loans/{loan}/lockup', [\App\Http\Controllers\LoanLockupController::class, 'store'])->name('loans.lockups.store')->middleware('permission:initiate loan lockup');
-    Route::post('loan-lockups/remind-all', [\App\Http\Controllers\LoanLockupController::class, 'remindAll'])->name('loans.lockups.remind-all')->middleware('permission:view loans');
-    Route::post('loan-lockups/{lockup}/remind', [\App\Http\Controllers\LoanLockupController::class, 'remind'])->name('loans.lockups.remind')->middleware('permission:view loans');
+    Route::post('loan-lockups/remind-all', [\App\Http\Controllers\LoanLockupController::class, 'remindAll'])->name('loans.lockups.remind-all')->middleware('role:super_admin');
+    Route::post('loan-lockups/{lockup}/remind', [\App\Http\Controllers\LoanLockupController::class, 'remind'])->name('loans.lockups.remind')->middleware('role:super_admin');
     Route::post('loan-lockups/{lockup}/approve', [\App\Http\Controllers\LoanLockupController::class, 'approve'])->name('loans.lockups.approve')->middleware('permission:view loans');
     Route::post('loan-lockups/{lockup}/reject', [\App\Http\Controllers\LoanLockupController::class, 'reject'])->name('loans.lockups.reject')->middleware('permission:view loans');
     Route::post('loan-lockups/{lockup}/undo', [\App\Http\Controllers\LoanLockupController::class, 'undo'])->name('loans.lockups.undo')->middleware('permission:correct loans');

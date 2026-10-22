@@ -14,7 +14,7 @@
 <div class="card mb-4">
     <div class="card-header bg-white fw-semibold d-flex flex-wrap gap-2 justify-content-between align-items-center">
         <span>Waiting for approval <span class="badge bg-warning text-dark ms-1">{{ $pending->count() }}</span></span>
-        @if($pending->count())
+        @if($pending->count() && auth()->user()->hasRole('super_admin'))
         <form method="POST" action="{{ route('loans.lockups.remind-all') }}" onsubmit="return confirm('Email every approver who still has to approve a request?')">@csrf
             <button class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope-exclamation me-1"></i>Remind all approvers</button>
         </form>
@@ -41,7 +41,7 @@
                         @if($mine)
                             <form method="POST" action="{{ route('loans.lockups.approve', $p) }}" class="d-inline" onsubmit="return confirm('Approve locking up {{ $p->loan->loan_number }}?')">@csrf<button class="btn btn-success btn-sm">Approve</button></form>
                         @endif
-                        @php $toRemind = $svc->approversFor($p); @endphp
+                        @php $toRemind = auth()->user()->hasRole('super_admin') ? $svc->approversFor($p) : collect(); @endphp
                         @if($toRemind->isNotEmpty())
                             <form method="POST" action="{{ route('loans.lockups.remind', $p) }}" class="d-inline">@csrf
                                 <button class="btn btn-outline-primary btn-sm" title="Email {{ $toRemind->pluck('name')->implode(', ') }}"><i class="bi bi-envelope"></i> Remind</button>
