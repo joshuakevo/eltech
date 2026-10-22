@@ -15,14 +15,14 @@ class LoanLockup extends Model
     }
 
     protected $fillable = [
-        'loan_id', 'lockup_date', 'reason', 'status', 'requested_by', 'approvals', 'rejected_by', 'rejected_at',
+        'loan_id', 'lockup_date', 'reason', 'status', 'requested_by', 'approvals', 'reminded_at', 'rejected_by', 'rejected_at',
         'rejection_reason', 'executed_at', 'principal', 'interest', 'from_product_id', 'transaction_id', 'snapshot',
         'reversed_at', 'reversed_by',
     ];
 
     protected $casts = [
         'lockup_date' => 'date', 'approvals' => 'array', 'snapshot' => 'array',
-        'rejected_at' => 'datetime', 'executed_at' => 'datetime', 'reversed_at' => 'datetime',
+        'rejected_at' => 'datetime', 'executed_at' => 'datetime', 'reminded_at' => 'datetime', 'reversed_at' => 'datetime',
         'principal' => 'float', 'interest' => 'float',
     ];
 

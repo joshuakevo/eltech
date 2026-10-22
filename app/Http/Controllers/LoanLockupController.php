@@ -27,9 +27,55 @@ class LoanLockupController extends Controller
             'lockup_date' => ['required', 'date', 'before_or_equal:today'],
             'reason'      => 'required|string|max:500',
         ]);
-        $this->lockups->request($loan, $data['lockup_date'], $data['reason']);
+        $lockup = $this->lockups->request($loan, $data['lockup_date'], $data['reason']);
 
-        return redirect()->route('loans.show', $loan)->with('success', 'Lock-up request sent for approval by a ' . implode(' and a ', $this->lockups->approverRoles()) . '.');
+        // Email the approvers straight away (a mail problem never blocks the request)
+        $mail = $this->lockups->remindApprovers($lockup, true);
+        $note = $mail['sent'] ? ' Emailed ' . implode(', ', $mail['sent']) . '.' : ' (No approver could be emailed — use "Remind approvers" on the Lock-up Approvals page.)';
+
+        return redirect()->route('loans.show', $loan)->with('success', 'Lock-up request sent for approval by a ' . implode(' and a ', $this->lockups->approverRoles()) . '.' . $note);
+    }
+
+    /** Emails the approvers still to act on one request — at most once every 30 minutes. */
+    public function remind(LoanLockup $lockup)
+    {
+        if ($lockup->status !== 'pending') {
+            return back()->with('error', 'That request is no longer waiting for approval.');
+        }
+        if ($lockup->reminded_at && $lockup->reminded_at->gt(now()->subMinutes(30))) {
+            return back()->with('error', 'The approvers were emailed ' . $lockup->reminded_at->diffForHumans() . ' — you can remind them again after 30 minutes.');
+        }
+        $r = $this->lockups->remindApprovers($lockup);
+        return back()->with($r['failed'] && !$r['sent'] ? 'error' : 'success', $this->reminderMessage($lockup, $r));
+    }
+
+    /** Emails the approvers of every pending request that wasn't reminded in the last 30 minutes. */
+    public function remindAll()
+    {
+        $sent = 0;
+        $people = [];
+        $failed = [];
+        foreach (LoanLockup::where('status', 'pending')->get() as $lockup) {
+            if ($lockup->reminded_at && $lockup->reminded_at->gt(now()->subMinutes(30))) {
+                continue;
+            }
+            $r = $this->lockups->remindApprovers($lockup);
+            $sent += count($r['sent']);
+            $people = array_merge($people, $r['sent']);
+            $failed = array_merge($failed, $r['failed']);
+        }
+        if (!$sent && !$failed) {
+            return back()->with('error', 'Nothing to remind — no approver is waiting, or everyone was reminded in the last 30 minutes.');
+        }
+        return back()->with($failed && !$sent ? 'error' : 'success', "Sent {$sent} reminder email(s) to " . implode(', ', array_unique($people)) . '.' . ($failed ? ' Failed: ' . implode('; ', array_slice($failed, 0, 3)) : ''));
+    }
+
+    private function reminderMessage(LoanLockup $lockup, array $r): string
+    {
+        if (!$r['sent'] && !$r['failed']) {
+            return 'No approver to remind — everyone who can approve has done so, or they have no email address.';
+        }
+        return ($r['sent'] ? 'Reminder emailed to ' . implode(', ', $r['sent']) . " for {$lockup->loan->loan_number}." : '') . ($r['failed'] ? ' Failed: ' . implode('; ', $r['failed']) : '');
     }
 
     public function approve(Request $request, LoanLockup $lockup)

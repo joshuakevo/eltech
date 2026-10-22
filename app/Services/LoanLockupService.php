@@ -44,6 +44,42 @@ class LoanLockupService
         return LoanLockup::where('loan_id', $loan->id)->where('status', 'pending')->latest('id')->first();
     }
 
+    /** Active users with an email who can still approve this request (role not yet approved, not the requester, not already approved). */
+    public function approversFor(LoanLockup $lockup): \Illuminate\Support\Collection
+    {
+        if ($lockup->status !== 'pending') {
+            return collect();
+        }
+        return User::role(array_keys($this->approverRoles()))->where('is_active', true)->whereNotNull('email')->get()
+            ->filter(fn ($u) => $this->rolesUserCanApprove($lockup, $u))->values();
+    }
+
+    /**
+     * Emails every approver who still has to act on this request. Returns ['sent' => names, 'failed' => messages].
+     * A failure to send never blocks anything — it is reported back.
+     */
+    public function remindApprovers(LoanLockup $lockup, bool $isNew = false): array
+    {
+        $lockup->loadMissing('loan.client', 'loan.product', 'requester');
+        $roles = $this->approverRoles();
+        $sent = [];
+        $failed = [];
+        foreach ($this->approversFor($lockup) as $user) {
+            $label = collect($this->rolesUserCanApprove($lockup, $user))->map(fn ($r) => $roles[$r] ?? $r)->implode(' / ');
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\LockupApprovalMail($lockup, $user, $label, $isNew));
+                $sent[] = $user->name;
+            } catch (\Throwable $e) {
+                $failed[] = "{$user->name}: " . mb_strimwidth($e->getMessage(), 0, 120, '…');
+            }
+        }
+        if ($sent) {
+            $lockup->forceFill(['reminded_at' => now()])->save();
+            \App\Models\AuditLog::record('loan_lockup_reminder', ($isNew ? 'Asked ' : 'Reminded ') . implode(', ', $sent) . " to approve the lock-up of {$lockup->loan->loan_number}", 'loans');
+        }
+        return compact('sent', 'failed');
+    }
+
     /** Approver roles this user can still approve for on this request. */
     public function rolesUserCanApprove(LoanLockup $lockup, User $user): array
     {

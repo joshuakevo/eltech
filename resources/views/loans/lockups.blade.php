@@ -12,7 +12,14 @@
 </div>
 
 <div class="card mb-4">
-    <div class="card-header bg-white fw-semibold">Waiting for approval <span class="badge bg-warning text-dark ms-1">{{ $pending->count() }}</span></div>
+    <div class="card-header bg-white fw-semibold d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <span>Waiting for approval <span class="badge bg-warning text-dark ms-1">{{ $pending->count() }}</span></span>
+        @if($pending->count())
+        <form method="POST" action="{{ route('loans.lockups.remind-all') }}" onsubmit="return confirm('Email every approver who still has to approve a request?')">@csrf
+            <button class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope-exclamation me-1"></i>Remind all approvers</button>
+        </form>
+        @endif
+    </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
             <thead class="table-light"><tr><th class="ps-3">Loan</th><th>Member</th><th class="text-end">Owing</th><th>Lock-up date</th><th>Requested</th><th>Reason</th>@foreach($roles as $label)<th>{{ $label }}</th>@endforeach<th class="pe-3"></th></tr></thead>
@@ -34,7 +41,14 @@
                         @if($mine)
                             <form method="POST" action="{{ route('loans.lockups.approve', $p) }}" class="d-inline" onsubmit="return confirm('Approve locking up {{ $p->loan->loan_number }}?')">@csrf<button class="btn btn-success btn-sm">Approve</button></form>
                         @endif
+                        @php $toRemind = $svc->approversFor($p); @endphp
+                        @if($toRemind->isNotEmpty())
+                            <form method="POST" action="{{ route('loans.lockups.remind', $p) }}" class="d-inline">@csrf
+                                <button class="btn btn-outline-primary btn-sm" title="Email {{ $toRemind->pluck('name')->implode(', ') }}"><i class="bi bi-envelope"></i> Remind</button>
+                            </form>
+                        @endif
                         <a href="{{ route('loans.show', $p->loan) }}" class="btn btn-outline-secondary btn-sm">Open</a>
+                        @if($p->reminded_at)<div class="text-muted" style="font-size:.7rem">emailed {{ $p->reminded_at->diffForHumans() }}</div>@endif
                     </td>
                 </tr>
             @empty
