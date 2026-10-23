@@ -24,7 +24,8 @@ class LoanCalculatorController extends Controller
             'mode'        => $request->get('mode', 'amount'),
             'principal'   => $request->filled('principal') ? (float) str_replace(',', '', $request->principal) : null,
             'installment' => $request->filled('installment') ? (float) str_replace(',', '', $request->installment) : null,
-            'rate'        => $request->filled('rate') ? (float) $request->rate : (float) ($product->interest_rate ?? 0),
+            // Rate is entered per month (e.g. 2.8); the schedule maths uses the annual rate (× 12)
+            'monthly'     => $request->filled('rate') ? (float) $request->rate : round((float) ($product->interest_rate ?? 0) / 12, 4),
             'method'      => $request->get('method') ?: ($product->interest_method ?? 'reducing'),
             'term'        => $request->filled('term') ? (int) $request->term : (int) ($product->term_months ?? 12),
             'frequency'   => $request->get('frequency') ?: ($product->repayment_frequency ?? 'monthly'),
@@ -33,6 +34,8 @@ class LoanCalculatorController extends Controller
             'ins_rate'    => $request->filled('ins_rate') ? (float) $request->ins_rate : 1.5,
             'app_fee'     => $request->filled('app_fee') ? (float) str_replace(',', '', $request->app_fee) : 0.0,
         ];
+
+        $in['rate'] = round($in['monthly'] * 12, 4);
 
         $result = null;
         $error  = null;
@@ -81,7 +84,7 @@ class LoanCalculatorController extends Controller
 
         if ($result && $request->get('format') === 'excel') {
             $out = [['Loan schedule (estimate)', $product->name ?? 'Custom terms'],
-                ['Principal', $in['principal'], 'Rate % p.a.', $in['rate'], 'Method', $in['method'], 'Term (months)', $in['term'], 'Frequency', $in['frequency']], [],
+                ['Principal', $in['principal'], 'Rate % per month', $in['monthly'], 'Rate % p.a.', $in['rate'], 'Method', $in['method'], 'Term (months)', $in['term'], 'Frequency', $in['frequency']], [],
                 ['#', 'Due date', 'Principal', 'Interest', 'Installment', 'Balance after']];
             foreach ($result['rows'] as $r) {
                 $out[] = [$r['installment_no'], $r['due_date'], $r['principal_due'], $r['interest_due'], $r['total_due'], $r['balance_after']];

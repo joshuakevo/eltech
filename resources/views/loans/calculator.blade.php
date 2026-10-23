@@ -32,7 +32,7 @@
                     <option value="">— Custom terms —</option>
                     @foreach($products as $p)
                         <option value="{{ $p->id }}" @selected(($product->id ?? null) == $p->id)
-                            data-rate="{{ $p->interest_rate + 0 }}" data-method="{{ $p->interest_method }}" data-term="{{ $p->term_months }}"
+                            data-rate="{{ round($p->interest_rate / 12, 4) + 0 }}" data-method="{{ $p->interest_method }}" data-term="{{ $p->term_months }}"
                             data-frequency="{{ $p->repayment_frequency ?? 'monthly' }}" data-min="{{ $p->min_amount }}" data-max="{{ $p->max_amount }}">{{ $p->name }}</option>
                     @endforeach
                 </select>
@@ -57,9 +57,9 @@
 
                 <div class="row g-2 mb-3">
                     <div class="col-6">
-                        <label class="form-label small fw-semibold mb-1">Rate % p.a.</label>
-                        <input type="number" name="rate" id="calcRate" class="form-control" min="0" step="0.01" value="{{ $in['rate'] + 0 }}">
-                        <div class="form-text" id="rateMonthly">≈ {{ round($in['rate'] / 12, 2) }}% per month</div>
+                        <label class="form-label small fw-semibold mb-1">Rate % per month</label>
+                        <input type="number" name="rate" id="calcRate" class="form-control" min="0" step="0.01" value="{{ $in['monthly'] + 0 }}" placeholder="e.g. 2.8">
+                        <div class="form-text" id="rateMonthly">= {{ round($in['rate'], 2) + 0 }}% per year</div>
                     </div>
                     <div class="col-6">
                         <label class="form-label small fw-semibold mb-1">Method</label>
@@ -115,7 +115,7 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                         <div>
                             <div class="fw-bold">{{ $product->name ?? 'Custom terms' }} — estimate</div>
-                            <div class="text-muted small">{{ number_format($in['principal'], $dp) }} at {{ $in['rate'] + 0 }}% p.a. {{ $in['method'] === 'flat' ? 'flat' : 'reducing balance' }}, {{ $in['term'] }} months, {{ strtolower(\App\Models\Loan::FREQUENCIES[$in['frequency']][0] ?? 'monthly') }} · disbursed {{ \Carbon\Carbon::parse($in['date'])->format('d M Y') }}, matures {{ $result['maturity']->format('d M Y') }}</div>
+                            <div class="text-muted small">{{ number_format($in['principal'], $dp) }} at {{ $in['monthly'] + 0 }}% per month ({{ round($in['rate'], 2) + 0 }}% p.a.) {{ $in['method'] === 'flat' ? 'flat' : 'reducing balance' }}, {{ $in['term'] }} months, {{ strtolower(\App\Models\Loan::FREQUENCIES[$in['frequency']][0] ?? 'monthly') }} · disbursed {{ \Carbon\Carbon::parse($in['date'])->format('d M Y') }}, matures {{ $result['maturity']->format('d M Y') }}</div>
                             @if($in['mode'] === 'afford')<div class="small text-success mt-1"><i class="bi bi-check-circle me-1"></i>Largest loan whose installment fits {{ number_format($in['installment'], $dp) }}</div>@endif
                             @if($result['outOfRange'])<div class="small text-danger mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Outside this product's amount range ({{ number_format($product->min_amount ?? 0) }} – {{ $product->max_amount ? number_format($product->max_amount) : 'no limit' }})</div>@endif
                         </div>
@@ -192,7 +192,7 @@
     });
     rate.addEventListener('input', function () {
         const v = parseFloat(this.value) || 0;
-        document.getElementById('rateMonthly').textContent = '≈ ' + (v / 12).toFixed(2) + '% per month';
+        document.getElementById('rateMonthly').textContent = '= ' + (+(v * 12).toFixed(2)) + '% per year';
     });
 })();
 </script>
