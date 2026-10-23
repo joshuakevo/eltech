@@ -15,6 +15,9 @@
         <a href="{{ route('fixed-deposits.statement', $fixedDeposit) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-calendar3 me-1"></i>Monthly Statement (PDF)
         </a>
+        @can('mature fixed-deposits')
+        <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#fdRateModal"><i class="bi bi-percent me-1"></i>Correct rate</button>
+        @endcan
         <a href="{{ route('fixed-deposits.certificate', $fixedDeposit) }}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-file-earmark-text me-1"></i>{{ $isPlacement ? 'Placement Certificate' : 'FD Certificate' }} (PDF)
         </a>
@@ -127,4 +130,50 @@
         </table>
     </div>
 </div>
+@can('mature fixed-deposits')
+@php
+    $fdMonthly = $fixedDeposit->product && $fixedDeposit->product->isMonthlyRate();
+    $fdShownRate = $fdMonthly ? round($fixedDeposit->interest_rate / 12, 4) : (float) $fixedDeposit->interest_rate;
+@endphp
+<div class="modal fade" id="fdRateModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('fixed-deposits.correct-rate', $fixedDeposit) }}" class="modal-content">
+            @csrf
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="bi bi-percent me-1 text-warning"></i>Correct the interest rate — {{ $fixedDeposit->deposit_number }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body small">
+                <p class="text-muted">For a rate entered wrongly. Interest and maturity amount are recalculated ({{ $fixedDeposit->term_months }} months, {{ ($fixedDeposit->compounding ?? 'simple') === 'monthly' ? 'compounded monthly' : 'simple interest' }}).
+                    @if($fixedDeposit->status === 'closed') This deposit is already paid out, so the <strong>difference is paid into (or taken back from) the member's savings</strong> with a journal. @endif</p>
+                <div class="row g-2">
+                    <div class="col-6"><label class="form-label fw-semibold">Current rate</label><div class="form-control-plaintext">{{ $fdShownRate + 0 }}% {{ $fdMonthly ? 'per month' : 'p.a.' }}</div></div>
+                    <div class="col-6"><label class="form-label fw-semibold">Correct rate ({{ $fdMonthly ? '% per month' : '% p.a.' }})</label>
+                        <input type="number" name="rate" id="fdNewRate" step="0.0001" min="0.01" class="form-control" required></div>
+                </div>
+                <div class="mt-2 p-2 bg-light rounded" id="fdRatePreview">Interest now: <strong>{{ number_format($fixedDeposit->interest_amount, 0) }}</strong></div>
+                <label class="form-label fw-semibold mt-2">Reason</label>
+                <input type="text" name="reason" class="form-control" maxlength="255" placeholder="e.g. agreed rate was 14%" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-warning" onclick="return confirm('Correct the rate on {{ $fixedDeposit->deposit_number }}?')">Correct rate</button>
+            </div>
+        </form>
+    </div>
+</div>
+@push('scripts')
+<script>
+document.getElementById('fdNewRate')?.addEventListener('input', function () {
+    const P = {{ (float) $fixedDeposit->principal }}, n = {{ (int) $fixedDeposit->term_months }}, old = {{ (float) $fixedDeposit->interest_amount }};
+    const annual = (parseFloat(this.value) || 0) * ({{ $fdMonthly ? 12 : 1 }});
+    const interest = {{ ($fixedDeposit->compounding ?? 'simple') === 'monthly' ? 'true' : 'false' }} ? P * (Math.pow(1 + annual / 1200, n) - 1) : P * annual / 100 * n / 12;
+    const diff = interest - old, f = v => Math.round(v).toLocaleString();
+    document.getElementById('fdRatePreview').innerHTML = 'Interest: <strong>' + f(old) + ' → ' + f(interest) + '</strong> · maturity ' + f(P + interest)
+        + ' · difference <strong class="' + (diff >= 0 ? 'text-success' : 'text-danger') + '">' + (diff >= 0 ? '+' : '−') + f(Math.abs(diff)) + '</strong>'
+        + ({{ $fixedDeposit->status === 'closed' ? 'true' : 'false' }} ? (diff >= 0 ? ' paid into savings' : ' taken back from savings') : '');
+});
+</script>
+@endpush
+@endcan
 @endsection

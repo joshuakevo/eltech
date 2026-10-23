@@ -268,4 +268,21 @@ class FixedDepositController extends Controller
         $pdf = Pdf::loadView('pdf.fd-monthly-statement', compact('fixedDeposit', 'schedule'))->setPaper('a4', 'portrait');
         return $pdf->download("statement-{$fixedDeposit->deposit_number}.pdf");
     }
+
+    /** Correct a wrongly entered interest rate (figures; plus the difference to savings when already paid out). */
+    public function correctRate(Request $request, FixedDeposit $fixedDeposit)
+    {
+        $data = $request->validate(['rate' => 'required|numeric|min:0.01|max:200', 'reason' => 'required|string|max:255']);
+        $annual = $fixedDeposit->product ? $fixedDeposit->product->toAnnualRate((float) $data['rate']) : (float) $data['rate'];
+        try {
+            $r = app(\App\Services\FixedDepositService::class)->correctRate($fixedDeposit, $annual, $data['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        $msg = 'Rate corrected: interest ' . number_format($r['old_interest'], 0) . ' → ' . number_format($r['new_interest'], 0) . '.';
+        if ($r['paid_to']) {
+            $msg .= ' ' . number_format(abs($r['difference']), 0) . ($r['difference'] > 0 ? ' paid into ' : ' taken back from ') . $r['paid_to'] . '.';
+        }
+        return back()->with('success', $msg);
+    }
 }

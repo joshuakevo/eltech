@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Account;
+
 use App\Models\FixedDeposit;
 use App\Models\FixedDepositProduct;
 use App\Models\SavingsAccount;
@@ -229,6 +231,84 @@ class FixedDepositService
             if (Carbon::parse($date)->gte($deposit->maturity_date)) {
                 $deposit->update(['status' => 'matured']);
             }
+        });
+    }
+
+    /**
+     * Corrects a deposit's interest rate (entered wrongly). Interest and maturity amount are recalculated with the
+     * deposit's own term and compounding. Running/matured deposits: figures only. Already paid out to savings
+     * (status closed, "Fixed deposit maturity - …" row on the member's statement): the difference is paid into
+     * (or taken back from) that savings account — DR interest expense (product's, fallback 5002) / CR savings
+     * liability, or the reverse — dated the payout date when that period is open, else today; with its own
+     * statement row linked to the journal (module savings, so reversing the journal removes the row).
+     * Returns ['old_rate', 'new_rate', 'old_interest', 'new_interest', 'difference', 'paid_to' (account|null)].
+     */
+    public function correctRate(FixedDeposit $deposit, float $annualRate, string $reason): array
+    {
+        if ($annualRate <= 0 || $annualRate > 200) {
+            throw new \InvalidArgumentException('Enter a valid interest rate.');
+        }
+        $old = ['rate' => (float) $deposit->interest_rate, 'interest' => (float) $deposit->interest_amount, 'maturity' => (float) $deposit->maturity_amount];
+        $newInterest = FixedDeposit::interestFor((float) $deposit->principal, $annualRate, (int) $deposit->term_months, $deposit->compounding ?? 'simple');
+        $diff = round($newInterest - $old['interest'], 2);
+        if (abs($annualRate - $old['rate']) < 0.00001) {
+            throw new \InvalidArgumentException('That is already the deposit\'s rate.');
+        }
+
+        $payout = null;
+        if ($deposit->status === 'closed') {
+            $payout = SavingsTransaction::with('savingsAccount.product')->where('description', "Fixed deposit maturity - {$deposit->deposit_number}")
+                ->where('transaction_type', 'deposit')->latest('id')->first();
+            if (!$payout || !$payout->savingsAccount) {
+                throw new \InvalidArgumentException('This deposit was closed without a maturity payout to savings (e.g. broken early or paid out another way) — correct it with a journal entry instead.');
+            }
+        }
+
+        return DB::transaction(function () use ($deposit, $annualRate, $newInterest, $diff, $old, $payout, $reason) {
+            $deposit->update([
+                'interest_rate'   => $annualRate,
+                'interest_amount' => $newInterest,
+                'maturity_amount' => round((float) $deposit->principal + $newInterest, 2),
+            ]);
+            $label = $deposit->product ? $deposit->product->rateLabel($old['rate']) . ' → ' . $deposit->product->rateLabel($annualRate) : "{$old['rate']}% → {$annualRate}%";
+
+            $paidTo = null;
+            if ($payout && abs($diff) >= 0.01) {
+                $account = $payout->savingsAccount;
+                $date = $deposit->closed_date && \App\Models\FinancialPeriod::isOpen($deposit->closed_date) ? $deposit->closed_date->toDateString() : today()->toDateString();
+                $expenseId = $deposit->product->interest_expense_account_id ?: Account::where('account_code', '5002')->value('id');
+                $liabilityId = $account->product->savings_liability_account_id;
+                $amount = abs($diff);
+                $desc = "Fixed deposit interest correction - {$deposit->deposit_number} ({$label})";
+                $journal = $this->accounting->post($date, $desc, $diff > 0
+                    ? [
+                        ['account_id' => $expenseId, 'debit' => $amount, 'credit' => 0, 'description' => $desc],
+                        ['account_id' => $liabilityId, 'debit' => 0, 'credit' => $amount, 'client_id' => $deposit->client_id, 'description' => "Interest correction credited to {$account->account_number}"],
+                    ]
+                    : [
+                        ['account_id' => $liabilityId, 'debit' => $amount, 'credit' => 0, 'client_id' => $deposit->client_id, 'description' => "Interest correction taken from {$account->account_number}"],
+                        ['account_id' => $expenseId, 'debit' => 0, 'credit' => $amount, 'description' => $desc],
+                    ], 'savings', $account->id);
+                SavingsTransaction::create([
+                    'savings_account_id' => $account->id,
+                    'transaction_type'   => $diff > 0 ? 'deposit' : 'withdrawal',
+                    'amount'             => $amount,
+                    'balance_before'     => 0,
+                    'balance_after'      => 0,
+                    'transaction_date'   => $date,
+                    'reference'          => $journal->reference,
+                    'description'        => $desc,
+                    'transaction_id'     => $journal->id,
+                    'created_by'         => auth()->id(),
+                ]);
+                app(SavingsService::class)->recalculateLedger($account);
+                $paidTo = $account->account_number;
+            }
+
+            \App\Models\AuditLog::record('fd_rate_corrected', "{$deposit->deposit_number}: rate {$label}, interest " . number_format($old['interest'], 2) . ' → ' . number_format($newInterest, 2)
+                . ($paidTo ? ', difference ' . number_format($diff, 2) . " to {$paidTo}" : '') . " — {$reason}", 'fixed_deposits');
+
+            return ['old_rate' => $old['rate'], 'new_rate' => $annualRate, 'old_interest' => $old['interest'], 'new_interest' => $newInterest, 'difference' => $diff, 'paid_to' => $paidTo];
         });
     }
 
