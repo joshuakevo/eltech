@@ -6,10 +6,18 @@
 @endsection
 @push('styles')
 <style>
+    .print-only { display: none; }
     @media print {
-        .sidebar, .topbar, .bnav, .no-print, #navProgress { display: none !important; }
-        .main-wrap { margin: 0 !important; padding: 0 !important; }
-        .card { border: 0 !important; box-shadow: none !important; }
+        @page { size: A4; margin: 12mm; }
+        html, body { height: auto !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
+        .sidebar, .topbar, .bnav, .no-print, #navProgress, #aiFab, #aiPanel, .modal, .sidebar-overlay { display: none !important; }
+        .main-wrap { margin: 0 !important; padding: 0 !important; min-height: 0 !important; }
+        .page-content { padding: 0 !important; }
+        .row > .col-lg-8 { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
+        .card { border: 0 !important; box-shadow: none !important; margin-bottom: 8px !important; break-inside: auto; }
+        .table-responsive { overflow: visible !important; }
+        .print-only { display: block !important; }
+        .print-head { background: #0f2444 !important; color: #fff !important; padding: 10px 14px; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
     .calc-figure { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
 </style>
@@ -110,6 +118,11 @@
                 Pick a loan product (or custom terms), enter an amount — or the installment the member can pay — and generate the schedule.
             </div></div>
         @else
+            @php $orgLogoP = \App\Models\SystemSetting::get('org_logo'); @endphp
+            <div class="print-only print-head">
+                @if($orgLogoP)<img src="{{ asset($orgLogoP) }}" alt="" style="height:32px;max-width:170px;object-fit:contain">@else<strong>{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</strong>@endif
+                <span style="float:right;font-size:11px;opacity:.85;line-height:32px">Loan Repayment Schedule — estimate · {{ now()->format('d M Y') }}</span>
+            </div>
             <div class="card mb-3">
                 <div class="card-body">
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -120,6 +133,7 @@
                             @if($result['outOfRange'])<div class="small text-danger mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Outside this product's amount range ({{ number_format($product->min_amount ?? 0) }} – {{ $product->max_amount ? number_format($product->max_amount) : 'no limit' }})</div>@endif
                         </div>
                         <div class="d-flex gap-2 no-print">
+                            <a href="{{ request()->fullUrlWithQuery(['format' => 'pdf']) }}" class="btn btn-sm btn-outline-danger"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
                             <a href="{{ request()->fullUrlWithQuery(['format' => 'excel']) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
                         </div>

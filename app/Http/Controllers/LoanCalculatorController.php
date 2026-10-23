@@ -93,6 +93,11 @@ class LoanCalculatorController extends Controller
             return $this->csvDownload($out, 'loan-schedule-estimate-' . now()->format('Y-m-d'));
         }
 
+        if ($result && $request->get('format') === 'pdf') {
+            return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.loan-schedule-estimate', compact('product', 'in', 'result'))->setPaper('a4', 'portrait')
+                ->download('loan-schedule-estimate-' . (int) $in['principal'] . '-' . now()->format('Y-m-d') . '.pdf');
+        }
+
         return view('loans.calculator', compact('products', 'product', 'in', 'result', 'error'));
     }
 }
