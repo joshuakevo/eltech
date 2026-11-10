@@ -59,7 +59,7 @@
                         </div>
                     </form>
                 @else
-                    <p class="text-muted mb-2">Uses the <strong>savings interest tiers</strong>: each slice of the day's balance earns its own tier's rate (annual rate ÷ 365).</p>
+                    <p class="text-muted mb-2">Uses the <strong>savings interest tiers</strong> on the <strong>balance at each month end</strong> (not daily). The tier the balance falls in gives the rate, paid on the amount above {{ number_format(optional($tiers->first(fn ($t) => $t->rate > 0))->min_balance ?? 0) }} (annual rate ÷ 12). E.g. 700,000 at month end → 4% on 200,000.</p>
                     <table class="table table-sm mb-2">
                         <thead class="table-light"><tr><th>From</th><th>To</th><th class="text-end">Rate</th></tr></thead>
                         <tbody>
