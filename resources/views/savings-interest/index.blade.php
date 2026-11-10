@@ -59,12 +59,12 @@
                         </div>
                     </form>
                 @else
-                    <p class="text-muted mb-2">Uses the <strong>balance at each month end</strong> (not daily). With the tier the balance falls in: <strong>base + (balance − From) × rate ÷ 12</strong>. E.g. 700,000 → 200,000 × 4% ÷ 12 = 667; 7,000,000 → 16,667 + 2,000,000 × 6% ÷ 12 = 26,667.</p>
+                    <p class="text-muted mb-2">Uses the <strong>savings balance at each month end</strong> (not daily) × the rate of the tier it falls in ÷ 12, rounded down. E.g. 899,228 → 4% → 2,997. Interest is held in <strong>2006 Savings Interest Payable</strong> during the year (it doesn't earn interest); the <strong>31 December</strong> run credits each member's year's interest into savings, where it earns from then on.</p>
                     <table class="table table-sm mb-2">
-                        <thead class="table-light"><tr><th>From</th><th>To</th><th class="text-end">Base</th><th class="text-end">Rate</th></tr></thead>
+                        <thead class="table-light"><tr><th>From</th><th>To</th><th class="text-end">Rate</th></tr></thead>
                         <tbody>
                         @foreach($tiers as $t)
-                            <tr><td>{{ number_format($t->min_balance) }}</td><td>{{ $t->max_balance !== null ? number_format($t->max_balance) : 'and above' }}</td><td class="text-end">{{ number_format($t->base_interest ?? 0) }}</td><td class="text-end">{{ $t->rate + 0 }}%</td></tr>
+                            <tr><td>{{ number_format($t->min_balance) }}</td><td>{{ $t->max_balance !== null ? number_format($t->max_balance) : 'and above' }}</td><td class="text-end">{{ $t->rate + 0 }}%</td></tr>
                         @endforeach
                         </tbody>
                     </table>
@@ -172,7 +172,7 @@
 
 <div class="mt-3">
         @if($preview)
-        @php $rows = $preview['rows']; $total = round($rows->sum('interest'), 2); @endphp
+        @php $rows = $preview['rows']; $total = round($rows->sum('interest'), 2); $yearCredit = round($rows->sum('year_end_credit'), 2); @endphp
         <div class="card mb-3 border-primary">
             <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center bg-primary-subtle">
                 <span><i class="bi bi-eye me-1"></i>Preview — {{ $product->name }} interest to {{ \Carbon\Carbon::parse($periodEnd)->format('d M Y') }} <span class="badge bg-warning text-dark ms-1">Not posted</span></span>
@@ -189,7 +189,7 @@
             <div class="table-responsive" style="max-height:60vh">
                 <table class="table table-sm table-hover mb-0">
                     <thead class="table-light" style="position:sticky;top:0">
-                        <tr><th class="ps-3">#</th><th>Member</th><th>Account</th><th>Period</th><th class="text-end">Days</th><th class="text-end">Avg balance</th><th class="text-end">Closing balance</th><th>Rate</th><th class="text-end pe-3">Interest</th></tr>
+                        <tr><th class="ps-3">#</th><th>Member</th><th>Account</th><th>Period</th><th class="text-end">Days</th><th class="text-end">Avg balance</th><th class="text-end">Closing balance</th><th>Rate</th><th class="text-end {{ $yearCredit > 0 ? '' : 'pe-3' }}">Interest</th>@if($yearCredit > 0)<th class="text-end pe-3" title="Year's accrued interest (2006) credited into savings on 31 December">To savings</th>@endif</tr>
                     </thead>
                     <tbody class="small">
                     @forelse($rows as $i => $r)
@@ -202,7 +202,8 @@
                             <td class="text-end">{{ number_format($r['average_balance'], $dp) }}</td>
                             <td class="text-end">{{ number_format($r['closing_balance'], $dp) }}</td>
                             <td>{{ $r['rate_label'] }}</td>
-                            <td class="text-end pe-3 fw-semibold text-nowrap">{{ number_format($r['interest'], $dp) }}</td>
+                            <td class="text-end {{ $yearCredit > 0 ? '' : 'pe-3' }} fw-semibold text-nowrap">{{ number_format($r['interest'], $dp) }}</td>
+                            @if($yearCredit > 0)<td class="text-end pe-3 text-nowrap">{{ number_format($r['year_end_credit'], $dp) }}</td>@endif
                         </tr>
                     @empty
                         <tr><td colspan="9" class="text-center text-muted py-4">No account earns interest for this period.</td></tr>

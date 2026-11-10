@@ -27,7 +27,14 @@ class SavingsInterestController extends Controller
             $latest     = $this->runs->latestRun($product);
             $periodEnd  = $request->get('period_end') ?: now()->subMonthNoOverflow()->endOfMonth()->toDateString();
             $from       = $latest ? null : $request->get('from');
-            $preview    = $request->boolean('preview') ? $this->runs->calculate($product, $periodEnd, $from) : null;
+            $preview    = null;
+            if ($request->boolean('preview')) {
+                try {
+                    $preview = $this->runs->calculate($product, $periodEnd, $from);
+                } catch (\InvalidArgumentException $e) {
+                    session()->now('error', $e->getMessage());
+                }
+            }
             $history    = SavingsInterestRun::with('createdBy')->where('savings_product_id', $product->id)->orderByDesc('period_end')->orderByDesc('id')->get();
             $bands      = $this->runs->bands($product);
             $tiers      = SavingsInterestTier::orderBy('min_balance')->get();
@@ -73,7 +80,11 @@ class SavingsInterestController extends Controller
         $from = $request->from ?: null;
 
         // Guard against posting something different from what was previewed (e.g. a deposit came in meanwhile)
-        $calc = $this->runs->calculate($product, $request->period_end, $from);
+        try {
+            $calc = $this->runs->calculate($product, $request->period_end, $from);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
         if (abs($calc['rows']->sum('interest') - (float) $request->expected_total) > 0.01) {
             return redirect()->route('savings-interest.index', ['tab' => 'p' . $product->id, 'period_end' => $request->period_end, 'from' => $from, 'preview' => 1])
                 ->with('error', 'Balances changed since the preview — check the new figures and run again.');

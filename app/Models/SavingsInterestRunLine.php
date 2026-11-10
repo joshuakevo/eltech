@@ -10,7 +10,7 @@ class SavingsInterestRunLine extends Model
 
     protected $fillable = [
         'savings_interest_run_id', 'savings_account_id', 'client_id', 'period_start', 'period_end', 'days',
-        'closing_balance', 'average_balance', 'rate_label', 'interest', 'savings_transaction_id', 'previous_last_interest_date',
+        'closing_balance', 'average_balance', 'rate_label', 'interest', 'credited_to_savings', 'savings_transaction_id', 'previous_last_interest_date',
     ];
 
     protected $casts = [
@@ -19,6 +19,7 @@ class SavingsInterestRunLine extends Model
         'closing_balance' => 'float',
         'average_balance' => 'float',
         'interest'        => 'float',
+        'credited_to_savings' => 'float',
     ];
 
     public function account()
