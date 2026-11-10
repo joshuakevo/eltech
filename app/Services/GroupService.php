@@ -486,6 +486,129 @@ class GroupService
         });
     }
 
+    // ── Month-end group interest (Accounting → Running Interest → Groups) ─
+
+    public const MONTH_END_NOTE = 'Month-end interest';
+
+    /** Annual rate (%) paid on every savings group member's month-end balance (setting group_interest_rate, default 7). */
+    public function monthEndRate(): float
+    {
+        return (float) \App\Models\SystemSetting::get('group_interest_rate', 7);
+    }
+
+    /**
+     * Preview for one month end: each savings group's active members with their balance at that date and
+     * interest = balance × annual rate ÷ 12 (whole balance, no threshold). Groups already run for that month end
+     * are flagged 'done'.
+     */
+    public function monthEndInterest(string $monthEnd): array
+    {
+        $rate   = $this->monthEndRate();
+        $groups = Group::where(fn ($q) => $q->whereNull('group_type')->orWhere('group_type', '!=', 'pooled'))->orderBy('name')->get();
+        $done   = GroupTransaction::where('type', 'interest')->whereDate('transaction_date', $monthEnd)
+            ->where('notes', 'like', self::MONTH_END_NOTE . '%')->distinct()->pluck('group_id')->map(fn ($id) => (int) $id)->all();
+        $sign   = fn ($t) => in_array($t->type, ['deposit', 'interest'], true) ? (float) $t->amount : -(float) $t->amount;
+
+        $out = [];
+        foreach ($groups as $group) {
+            $after = GroupTransaction::where('group_id', $group->id)->whereDate('transaction_date', '>', $monthEnd)->get();
+            $rows  = [];
+            foreach ($group->activeMembers()->orderBy('name')->get() as $m) {
+                $bal = round((float) $m->balance - $after->filter(fn ($t) => (int) $t->member_id === (int) $m->id)->sum($sign), 2);
+                $interest = $bal > 0 ? round($bal * $rate / 100 / 12, 2) : 0.0;
+                if ($interest > 0) {
+                    $rows[] = ['member' => $m, 'balance' => $bal, 'interest' => $interest];
+                }
+            }
+            $out[] = [
+                'group'    => $group,
+                'rows'     => $rows,
+                'balance'  => round(array_sum(array_column($rows, 'balance')), 2),
+                'interest' => round(array_sum(array_column($rows, 'interest')), 2),
+                'done'     => in_array((int) $group->id, $done, true),
+            ];
+        }
+        return $out;
+    }
+
+    /** Posts the month-end interest for every group not yet run for that date: one 'groups' journal per group. Returns the total. */
+    public function runMonthEndInterest(string $monthEnd): float
+    {
+        $rate    = $this->monthEndRate();
+        $preview = collect($this->monthEndInterest($monthEnd))->filter(fn ($g) => !$g['done'] && $g['interest'] > 0);
+        if ($preview->isEmpty()) {
+            throw new \InvalidArgumentException('No group interest to post for this month end (already run, or no balances).');
+        }
+        $label = \Carbon\Carbon::parse($monthEnd)->format('d M Y');
+        $desc  = self::MONTH_END_NOTE . " {$label} @ {$rate}% p.a.";
+
+        return DB::transaction(function () use ($preview, $monthEnd, $desc, $label, $rate) {
+            $total = 0.0;
+            foreach ($preview as $g) {
+                $group   = $g['group'];
+                $journal = $this->accounting->post($monthEnd, "Group interest — {$group->name} — month end {$label} @ {$rate}% p.a.", [
+                    ['account_id' => $this->getInterestExpenseAccountId(),      'debit' => $g['interest'], 'credit' => 0,             'description' => 'Interest on group member savings'],
+                    ['account_id' => $this->getGroupLiabilityAccountId($group), 'debit' => 0,             'credit' => $g['interest'], 'description' => 'Group member interest credit'],
+                ], 'groups', $group->id);
+
+                foreach ($g['rows'] as $row) {
+                    $member    = $row['member']->fresh();
+                    $balBefore = (float) $member->balance;
+                    $balAfter  = round($balBefore + $row['interest'], 2);
+                    $member->update(['balance' => $balAfter]);
+                    GroupTransaction::create([
+                        'group_id' => $group->id, 'member_id' => $member->id, 'type' => 'interest', 'posting_type' => 'individual',
+                        'amount' => $row['interest'], 'balance_before' => $balBefore, 'balance_after' => $balAfter,
+                        'transaction_date' => $monthEnd, 'notes' => $desc . ' on ' . number_format($row['balance'], 2),
+                        'journal_transaction_id' => $journal->id, 'created_by' => auth()->id(),
+                    ]);
+                }
+                $total += $g['interest'];
+            }
+            \App\Models\AuditLog::record('group_interest_run', "Ran group month-end interest {$label} @ {$rate}% p.a.: " . number_format($total, 2) . " for {$preview->count()} groups", 'groups');
+            return round($total, 2);
+        });
+    }
+
+    /** Month-end runs posted so far, newest first. */
+    public function monthEndRuns(): \Illuminate\Support\Collection
+    {
+        return GroupTransaction::where('type', 'interest')->where('notes', 'like', self::MONTH_END_NOTE . '%')
+            ->orderByDesc('transaction_date')->get()
+            ->groupBy(fn ($t) => $t->transaction_date->toDateString())
+            ->map(fn ($c, $date) => [
+                'date'    => $date,
+                'groups'  => $c->pluck('group_id')->unique()->count(),
+                'members' => $c->count(),
+                'total'   => round($c->sum('amount'), 2),
+            ])->values();
+    }
+
+    /** Deletes one month end's group interest: journals (and any reversal), interest rows, member balances put back. */
+    public function undoMonthEndInterest(string $monthEnd): void
+    {
+        $txns = GroupTransaction::where('type', 'interest')->whereDate('transaction_date', $monthEnd)
+            ->where('notes', 'like', self::MONTH_END_NOTE . '%')->get();
+        if ($txns->isEmpty()) {
+            throw new \InvalidArgumentException('Nothing to undo for that month end.');
+        }
+        DB::transaction(function () use ($txns, $monthEnd) {
+            foreach ($txns as $t) {
+                GroupMember::whereKey($t->member_id)->decrement('balance', $t->amount);
+                $t->delete();
+            }
+            foreach ($txns->pluck('journal_transaction_id')->filter()->unique() as $jid) {
+                if ($tx = \App\Models\Transaction::find($jid)) {
+                    if ($tx->reversed_by) {
+                        \App\Models\Transaction::whereKey($tx->reversed_by)->delete();
+                    }
+                    $tx->delete();
+                }
+            }
+            \App\Models\AuditLog::record('group_interest_undone', 'Undid group month-end interest ' . \Carbon\Carbon::parse($monthEnd)->format('d M Y') . ': ' . number_format($txns->sum('amount'), 2) . ' — journals and interest rows deleted', 'groups');
+        });
+    }
+
     // ── Pooled Group ──────────────────────────────────────────────────────
 
     public function contributePooled(Group $group, GroupMember $member, float $amount, string $date, string $reference = '', string $notes = ''): GroupTransaction

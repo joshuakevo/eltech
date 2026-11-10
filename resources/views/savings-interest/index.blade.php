@@ -242,23 +242,121 @@ function addBand() {
 }
 </script>
 @else
-<div class="alert alert-warning small"><i class="bi bi-hourglass-split me-1"></i><strong>Group interest is not agreed yet.</strong> Once the rate is agreed it will be run here like the other products. Group balances and the current per-group rate are shown below; a group's interest can still be posted from its own page.</div>
-<div class="card">
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0">
-            <thead class="table-light"><tr><th class="ps-3">Group</th><th class="text-end">Members' balances</th><th class="text-end">Monthly rate</th><th class="pe-3"></th></tr></thead>
-            <tbody class="small">
-            @foreach($groups as $g)
-                <tr>
-                    <td class="ps-3">{{ $g->name }} <span class="text-muted">{{ $g->group_number }}</span></td>
-                    <td class="text-end">{{ number_format($g->total_balance, $dp) }}</td>
-                    <td class="text-end">{{ $g->monthly_interest_rate !== null ? round((float) $g->monthly_interest_rate) . '%' : '—' }}</td>
-                    <td class="pe-3 text-end">@can('manage groups')<a href="{{ route('groups.interest', $g) }}" class="btn btn-sm btn-outline-secondary py-0">Interest page</a>@endcan</td>
-                </tr>
-            @endforeach
-            </tbody>
-            <tfoot class="table-light fw-bold small"><tr><td class="ps-3">Total</td><td class="text-end">{{ number_format($groups->sum('total_balance'), $dp) }}</td><td colspan="2"></td></tr></tfoot>
-        </table>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header">How interest is worked out</div>
+            <div class="card-body small">
+                <p class="text-muted mb-2">Every savings group member earns <strong>{{ $groupRate + 0 }}% p.a.</strong> on their <strong>balance at the month end</strong> (whole balance, no threshold), annual rate ÷ 12. E.g. 1,200,000 at month end → {{ number_format(1200000 * $groupRate / 100 / 12) }}. Run once per month end; pooled groups are not included.</p>
+                <form method="POST" action="{{ route('savings-interest.groups.rate') }}" class="d-flex gap-2 align-items-end">
+                    @csrf
+                    <div>
+                        <label class="form-label small fw-semibold mb-1">Rate % p.a.</label>
+                        <input type="number" step="0.01" min="0" max="100" name="rate" value="{{ $groupRate + 0 }}" class="form-control form-control-sm" style="width:110px" required>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary">Save rate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="GET" action="{{ route('savings-interest.index') }}" class="row g-2 align-items-end">
+                    <input type="hidden" name="tab" value="groups">
+                    <input type="hidden" name="preview" value="1">
+                    <div class="col-sm-4">
+                        <label class="form-label small fw-semibold mb-1">Month end</label>
+                        <input type="date" name="period_end" class="form-control" value="{{ $groupEnd }}" max="{{ today()->toDateString() }}" required>
+                    </div>
+                    <div class="col-sm-3">
+                        <button class="btn btn-primary w-100"><i class="bi bi-eye me-1"></i>Preview</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        @if($groupPreview !== null)
+            @php
+                $endOk   = \Carbon\Carbon::parse($groupEnd)->isLastOfMonth();
+                $toPost  = collect($groupPreview)->filter(fn ($g) => !$g['done']);
+                $postSum = round($toPost->sum('interest'), 2);
+            @endphp
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Preview — month end {{ \Carbon\Carbon::parse($groupEnd)->format('d M Y') }} @ {{ $groupRate + 0 }}% p.a.</span>
+                    <span class="fw-bold text-primary">{{ number_format($postSum, $dp) }}</span>
+                </div>
+                @unless($endOk)
+                    <div class="alert alert-warning small m-3 mb-0">{{ \Carbon\Carbon::parse($groupEnd)->format('d M Y') }} is not a month end — pick the last day of the month to run.</div>
+                @endunless
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light"><tr><th class="ps-3">Group / member</th><th class="text-end">Month-end balance</th><th class="text-end pe-3">Interest</th></tr></thead>
+                        <tbody class="small">
+                        @foreach($groupPreview as $g)
+                            <tr class="table-light fw-semibold">
+                                <td class="ps-3">{{ $g['group']->name }} <span class="text-muted fw-normal">{{ $g['group']->group_number }}</span>
+                                    @if($g['done'])<span class="badge bg-success-subtle text-success ms-1">already run</span>@endif</td>
+                                <td class="text-end">{{ number_format($g['balance'], $dp) }}</td>
+                                <td class="text-end pe-3">{{ number_format($g['interest'], $dp) }}</td>
+                            </tr>
+                            @foreach($g['rows'] as $r)
+                                <tr class="{{ $g['done'] ? 'text-muted' : '' }}">
+                                    <td class="ps-4">{{ $r['member']->name }}</td>
+                                    <td class="text-end">{{ number_format($r['balance'], $dp) }}</td>
+                                    <td class="text-end pe-3">{{ number_format($r['interest'], $dp) }}</td>
+                                </tr>
+                            @endforeach
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @if($endOk && $postSum > 0)
+                <div class="card-footer d-flex justify-content-end">
+                    <form method="POST" action="{{ route('savings-interest.groups.run') }}" onsubmit="return confirm('Post group interest of {{ number_format($postSum, 2) }} for {{ \Carbon\Carbon::parse($groupEnd)->format('d M Y') }}?')">
+                        @csrf
+                        <input type="hidden" name="period_end" value="{{ $groupEnd }}">
+                        <input type="hidden" name="expected_total" value="{{ $postSum }}">
+                        <button class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Run interest ({{ $toPost->count() }} groups)</button>
+                    </form>
+                </div>
+                @endif
+            </div>
+        @endif
+
+        <div class="card">
+            <div class="card-header">Runs</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th class="ps-3">Month end</th><th class="text-end">Groups</th><th class="text-end">Members</th><th class="text-end">Interest</th><th class="pe-3"></th></tr></thead>
+                    <tbody class="small">
+                    @forelse($groupRuns as $k => $run)
+                        <tr>
+                            <td class="ps-3">{{ \Carbon\Carbon::parse($run['date'])->format('d M Y') }}</td>
+                            <td class="text-end">{{ $run['groups'] }}</td>
+                            <td class="text-end">{{ $run['members'] }}</td>
+                            <td class="text-end">{{ number_format($run['total'], $dp) }}</td>
+                            <td class="pe-3 text-end">
+                                @if($k === 0)
+                                <form method="POST" action="{{ route('savings-interest.groups.undo') }}" class="d-inline-flex gap-1"
+                                      onsubmit="const v = prompt('Type UNDO to delete this month end\'s group interest (journals and member rows)'); if (v !== 'UNDO') return false; this.confirm.value = v;">
+                                    @csrf
+                                    <input type="hidden" name="period_end" value="{{ $run['date'] }}">
+                                    <input type="hidden" name="confirm" value="">
+                                    <button class="btn btn-sm btn-outline-danger py-0">Undo</button>
+                                </form>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center text-muted py-3">No runs yet.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 @endif

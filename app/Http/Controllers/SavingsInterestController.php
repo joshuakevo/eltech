@@ -46,7 +46,14 @@ class SavingsInterestController extends Controller
             $data += compact('pickAccounts');
             $data += compact('latest', 'periodEnd', 'from', 'preview', 'history', 'bands', 'tiers', 'specials', 'posting');
         } else {
-            $data['groups'] = Group::orderBy('name')->get();
+            $gs = app(\App\Services\GroupService::class);
+            $groupEnd = $request->get('period_end') ?: now()->subMonthNoOverflow()->endOfMonth()->toDateString();
+            $data += [
+                'groupRate'    => $gs->monthEndRate(),
+                'groupEnd'     => $groupEnd,
+                'groupPreview' => $request->boolean('preview') ? $gs->monthEndInterest($groupEnd) : null,
+                'groupRuns'    => $gs->monthEndRuns(),
+            ];
         }
 
         if ($product && $request->get('format') === 'excel' && !empty($data['preview'])) {
@@ -118,6 +125,50 @@ class SavingsInterestController extends Controller
 
         return redirect()->route('savings-interest.index', ['tab' => 'p' . $productId])
             ->with('success', 'Interest run undone — its journal and every member\'s interest row were deleted. You can run it again.');
+    }
+
+    /** Groups: month-end interest at one rate for every savings group member (whole balance, annual rate ÷ 12). */
+    public function runGroups(Request $request, \App\Services\GroupService $groups)
+    {
+        $request->validate([
+            'period_end'     => ['required', 'date', 'before_or_equal:today', new \App\Rules\DateInOpenPeriod()],
+            'expected_total' => 'required|numeric',
+        ]);
+        $end = \Carbon\Carbon::parse($request->period_end);
+        if (!$end->isLastOfMonth()) {
+            return back()->with('error', 'Group interest runs on a month end — pick the last day of the month.');
+        }
+        $calc = collect($groups->monthEndInterest($end->toDateString()))->filter(fn ($g) => !$g['done'])->sum('interest');
+        if (abs($calc - (float) $request->expected_total) > 0.01) {
+            return redirect()->route('savings-interest.index', ['tab' => 'groups', 'period_end' => $end->toDateString(), 'preview' => 1])
+                ->with('error', 'Balances changed since the preview — check the new figures and run again.');
+        }
+        try {
+            $total = $groups->runMonthEndInterest($end->toDateString());
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        return redirect()->route('savings-interest.index', ['tab' => 'groups'])
+            ->with('success', 'Group interest posted for ' . $end->format('d M Y') . ': ' . number_format($total, 2) . '.');
+    }
+
+    public function undoGroups(Request $request, \App\Services\GroupService $groups)
+    {
+        $request->validate(['period_end' => 'required|date', 'confirm' => 'required|in:UNDO'], ['confirm.in' => 'Type UNDO to confirm.']);
+        try {
+            $groups->undoMonthEndInterest($request->period_end);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        return redirect()->route('savings-interest.index', ['tab' => 'groups'])->with('success', 'Group interest for that month end undone — journals and interest rows deleted.');
+    }
+
+    public function saveGroupRate(Request $request)
+    {
+        $data = $request->validate(['rate' => 'required|numeric|min:0|max:100']);
+        \App\Models\SystemSetting::set('group_interest_rate', (float) $data['rate']);
+        \App\Models\AuditLog::record('group_interest_rate', "Group interest rate set to {$data['rate']}% p.a.", 'groups');
+        return back()->with('success', "Group interest rate set to {$data['rate']}% p.a.");
     }
 
     /** Interest Wallet style bands: whole balance at the rate of the highest band it reaches. */

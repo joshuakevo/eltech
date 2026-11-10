@@ -577,6 +577,9 @@ Route::middleware('auth')->group(function () {
     // Accounting → Running Interest (savings interest runs per product)
     Route::middleware('permission:run savings interest')->group(function () {
         Route::get('savings-interest', [\App\Http\Controllers\SavingsInterestController::class, 'index'])->name('savings-interest.index');
+        Route::post('savings-interest/groups/run', [\App\Http\Controllers\SavingsInterestController::class, 'runGroups'])->name('savings-interest.groups.run');
+        Route::post('savings-interest/groups/undo', [\App\Http\Controllers\SavingsInterestController::class, 'undoGroups'])->name('savings-interest.groups.undo');
+        Route::post('savings-interest/groups/rate', [\App\Http\Controllers\SavingsInterestController::class, 'saveGroupRate'])->name('savings-interest.groups.rate');
         Route::post('savings-interest/{product}/run', [\App\Http\Controllers\SavingsInterestController::class, 'run'])->name('savings-interest.run');
         Route::post('savings-interest/{product}/bands', [\App\Http\Controllers\SavingsInterestController::class, 'saveBands'])->name('savings-interest.bands');
         Route::post('savings-interest/{product}/special', [\App\Http\Controllers\SavingsInterestController::class, 'saveSpecial'])->name('savings-interest.special');
