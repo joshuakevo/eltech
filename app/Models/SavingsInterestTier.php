@@ -9,11 +9,12 @@ class SavingsInterestTier extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['min_balance', 'max_balance', 'rate'];
+    protected $fillable = ['min_balance', 'max_balance', 'rate', 'base_interest'];
 
     protected $casts = [
         'min_balance' => 'float',
         'max_balance' => 'float',
         'rate'        => 'float',
+        'base_interest' => 'float',
     ];
 }

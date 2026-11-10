@@ -59,12 +59,12 @@
                         </div>
                     </form>
                 @else
-                    <p class="text-muted mb-2">Uses the <strong>savings interest tiers</strong> on the <strong>balance at each month end</strong> (not daily). The tier the balance falls in gives the rate, paid on the amount above {{ number_format(optional($tiers->first(fn ($t) => $t->rate > 0))->min_balance ?? 0) }} (annual rate ÷ 12). E.g. 700,000 at month end → 4% on 200,000.</p>
+                    <p class="text-muted mb-2">Uses the <strong>balance at each month end</strong> (not daily). With the tier the balance falls in: <strong>base + (balance − From) × rate ÷ 12</strong>. E.g. 700,000 → 200,000 × 4% ÷ 12 = 667; 7,000,000 → 16,667 + 2,000,000 × 6% ÷ 12 = 26,667.</p>
                     <table class="table table-sm mb-2">
-                        <thead class="table-light"><tr><th>From</th><th>To</th><th class="text-end">Rate</th></tr></thead>
+                        <thead class="table-light"><tr><th>From</th><th>To</th><th class="text-end">Base</th><th class="text-end">Rate</th></tr></thead>
                         <tbody>
                         @foreach($tiers as $t)
-                            <tr><td>{{ number_format($t->min_balance) }}</td><td>{{ $t->max_balance !== null ? number_format($t->max_balance) : 'and above' }}</td><td class="text-end">{{ $t->rate + 0 }}%</td></tr>
+                            <tr><td>{{ number_format($t->min_balance) }}</td><td>{{ $t->max_balance !== null ? number_format($t->max_balance) : 'and above' }}</td><td class="text-end">{{ number_format($t->base_interest ?? 0) }}</td><td class="text-end">{{ $t->rate + 0 }}%</td></tr>
                         @endforeach
                         </tbody>
                     </table>

@@ -16,8 +16,8 @@ class SavingsInterestTierSeeder extends Seeder
         $tiers = [
             ['min_balance' => 0,          'max_balance' => 499999,   'rate' => 0],
             ['min_balance' => 500000,     'max_balance' => 4999999,  'rate' => 4],
-            ['min_balance' => 5000000,    'max_balance' => 9999999,  'rate' => 6],
-            ['min_balance' => 10000000,   'max_balance' => null,     'rate' => 7],
+            ['min_balance' => 5000000,    'max_balance' => 9999999,  'rate' => 6, 'base_interest' => 16667],
+            ['min_balance' => 10000000,   'max_balance' => null,     'rate' => 7, 'base_interest' => 50000],
         ];
 
         foreach ($tiers as $tier) {

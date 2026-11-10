@@ -21,6 +21,7 @@ class SavingsInterestTierController extends Controller
             'tiers.*.min_balance'    => 'required|numeric|min:0',
             'tiers.*.max_balance'    => 'nullable|numeric|gt:tiers.*.min_balance',
             'tiers.*.rate'           => 'required|numeric|min:0|max:100',
+            'tiers.*.base_interest'  => 'nullable|numeric|min:0',
         ]);
 
         $rows = collect($data['tiers'])
@@ -34,9 +35,12 @@ class SavingsInterestTierController extends Controller
                     'min_balance' => $row['min_balance'],
                     'max_balance' => $row['max_balance'] ?: null,
                     'rate'        => $row['rate'],
+                    'base_interest' => (float) ($row['base_interest'] ?? 0),
                 ]);
             }
         });
+
+        \App\Models\AuditLog::record('savings_interest_tiers', 'Savings interest tiers: ' . $rows->map(fn ($r) => number_format($r['min_balance']) . '+ ' . $r['rate'] . '% base ' . number_format((float) ($r['base_interest'] ?? 0)))->implode(', '), 'savings');
 
         return redirect()->route('savings-interest-tiers.edit')->with('success', 'Savings interest tiers updated successfully.');
     }

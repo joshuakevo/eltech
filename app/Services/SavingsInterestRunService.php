@@ -25,8 +25,8 @@ use InvalidArgumentException;
  *  - product method 'bands':  balance × the rate of the highest band the balance reaches that day
  *                             (Interest Wallet: 10% from 5M, 7% from 1.5M, nothing below)
  *  - product method 'tiers' (Ordinary Savings): month-end balances only, not daily. At each month end in the
- *                             period the balance's tier gives the rate, paid on the balance above the first
- *                             paying tier's floor (e.g. 700,000 at 31/08 → 4% p.a. ÷ 12 on 200,000).
+ *                             period, with the tier the balance falls in: base_interest + (balance − tier min)
+ *                             × rate ÷ 12 (700,000 → 200,000 × 4% ÷ 12; 7,000,000 → 16,667 + 2M × 6% ÷ 12).
  *                             Accounts with a special rate keep the daily method.
  * Daily methods use annual rate ÷ 365 per day. One journal per run: DR interest expense / CR the product's savings liability
  * (one line per member, tagged to them); each account gets an "interest" statement row linked to it.
@@ -61,9 +61,6 @@ class SavingsInterestRunService
         $bands    = $this->bands($product);
         $tiers    = SavingsInterestTier::orderBy('min_balance')->get();
         $tiersDesc = $tiers->sortByDesc(fn ($t) => (float) $t->min_balance)->values();
-        // Month-end tiers: interest only on the balance above the first tier that pays (e.g. 500,000)
-        $threshold = $tiers->first(fn ($t) => (float) $t->rate > 0)?->min_balance;
-        $threshold = $threshold !== null ? (float) $threshold : null;
         $dp       = (int) SystemSetting::get('decimal_places', 2);
 
         $accounts = SavingsAccount::with('client')->where('product_id', $product->id)->where('status', 'active')->get();
@@ -117,19 +114,17 @@ class SavingsInterestRunService
                     continue;
                 }
                 if ($monthEnd) {
-                    // Ordinary Savings: only the balance at each month end counts. The tier is the one the whole
-                    // balance falls in; that rate (annual ÷ 12) is paid on the balance above the threshold.
-                    if (!$day->isLastOfMonth() || $threshold === null || $balance <= $threshold) {
+                    // Ordinary Savings (old system's SaveRates): only the balance at each month end counts.
+                    // Tier = the one the balance falls in; base interest + (balance − tier min) × rate ÷ 12.
+                    if (!$day->isLastOfMonth()) {
                         continue;
                     }
-                    $rate = 0.0;
-                    foreach ($tiersDesc as $t) {
-                        if ($balance >= (float) $t->min_balance) {
-                            $rate = (float) $t->rate;
-                            break;
-                        }
+                    $tier = $tiersDesc->first(fn ($t) => $balance >= (float) $t->min_balance);
+                    $rate = $tier ? (float) $tier->rate : 0.0;
+                    if ($rate <= 0) {
+                        continue;
                     }
-                    $interest += ($balance - $threshold) * $rate / 100 / 12;
+                    $interest += (float) $tier->base_interest + ($balance - (float) $tier->min_balance) * $rate / 100 / 12;
                 } elseif ($override !== null) {
                     $rate = $override;
                     $interest += $balance * $rate / 100 / 365;

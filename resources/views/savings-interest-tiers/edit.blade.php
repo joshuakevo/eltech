@@ -3,7 +3,7 @@
 @section('content')
 <div class="mb-4">
     <h4 class="mb-0 fw-semibold">Savings Interest Tiers</h4>
-    <p class="text-muted small mb-0">Interest is graduated (marginal) — each portion of a savings balance earns the rate of the bracket it falls into, like a tax bracket. Applies org-wide, across every savings product.</p>
+    <p class="text-muted small mb-0">Ordinary Savings interest, worked out on each month-end balance: <strong>base interest + (balance − tier's Balance From) × annual rate ÷ 12</strong>, using the tier the balance falls in. E.g. 7,000,000 → 16,667 + 2,000,000 × 6% ÷ 12 = 26,667.</p>
 </div>
 
 <div class="row justify-content-center">
@@ -35,9 +35,10 @@
             <table class="table table-bordered table-sm mb-0" id="tiersTable">
                 <thead class="table-light">
                     <tr>
-                        <th style="width:30%">Balance From (UGX)</th>
-                        <th style="width:30%">Balance To (UGX) <span class="text-muted fw-normal" style="font-size:.7rem">(blank = and above)</span></th>
-                        <th style="width:30%">Annual Rate (%)</th>
+                        <th style="width:24%">Balance From (UGX)</th>
+                        <th style="width:24%">Balance To (UGX) <span class="text-muted fw-normal" style="font-size:.7rem">(blank = and above)</span></th>
+                        <th style="width:24%">Base interest / month (UGX)</th>
+                        <th style="width:20%">Annual Rate (%)</th>
                         <th style="width:40px"></th>
                     </tr>
                 </thead>
@@ -46,6 +47,7 @@
                     <tr>
                         <td><input type="number" step="0.01" min="0" name="tiers[{{ $i }}][min_balance]" class="form-control form-control-sm" value="{{ old("tiers.$i.min_balance", $tier->min_balance) }}" required></td>
                         <td><input type="number" step="0.01" min="0" name="tiers[{{ $i }}][max_balance]" class="form-control form-control-sm" value="{{ old("tiers.$i.max_balance", $tier->max_balance) }}" placeholder="and above"></td>
+                        <td><input type="number" step="0.01" min="0" name="tiers[{{ $i }}][base_interest]" class="form-control form-control-sm" value="{{ old("tiers.$i.base_interest", $tier->base_interest ?? 0) }}"></td>
                         <td><input type="number" step="0.01" min="0" max="100" name="tiers[{{ $i }}][rate]" class="form-control form-control-sm" value="{{ old("tiers.$i.rate", $tier->rate) }}" required></td>
                         <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeTier(this)"><i class="bi bi-trash"></i></button></td>
                     </tr>
@@ -55,7 +57,7 @@
         </div>
 
         <p class="text-muted small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>
-            Individual savings products' old flat "Interest Rate" field is no longer used for interest posting — these org-wide tiers now decide every account's interest.
+            Used by Running Interest for Ordinary Savings (month-end balances). Tiers with a 0% rate pay nothing.
         </p>
     </div>
     <div class="card-footer d-flex justify-content-end gap-2 py-2 px-3">
@@ -74,6 +76,7 @@ function addTier() {
     tr.innerHTML = `
         <td><input type="number" step="0.01" min="0" name="tiers[${tierCount}][min_balance]" class="form-control form-control-sm" required></td>
         <td><input type="number" step="0.01" min="0" name="tiers[${tierCount}][max_balance]" class="form-control form-control-sm" placeholder="and above"></td>
+        <td><input type="number" step="0.01" min="0" name="tiers[${tierCount}][base_interest]" class="form-control form-control-sm" value="0"></td>
         <td><input type="number" step="0.01" min="0" max="100" name="tiers[${tierCount}][rate]" class="form-control form-control-sm" required></td>
         <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="removeTier(this)"><i class="bi bi-trash"></i></button></td>
     `;
