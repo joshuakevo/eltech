@@ -83,7 +83,7 @@
         </td></tr>
         <tr><td class="label">Balance (Excluding Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
         @if($pendingInterest > 0)
-        <tr><td class="label">Accrued Interest (pending, not yet posted)</td><td class="value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</td></tr>
+        <tr><td class="label">Interest This Year (in the balance)</td><td class="value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</td></tr>
         @endif
         <tr><td class="label">Balance (Including Interest)</td><td class="value" style="color:{{ $account->is_overdrawn ? '#b91c1c' : '#065f46' }};font-size:13px">{{ number_format($account->balance, $dp) }}</td></tr>
     </table>
@@ -108,7 +108,7 @@
     @php $closing = $closingBalance ?? $account->balance; @endphp
     <td><span class="stat-label">Closing Balance{{ $pendingInterest > 0 ? ' (Excluding Interest)' : '' }}</span><span class="stat-value" style="color:#0f2444">{{ number_format($closing - $pendingInterest, $dp) }}</span></td>
     @if($pendingInterest > 0)
-    <td><span class="stat-label">Accrued Interest</span><span class="stat-value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</span></td>
+    <td><span class="stat-label">Interest This Year</span><span class="stat-value" style="color:#2563eb">{{ number_format($pendingInterest, $dp) }}</span></td>
     <td><span class="stat-label">Closing Balance (Including Interest)</span><span class="stat-value" style="color:#2563eb">{{ number_format($closing, $dp) }}</span></td>
     @endif
 </tr>

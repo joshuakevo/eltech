@@ -259,6 +259,32 @@ class SavingsService
     }
 
     /**
+     * Interest credited to the account this calendar year, up to $asOfDate (default today). It is part of the
+     * balance but only earns interest from the next 1 January, so "Balance (Excluding Interest)" = balance − this.
+     */
+    public function interestThisYear(SavingsAccount $account, ?string $asOfDate = null): float
+    {
+        return (float) ($this->interestThisYearByAccount([$account->id], $asOfDate)[(int) $account->id] ?? 0);
+    }
+
+    /** interestThisYear() for many accounts in one query: [account_id => amount]. */
+    public function interestThisYearByAccount(array $accountIds, ?string $asOfDate = null): array
+    {
+        if (!$accountIds) {
+            return [];
+        }
+        $asOf = \Carbon\Carbon::parse($asOfDate ?? today()->toDateString());
+        return SavingsTransaction::whereIn('savings_account_id', $accountIds)
+            ->where('transaction_type', 'interest')
+            ->whereBetween('transaction_date', [$asOf->copy()->startOfYear()->toDateString(), $asOf->toDateString()])
+            ->groupBy('savings_account_id')
+            ->selectRaw('savings_account_id, SUM(amount) as amt')
+            ->pluck('amt', 'savings_account_id')
+            ->mapWithKeys(fn ($v, $k) => [(int) $k => round((float) $v, 2)])
+            ->all();
+    }
+
+    /**
      * Preview the interest that WOULD be credited if postInterest() were run as of
      * $asOfDate, WITHOUT posting anything. Used to show "balance including interest"
      * for tiered-interest products, whose actual crediting is manually triggered

@@ -71,7 +71,7 @@
                     @endif
                     <tr><td class="text-muted">Balance (Excluding Interest)</td><td class="fw-bold fs-6 {{ $account->is_overdrawn ? 'text-overdrawn' : 'text-success' }}">{{ number_format($account->balance - $pendingInterest, $dp) }}</td></tr>
                     @if($pendingInterest > 0)
-                    <tr><td class="text-muted">Accrued Interest <span class="d-block" style="font-size:.7rem">(pending, not yet posted)</span></td><td class="fw-semibold text-primary">{{ number_format($pendingInterest, $dp) }}</td></tr>
+                    <tr><td class="text-muted">Interest This Year <span class="d-block" style="font-size:.7rem">(in the balance)</span></td><td class="fw-semibold text-primary">{{ number_format($pendingInterest, $dp) }}</td></tr>
                     @endif
                     <tr><td class="text-muted">Balance (Including Interest)</td><td class="fw-bold fs-6 {{ $account->is_overdrawn ? 'text-overdrawn' : 'text-success' }}">{{ number_format($account->balance, $dp) }}</td></tr>
                 </table>
@@ -122,7 +122,7 @@
     <div class="col">
         <div class="card text-center border-primary">
             <div class="card-body py-2">
-                <div class="small text-muted">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, not yet posted)</span></div>
+                <div class="small text-muted">Interest This Year <span class="d-block" style="font-size:.65rem">(in the balance)</span></div>
                 <div class="fw-bold fs-6 text-primary">{{ number_format($pendingInterest, $dp) }}</div>
             </div>
         </div>

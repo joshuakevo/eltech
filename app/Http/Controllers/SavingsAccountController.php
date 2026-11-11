@@ -76,94 +76,29 @@ class SavingsAccountController extends Controller
     }
 
     /**
-     * Interest accrued but not yet posted to the balance -- the same figure
-     * the Member Summary report shows as "savings interest". It has two
-     * sources, mirroring ReportController::memberSummary():
-     *
-     * 1. Tiered products: live day-by-day projection (their interest is
-     *    credited manually, typically once a year, so it can sit unposted
-     *    for months). Flat products post automatically every month (see
-     *    Kernel::schedule), so their balance is always effectively current
-     *    and contributes 0 here.
-     * 2. GL account 2006 "Savings Interest Payable" -- accrued interest
-     *    inherited from opening-balance migrations, booked as a client-
-     *    tagged liability rather than a live accrual. It's client-level, not
-     *    account-level, so it's only attributed here when the client has
-     *    exactly one active savings account (true for every such client in
-     *    production today).
+     * "Interest" on the balance cards = interest credited this calendar year. It is already in the balance
+     * (Balance Including Interest) but only earns interest from the next 1 January, so
+     * Balance (Excluding Interest) = balance − this. Interest runs post to the statement (Running Interest),
+     * so nothing is pending outside the balance.
      */
     private function attachPendingInterest($accounts): void
     {
-        $clientIds = $accounts->pluck('client_id')->filter()->unique()->values();
-        $legacyByClient = $this->legacyAccruedInterestByClient($clientIds);
-        $soloClientIds  = $this->soloActiveAccountClientIds($clientIds);
-
+        $byAccount = $this->savingsService->interestThisYearByAccount($accounts->pluck('id')->all());
         foreach ($accounts as $acc) {
-            $acc->pending_interest = $this->pendingInterestFor($acc, null, $legacyByClient, $soloClientIds);
+            $acc->pending_interest = $byAccount[(int) $acc->id] ?? 0.0;
         }
     }
 
-    /**
-     * True total of pending interest across every account matching the
-     * query (not just one page).
-     */
+    /** True total across every account matching the query (not just one page). */
     private function sumPendingInterest($query): float
     {
-        $accounts = (clone $query)->with('product')->get();
-        $this->attachPendingInterest($accounts);
-        return (float) $accounts->sum('pending_interest');
+        $ids = (clone $query)->pluck('savings_accounts.id')->all();
+        return (float) array_sum($this->savingsService->interestThisYearByAccount($ids));
     }
 
-    private function pendingInterestFor(
-        SavingsAccount $account,
-        ?string $asOfDate = null,
-        $legacyByClient = null,
-        $soloClientIds = null
-    ): float {
-        $tiered = $account->product->interest_method === 'tiered'
-            ? $this->savingsService->previewAccruedInterest($account, $asOfDate)
-            : 0.0;
-
-        $clientIds = collect([$account->client_id]);
-        $legacyByClient ??= $this->legacyAccruedInterestByClient($clientIds, $asOfDate);
-        $soloClientIds  ??= $this->soloActiveAccountClientIds($clientIds);
-
-        $legacy = $soloClientIds->contains($account->client_id)
-            ? (float) ($legacyByClient[$account->client_id] ?? 0)
-            : 0.0;
-
-        return round($tiered + $legacy, 2);
-    }
-
-    private function legacyAccruedInterestByClient($clientIds, ?string $asOfDate = null)
+    private function pendingInterestFor(SavingsAccount $account, ?string $asOfDate = null): float
     {
-        if ($clientIds->isEmpty()) {
-            return collect();
-        }
-
-        return \DB::table('transaction_lines as tl')
-            ->join('transactions as t', 't.id', '=', 'tl.transaction_id')
-            ->join('accounts as a', 'a.id', '=', 'tl.account_id')
-            ->where('a.account_code', '2006')
-            ->where('t.date', '<=', $asOfDate ?? today()->toDateString())
-            ->whereIn('tl.client_id', $clientIds)
-            ->groupBy('tl.client_id')
-            ->select('tl.client_id', \DB::raw('SUM(tl.credit - tl.debit) as amount'))
-            ->pluck('amount', 'client_id');
-    }
-
-    private function soloActiveAccountClientIds($clientIds)
-    {
-        if ($clientIds->isEmpty()) {
-            return collect();
-        }
-
-        return SavingsAccount::whereIn('client_id', $clientIds)
-            ->where('status', 'active')
-            ->select('client_id')
-            ->groupBy('client_id')
-            ->havingRaw('COUNT(*) = 1')
-            ->pluck('client_id');
+        return $this->savingsService->interestThisYear($account, $asOfDate);
     }
 
     public function create(Request $request)
@@ -351,7 +286,7 @@ class SavingsAccountController extends Controller
             }
             $rows[] = ['', $toDate ?: now()->toDateString(), 'Closing balance', '', '', '', '', round($closingBalance, 2)];
             if ($pendingInterest > 0) {
-                $rows[] = ['', '', 'Accrued interest (not yet posted)', '', '', '', '', round($pendingInterest, 2)];
+                $rows[] = ['', '', 'Interest credited this year (in the balance)', '', '', '', '', round($pendingInterest, 2)];
             }
             return $this->csvDownload($rows, "savings-statement-{$saving->account_number}-{$period}");
         }

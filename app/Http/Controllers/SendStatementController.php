@@ -195,9 +195,7 @@ class SendStatementController extends Controller
             ->orderBy('id', 'asc')
             ->get();
 
-        $pendingInterest = $account->product->interest_method === 'tiered'
-            ? $this->savingsService->previewAccruedInterest($account, $toDate)
-            : 0;
+        $pendingInterest = $this->savingsService->interestThisYear($account, $toDate);
 
         return Pdf::loadView('pdf.savings-statement', [
             'account'           => $account,

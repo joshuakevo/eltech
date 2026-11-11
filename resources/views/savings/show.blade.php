@@ -87,7 +87,7 @@
     @if($pendingInterest > 0)
     <div class="col">
         <div class="stat-card text-center">
-            <div class="text-muted small">Accrued Interest <span class="d-block" style="font-size:.65rem">(pending, not yet posted)</span></div>
+            <div class="text-muted small">Interest This Year <span class="d-block" style="font-size:.65rem">(in the balance, earns from 1 Jan)</span></div>
             <div class="fw-bold fs-5 text-success">{{ number_format($pendingInterest, $dp) }}</div>
         </div>
     </div>
