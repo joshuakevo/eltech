@@ -225,7 +225,7 @@ class SavingsInterestRunService
                         'balance_after'      => 0,
                         'transaction_date'   => $run->period_end->toDateString(),
                         'reference'          => $journal->reference,
-                        'description'        => 'Interest credit (' . $line->period_start->format('d M Y') . ' – ' . $line->period_end->format('d M Y') . ") {$line->rate_label}",
+                        'description'        => 'Interest credited (' . $line->period_start->format('d M Y') . ' – ' . $line->period_end->format('d M Y') . ')',
                         'transaction_id'     => $journal->id,
                         'created_by'         => auth()->id(),
                     ]);
@@ -405,7 +405,7 @@ class SavingsInterestRunService
                         'balance_after'      => 0,
                         'transaction_date'   => $periodEnd,
                         'reference'          => $journal->reference,
-                        'description'        => $r['accrue'] ? 'Interest credited for ' . Carbon::parse($periodEnd)->year : "Interest credit ({$label}) {$r['rate_label']}",
+                        'description'        => $r['accrue'] ? 'Interest credited for ' . Carbon::parse($periodEnd)->year : "Interest credited ({$label})",
                         'transaction_id'     => $journal->id,
                         'created_by'         => auth()->id(),
                     ]);
