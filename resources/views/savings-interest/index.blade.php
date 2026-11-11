@@ -31,6 +31,17 @@
 </ul>
 
 @if($product)
+@if(!empty($accrued) && $accrued['amount'] > 0)
+<div class="alert alert-info d-flex flex-wrap align-items-center gap-2 small">
+    <i class="bi bi-journal-arrow-down fs-5"></i>
+    <div class="me-auto"><strong>{{ number_format($accrued['amount'], $dp) }}</strong> of interest is in 2006 Savings Interest Payable and not on members' statements:
+        {{ $accrued['runs'] }} interest run lines, and {{ $accrued['brought_forward'] }} members' interest brought forward to 31/07/2026 (imported "Save Int").</div>
+    <form method="POST" action="{{ route('savings-interest.to-statements', $product) }}" onsubmit="return confirm('Put {{ number_format($accrued['amount'], 2) }} of interest on members\' statements? It is added to their savings balances.')">
+        @csrf
+        <button class="btn btn-sm btn-primary"><i class="bi bi-check2-circle me-1"></i>Put on statements</button>
+    </form>
+</div>
+@endif
 <div class="row g-3">
     {{-- Rates --}}
     <div class="col-lg-4">
@@ -59,7 +70,7 @@
                         </div>
                     </form>
                 @else
-                    <p class="text-muted mb-2">Uses the <strong>savings balance at each month end</strong> (not daily) × the rate of the tier it falls in ÷ 12, rounded down. E.g. 899,228 → 4% → 2,997. Interest is held in <strong>2006 Savings Interest Payable</strong> during the year (it doesn't earn interest); the <strong>31 December</strong> run credits each member's year's interest into savings, where it earns from then on.</p>
+                    <p class="text-muted mb-2">Uses the <strong>balance at each month end</strong> (not daily), <strong>without the interest credited this year</strong>, × the rate of the tier it falls in ÷ 12, rounded down. E.g. 899,228 → 4% → 2,997. Interest shows on the statement each month and earns interest from the next 1 January.</p>
                     <table class="table table-sm mb-2">
                         <thead class="table-light"><tr><th>From</th><th>To</th><th class="text-end">Rate</th></tr></thead>
                         <tbody>

@@ -51,6 +51,7 @@ class SavingsInterestController extends Controller
             }
             $posting = ['expense' => $expense, 'liability' => $label($product->savings_liability_account_id)];
             $data += compact('pickAccounts');
+            $data['accrued'] = ($product->interest_run_method ?: 'tiers') === 'tiers' ? $this->runs->accruedPending($product) : null;
             $data += compact('latest', 'periodEnd', 'from', 'preview', 'history', 'bands', 'tiers', 'specials', 'posting');
         } else {
             $gs = app(\App\Services\GroupService::class);
@@ -180,6 +181,17 @@ class SavingsInterestController extends Controller
         \App\Models\SystemSetting::set('group_interest_rate', (float) $data['rate']);
         \App\Models\AuditLog::record('group_interest_rate', "Group interest rate set to {$data['rate']}% p.a.", 'groups');
         return back()->with('success', "Group interest rate set to {$data['rate']}% p.a.");
+    }
+
+    /** Ordinary Savings: put interest left in 2006 (earlier accrued runs + imported Save Int) on members' statements. */
+    public function toStatements(SavingsProduct $product)
+    {
+        try {
+            $done = $this->runs->postAccruedToStatements($product);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        return back()->with('success', "Interest put on statements: {$done['runs']} run lines and {$done['brought_forward']} members' interest brought forward to 31/07/2026 — " . number_format($done['amount'], 2) . ' in total.');
     }
 
     /** Interest Wallet style bands: whole balance at the rate of the highest band it reaches. */

@@ -22,6 +22,11 @@ class SavingsInterestRunLine extends Model
         'credited_to_savings' => 'float',
     ];
 
+    public function run()
+    {
+        return $this->belongsTo(SavingsInterestRun::class, 'savings_interest_run_id');
+    }
+
     public function account()
     {
         return $this->belongsTo(SavingsAccount::class, 'savings_account_id');

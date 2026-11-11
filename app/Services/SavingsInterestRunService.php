@@ -25,11 +25,10 @@ use InvalidArgumentException;
  *  - product method 'bands':  balance × the rate of the highest band the balance reaches that day
  *                             (Interest Wallet: 10% from 5M, 7% from 1.5M, nothing below)
  *  - product method 'tiers' (Ordinary Savings, the old system's method): month-end balances only, not daily.
- *                             At each month end: savings balance × the rate of the tier it falls in ÷ 12, rounded
- *                             down to a shilling (899,228 → 4% → 2,997). The savings balance holds no interest of
- *                             the year: the interest is accrued to 2006 Savings Interest Payable (tagged to the
- *                             member, like the imported "Save Int") and only on the 31 December run is the
- *                             member's whole 2006 balance moved into savings, where it earns interest from then on.
+ *                             At each month end: (savings balance − interest credited this calendar year) × the
+ *                             rate of the tier that amount falls in ÷ 12, rounded down to a shilling
+ *                             (899,228 → 4% → 2,997). Interest is credited to the statement each month but only
+ *                             earns interest from the next 1 January.
  *                             Accounts with a special rate keep the daily method.
  * Daily methods use annual rate ÷ 365 per day. One journal per run: DR interest expense / CR the product's savings liability
  * (one line per member, tagged to them); each account gets an "interest" statement row linked to it.
@@ -67,14 +66,10 @@ class SavingsInterestRunService
         $dp       = (int) SystemSetting::get('decimal_places', 2);
 
         $accounts = SavingsAccount::with('client')->where('product_id', $product->id)->where('status', 'active')->get();
-        // Ordinary Savings: the run on 31 December moves each member's accrued interest (2006) into savings
-        $yearEnd  = $method === 'tiers' && $end->month === 12 && $end->day === 31;
-        $payable  = $yearEnd ? $this->interestPayableByClient($accounts->pluck('client_id')->all(), $end->toDateString()) : [];
-        $creditedClients = [];
         $txns     = SavingsTransaction::whereIn('savings_account_id', $accounts->pluck('id'))
             ->where('transaction_date', '<=', $end->toDateString())
             ->orderBy('transaction_date')->orderBy('id')
-            ->get(['savings_account_id', 'transaction_date', 'balance_after'])
+            ->get(['savings_account_id', 'transaction_date', 'balance_after', 'transaction_type', 'amount'])
             ->groupBy('savings_account_id');
 
         $rows = collect();
@@ -106,9 +101,6 @@ class SavingsInterestRunService
 
             $override = $account->interest_rate_override !== null ? (float) $account->interest_rate_override : null;
             $monthEnd = $override === null && $method === 'tiers';
-            if ($monthEnd && Carbon::create($start->year, 12, 31)->lt($end)) {
-                throw new InvalidArgumentException("Run {$product->name} to 31 Dec {$start->year} first — that run credits the year's interest into the savings balances.");
-            }
             $interest = 0.0;
             $sumBal   = 0.0;
             $days     = 0;
@@ -124,17 +116,21 @@ class SavingsInterestRunService
                     continue;
                 }
                 if ($monthEnd) {
-                    // Ordinary Savings (old system): only the balance at each month end counts — the whole
-                    // balance × the rate of its tier ÷ 12, rounded down. The balance holds no interest of the year.
+                    // Ordinary Savings (old system): only the balance at each month end counts, without the
+                    // interest credited this calendar year (it earns from the next 1 January) — that amount ×
+                    // the rate of its tier ÷ 12, rounded down.
                     if (!$day->isLastOfMonth()) {
                         continue;
                     }
-                    $tier = $tiersDesc->first(fn ($t) => $balance >= (float) $t->min_balance);
+                    $yearInterest = $list->filter(fn ($t) => $t->transaction_type === 'interest'
+                        && $t->transaction_date->year === $day->year && $t->transaction_date->lte($day))->sum('amount');
+                    $earning = $balance - (float) $yearInterest;
+                    $tier = $tiersDesc->first(fn ($t) => $earning >= (float) $t->min_balance);
                     $rate = $tier ? (float) $tier->rate : 0.0;
-                    if ($rate <= 0) {
+                    if ($rate <= 0 || $earning <= 0) {
                         continue;
                     }
-                    $interest += floor($balance * $rate / 100 / 12);
+                    $interest += floor($earning * $rate / 100 / 12);
                 } elseif ($override !== null) {
                     $rate = $override;
                     $interest += $balance * $rate / 100 / 365;
@@ -154,13 +150,7 @@ class SavingsInterestRunService
             }
 
             $interest = round($interest, $dp);
-            // 31 December: the member's accrued interest for the year (2006, incl. this run) goes into savings
-            $credit = 0.0;
-            if ($monthEnd && $yearEnd && !isset($creditedClients[(int) $account->client_id])) {
-                $creditedClients[(int) $account->client_id] = true;
-                $credit = round(($payable[(int) $account->client_id] ?? 0) + $interest, 2);
-            }
-            if ($interest <= 0 && $credit <= 0) {
+            if ($interest <= 0) {
                 $zero++;
                 continue;
             }
@@ -182,12 +172,128 @@ class SavingsInterestRunService
                 'average_balance' => round($sumBal / max($days, 1), 2),
                 'rate_label'      => $label,
                 'interest'        => $interest,
-                'accrue'          => $monthEnd,
-                'year_end_credit' => $credit,
+                'accrue'          => false,   // runs before 11/11/2026 accrued Ordinary Savings to 2006 — see postAccruedToStatements()
+                'year_end_credit' => 0.0,
             ]);
         }
 
         return ['rows' => $rows->sortBy(fn ($r) => $r['account']->client->name ?? '')->values(), 'zero' => $zero];
+    }
+
+    /**
+     * One-off: puts interest that is sitting in 2006 Savings Interest Payable onto members' statements.
+     *  1. Earlier runs that accrued to 2006: each run line's 2006 credit is moved to the savings liability inside that
+     *     run's own journal, and a statement row is added (dated the run date, linked to the journal) — Undo of the
+     *     run still removes everything.
+     *  2. The imported "Save Int" (2026 interest to 31/07/2026, left in 2006 by the transfer): one 'savings' journal
+     *     per member DR 2006 / CR savings liability with a statement row "Interest brought forward to 31/07/2026"
+     *     dated 31/07/2026 (reversing the journal removes the row).
+     * Returns ['runs' => lines moved, 'brought_forward' => members, 'amount' => total].
+     */
+    public function postAccruedToStatements(SavingsProduct $product): array
+    {
+        $payableId = $this->payableAccountId();
+        $liability = $product->savings_liability_account_id;
+        if (!$liability) {
+            throw new InvalidArgumentException("{$product->name} has no savings liability account.");
+        }
+        $done = ['runs' => 0, 'brought_forward' => 0, 'amount' => 0.0];
+
+        DB::transaction(function () use ($product, $payableId, $liability, &$done) {
+            // 1. Accrued run lines
+            $runs = SavingsInterestRun::with('lines.account')->where('savings_product_id', $product->id)->whereNotNull('transaction_id')->get();
+            foreach ($runs as $run) {
+                $journal = Transaction::find($run->transaction_id);
+                if (!$journal) {
+                    continue;
+                }
+                foreach ($run->lines as $line) {
+                    if ($line->savings_transaction_id || $line->interest <= 0 || !$line->account) {
+                        continue;
+                    }
+                    $moved = \App\Models\TransactionLine::where('transaction_id', $journal->id)->where('account_id', $payableId)
+                        ->where('credit', '>', 0)->where('description', 'Interest accrued - ' . $line->account->account_number)
+                        ->update(['account_id' => $liability, 'description' => 'Interest - ' . $line->account->account_number]);
+                    if (!$moved) {
+                        continue;
+                    }
+                    $st = SavingsTransaction::create([
+                        'savings_account_id' => $line->account->id,
+                        'transaction_type'   => 'interest',
+                        'amount'             => $line->interest,
+                        'balance_before'     => 0,
+                        'balance_after'      => 0,
+                        'transaction_date'   => $run->period_end->toDateString(),
+                        'reference'          => $journal->reference,
+                        'description'        => 'Interest credit (' . $line->period_start->format('d M Y') . ' – ' . $line->period_end->format('d M Y') . ") {$line->rate_label}",
+                        'transaction_id'     => $journal->id,
+                        'created_by'         => auth()->id(),
+                    ]);
+                    $line->update(['savings_transaction_id' => $st->id, 'credited_to_savings' => $line->interest]);
+                    $this->savings->recalculateLedger($line->account);
+                    $done['runs']++;
+                    $done['amount'] += $line->interest;
+                }
+            }
+
+            // 2. Imported Save Int still in 2006 (one active account per member)
+            $accounts = SavingsAccount::where('product_id', $product->id)->where('status', 'active')->orderBy('id')->get()->unique('client_id');
+            $payable  = $this->interestPayableByClient($accounts->pluck('client_id')->all(), now()->toDateString());
+            foreach ($accounts as $account) {
+                $amount = round($payable[(int) $account->client_id] ?? 0, 2);
+                if ($amount <= 0 || SavingsTransaction::where('savings_account_id', $account->id)->where('description', 'like', 'Interest brought forward%')->exists()) {
+                    continue;
+                }
+                $date    = '2026-07-31';
+                $journal = $this->accounting->post($date, "Interest brought forward to 31/07/2026 - savings {$account->account_number}", [
+                    ['account_id' => $payableId, 'client_id' => $account->client_id, 'debit' => $amount, 'credit' => 0, 'description' => "Save Int to 31/07/2026 credited - {$account->account_number}"],
+                    ['account_id' => $liability, 'client_id' => $account->client_id, 'debit' => 0, 'credit' => $amount, 'description' => "Interest brought forward - {$account->account_number}"],
+                ], 'savings', $account->id);
+                SavingsTransaction::create([
+                    'savings_account_id' => $account->id,
+                    'transaction_type'   => 'interest',
+                    'amount'             => $amount,
+                    'balance_before'     => 0,
+                    'balance_after'      => 0,
+                    'transaction_date'   => $date,
+                    'reference'          => $journal->reference,
+                    'description'        => 'Interest brought forward to 31/07/2026',
+                    'transaction_id'     => $journal->id,
+                    'created_by'         => auth()->id(),
+                ]);
+                $this->savings->recalculateLedger($account);
+                $done['brought_forward']++;
+                $done['amount'] += $amount;
+            }
+
+            AuditLog::record('savings_interest_to_statements', "{$product->name}: accrued interest put on statements — {$done['runs']} run lines, {$done['brought_forward']} members' interest brought forward to 31/07/2026, " . number_format($done['amount'], 2) . ' in total', 'savings');
+        });
+
+        return $done;
+    }
+
+    /** What postAccruedToStatements() would move: ['runs' => lines, 'brought_forward' => members, 'amount' => total]. */
+    public function accruedPending(SavingsProduct $product): array
+    {
+        $payableId = $this->payableAccountId(false);
+        if (!$payableId) {
+            return ['runs' => 0, 'brought_forward' => 0, 'amount' => 0.0];
+        }
+        $lines = \App\Models\SavingsInterestRunLine::whereHas('run', fn ($q) => $q->where('savings_product_id', $product->id))
+            ->whereNull('savings_transaction_id')->where('interest', '>', 0)->get();
+        $accounts = SavingsAccount::where('product_id', $product->id)->where('status', 'active')->orderBy('id')->get()->unique('client_id');
+        $payable  = $this->interestPayableByClient($accounts->pluck('client_id')->all(), now()->toDateString());
+        $runByClient = $lines->groupBy(fn ($l) => (int) $l->client_id)->map(fn ($c) => $c->sum('interest'));
+        $bf = 0; $bfAmount = 0.0;
+        foreach ($accounts as $a) {
+            // 2006 still holds the accrued run interest until it is moved, so take it off to see the Save Int left
+            $left = round(($payable[(int) $a->client_id] ?? 0) - ($runByClient[(int) $a->client_id] ?? 0), 2);
+            if ($left > 0 && !SavingsTransaction::where('savings_account_id', $a->id)->where('description', 'like', 'Interest brought forward%')->exists()) {
+                $bf++;
+                $bfAmount += $left;
+            }
+        }
+        return ['runs' => $lines->count(), 'brought_forward' => $bf, 'amount' => round($lines->sum('interest') + $bfAmount, 2)];
     }
 
     /** Accrued savings interest still owed per member (2006 Savings Interest Payable, lines tagged to the client) as at $date. */
