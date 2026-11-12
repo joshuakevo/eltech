@@ -62,6 +62,17 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset'])->name('
 // ── MarzPay webhook (public, server-to-server, no auth/CSRF) ──────
 Route::post('marzpay/webhook', [MarzPayWebhookController::class, 'handle'])->name('marzpay.webhook');
 
+// ── Investor portal demo (public, sample data only — nothing read from / written to the books) ──
+Route::prefix('demo/investor')->name('demo.investor')->middleware('throttle:60,1')
+    ->controller(\App\Http\Controllers\DemoPortalController::class)->group(function () {
+        Route::get('/', 'overview');
+        Route::get('statements', 'statements')->name('.statements');
+        Route::get('savings', 'savingsStatement')->name('.savings');
+        Route::get('investments/{id}', 'investment')->whereNumber('id')->name('.investment');
+        Route::get('investments/{id}/statement.pdf', 'monthlyStatementPdf')->whereNumber('id')->name('.investment.statement');
+        Route::get('investments/{id}/certificate.pdf', 'certificatePdf')->whereNumber('id')->name('.investment.certificate');
+    });
+
 // ── Shared statement links (public, signed -- for WhatsApp/SMS sharing) ──
 Route::middleware('signed')->group(function () {
     Route::get('statements/shared/{client}', [SendStatementController::class, 'sharedView'])->name('send-statements.shared');
