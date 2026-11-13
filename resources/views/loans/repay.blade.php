@@ -156,8 +156,7 @@
                             <strong>Early Settlement on <span data-es="date">{{ now()->format('d M Y') }}</span>:</strong>
                             Principal <span data-es="principal">{{ number_format($earlySettlement['principal'], $dp) }}</span>
                             <span data-es="owedWrap" @if(($earlySettlement['interest_owed'] ?? 0) < 0.5) style="display:none" @endif>+ Interest already charged <span data-es="owed">{{ number_format($earlySettlement['interest_owed'] ?? 0, $dp) }}</span></span>
-                            + Interest <span data-es="days">{{ $earlySettlement['days'] ?? 0 }}</span> days from <span data-es="from">{{ isset($earlySettlement['from']) ? \Carbon\Carbon::parse($earlySettlement['from'])->format('d M Y') : '' }}</span>
-                            (<span data-es="principal2">{{ number_format($earlySettlement['principal'], 0) }}</span> × <span data-es="rate">{{ ($earlySettlement['rate'] ?? 0) + 0 }}</span>% × days ÷ 365) <span data-es="accrued">{{ number_format($earlySettlement['accrued'] ?? 0, $dp) }}</span>
+                            + Interest <span data-es="working">{{ $earlySettlement['working'] ?? '' }}</span> <span data-es="accrued">{{ number_format($earlySettlement['accrued'] ?? 0, $dp) }}</span>
                             <span data-es="penaltyWrap" @if($earlySettlement['penalty'] <= 0) style="display:none" @endif>+ Penalty <span data-es="penalty">{{ number_format($earlySettlement['penalty'], $dp) }}</span></span>
                             = <strong data-es="total">{{ number_format($earlySettlement['total'], $dp) }}</strong>
                             <span class="text-success ms-1" data-es="savesWrap">(saves <span data-es="saves">{{ number_format(max(0, $totalOwed - $earlySettlement['total']), $dp) }}</span> in future interest)</span>
@@ -274,8 +273,7 @@ function renderEarlySettlement(es, dateStr) {
     set('date', d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
     set('principal', money(es.principal)); set('principal2', Number(es.principal).toLocaleString());
     set('owed', money(es.interest_owed)); show('owedWrap', es.interest_owed >= 0.5);
-    set('days', es.days); set('rate', Number(es.rate)); set('accrued', money(es.accrued));
-    set('from', es.from ? new Date(es.from + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+    set('working', es.working || ''); set('accrued', money(es.accrued));
     set('penalty', money(es.penalty)); show('penaltyWrap', es.penalty > 0);
     set('total', money(es.total)); document.getElementById('earlySettleLabel').textContent = money(es.total);
     var saves = Math.max(0, fullOutstanding() - es.total); set('saves', money(saves)); show('savesWrap', saves >= 0.5);

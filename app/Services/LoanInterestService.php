@@ -35,6 +35,11 @@ use Illuminate\Validation\ValidationException;
  *   schedule.interest_charged   installment's interest is real (true) or a projection (false);
  *                         projections are not owed and not part of outstanding interest.
  * outstanding_interest = unpaid interest on charged installments + interest_carried.
+ *
+ * Flat loans (interest_method = flat): each installment is charged the same flat interest,
+ * principal × rate × months per installment ÷ 12 (Loan::flatPeriodInterest), instead of by days, so
+ * installments stay equal. Early settlement charges one full flat installment for the period it falls in.
+ * Overdue interest after maturity and lock-up interest stay by days.
  */
 class LoanInterestService
 {
@@ -109,6 +114,8 @@ class LoanInterestService
             $installment = (float) $correction->installment_amount;   // chosen on the correction
         } elseif (!$fromCorrection && $uncharged->count() > 1) {
             $installment = (float) $uncharged->first()->total_due;   // keep the installment members know
+        } elseif ($loan->isFlatInterest()) {
+            $installment = $unattached / $uncharged->count() + $loan->flatPeriodInterest();   // equal flat installments
         } else {
             $installment = $this->annuity($unattached, (float) $loan->interest_rate, $uncharged->count(), $this->stepMonths($loan));
         }
@@ -165,13 +172,14 @@ class LoanInterestService
             }
             $from = $loan->interest_accrued_to ? $loan->interest_accrued_to->copy()->startOfDay() : $date->copy()->startOfDay();
             $to   = $date->copy()->startOfDay();
-            $days = $to->gt($from) ? $from->diffInDays($to) : 0;
+            $si   = $this->settlementInterest($loan, $from, $to);
             $prin = round((float) $loan->outstanding_principal, 2);
-            $accrued = round($prin * (float) $loan->interest_rate / 100 * $days / 365, 2);
+            $accrued = $si['amount'];
             $owed = round(max(0, (float) $loan->outstanding_interest), 2);
 
-            return ['principal' => $prin, 'interest_owed' => $owed, 'accrued' => $accrued, 'days' => $days,
-                'from' => $from->toDateString(), 'rate' => (float) $loan->interest_rate, 'interest' => round($owed + $accrued, 2)];
+            return ['principal' => $prin, 'interest_owed' => $owed, 'accrued' => $accrued, 'days' => $si['days'],
+                'from' => $from->toDateString(), 'rate' => (float) $loan->interest_rate, 'interest' => round($owed + $accrued, 2),
+                'working' => $si['working']];
         } finally {
             DB::rollBack();
             $this->previewing = false;
@@ -179,10 +187,11 @@ class LoanInterestService
     }
 
     /**
-     * Early settlement: charge interest from the last charge to the settlement date (days) as
-     * carried interest, so the settlement repayment clears it. Logged in loan_interest_charges.
+     * Charge interest from the last charge to $date as carried interest, so a settlement repayment
+     * clears it. Logged in loan_interest_charges. $earlySettlement: flat loans are charged a full flat
+     * installment per period (settlementInterest); otherwise (e.g. lock-up) always by days.
      */
-    public function chargeForSettlement(Loan $loan, Carbon $date): ?array
+    public function chargeForSettlement(Loan $loan, Carbon $date, bool $earlySettlement = false): ?array
     {
         $from = $loan->interest_accrued_to?->copy()->startOfDay();
         $to   = $date->copy()->startOfDay();
@@ -192,7 +201,9 @@ class LoanInterestService
         $days    = $from->diffInDays($to);
         $rate    = (float) $loan->interest_rate;
         $prin    = round((float) $loan->outstanding_principal, 2);
-        $accrued = round($prin * $rate / 100 * $days / 365, 2);
+        $accrued = $earlySettlement
+            ? $this->settlementInterest($loan, $from, $to)['amount']
+            : round($prin * $rate / 100 * $days / 365, 2);
         $row     = $loan->schedules()->where('interest_charged', false)->orderBy('installment_no')->first()
             ?? $loan->schedules()->orderByDesc('installment_no')->first();
         $carriedBefore = round((float) $loan->interest_carried, 2);
@@ -215,6 +226,60 @@ class LoanInterestService
         return ['days' => $days, 'accrued' => $accrued, 'from' => $from->toDateString(), 'to' => $to->toDateString()];
     }
 
+    /**
+     * Interest for one installment period: the flat amount for flat loans (when the period has
+     * days and principal is still owed), otherwise principal × rate × days ÷ 365.
+     */
+    private function periodInterest(Loan $loan, float $principal, int $days): float
+    {
+        if ($days <= 0 || $principal <= 0) {
+            return 0.0;
+        }
+        if ($loan->isFlatInterest()) {
+            return $loan->flatPeriodInterest();
+        }
+
+        return round($principal * (float) $loan->interest_rate / 100 * $days / 365, 2);
+    }
+
+    /**
+     * Interest for an early settlement from $from to $to. Days-based loans: principal × rate × days ÷ 365.
+     * Flat loans: one full flat installment for every installment period the date reaches into
+     * (installments due by the date and not yet charged, plus the period the date falls in); after
+     * the last installment, the days past it are charged by days like overdue interest.
+     */
+    private function settlementInterest(Loan $loan, Carbon $from, Carbon $to): array
+    {
+        $days = $to->gt($from) ? $from->diffInDays($to) : 0;
+        $prin = round((float) $loan->outstanding_principal, 2);
+        $rate = (float) $loan->interest_rate;
+        $byDays = fn (int $d) => round($prin * $rate / 100 * $d / 365, 2);
+        if ($days === 0 || !$loan->isFlatInterest()) {
+            return ['amount' => $byDays($days), 'days' => $days, 'periods' => 0,
+                'working' => "{$days} days from " . $from->format('d M Y') . ' (' . number_format($prin, 0) . " × {$rate}% × days ÷ 365)"];
+        }
+
+        $uncharged = $loan->schedules()->where('interest_charged', false)->orderBy('installment_no')->get();
+        $reached   = $uncharged->filter(fn ($r) => $r->due_date->copy()->startOfDay()->lte($to));
+        $periods   = $reached->count();
+        $lastDue   = $reached->isNotEmpty() ? $reached->last()->due_date->copy()->startOfDay() : $from;
+        $overDays  = 0;
+        if ($to->gt($lastDue)) {
+            if ($uncharged->count() > $periods) {
+                $periods++;                                   // the period the date falls in, charged in full
+            } else {
+                $overDays = $lastDue->diffInDays($to);        // past the last installment: by days
+            }
+        }
+        $flat   = $loan->flatPeriodInterest();
+        $amount = round($periods * $flat + $byDays($overDays), 2);
+        $working = $periods . ' flat installment' . ($periods === 1 ? '' : 's') . ' × ' . number_format($flat, 0)
+            . ' (' . number_format((float) $loan->principal, 0) . " × {$rate}% × " . $this->stepMonths($loan) . ' ÷ 12)'
+            . ($overDays > 0 ? " + {$overDays} days after the last installment" : '');
+
+        return ['amount' => $amount, 'days' => $days, 'periods' => $periods, 'working' => $working];
+    }
+
     /** Charges interest for the period ending on this installment's due date. */
     public function charge(Loan $loan, LoanSchedule $row): array
     {
@@ -223,7 +288,7 @@ class LoanInterestService
         $days    = $to->gt($from) ? $from->diffInDays($to) : 0;
         $rate    = (float) $loan->interest_rate;
         $prin    = round((float) $loan->outstanding_principal, 2);
-        $accrued = round($prin * $rate / 100 * $days / 365, 2);
+        $accrued = $this->periodInterest($loan, $prin, $days);
 
         $rows   = $loan->schedules()->orderBy('installment_no')->get();
         $isLast = $rows->filter(fn ($r) => !$r->interest_charged && $r->id !== $row->id)->isEmpty();
@@ -292,7 +357,7 @@ class LoanInterestService
 
         foreach ($uncharged as $i => $row) {
             $days = $row->due_date->gt($prev) ? $prev->diffInDays($row->due_date) : 0;
-            $proj = round(max(0, $balance) * $rate / 100 * $days / 365, 2);
+            $proj = $this->periodInterest($loan, max(0, $balance), $days);
             $p    = $i === $n - 1 ? $balance : min($balance, max(0, round($emi - $proj, 2)));
             $p    = round(max(0, $p), 2);
             $balance = round($balance - $p, 2);

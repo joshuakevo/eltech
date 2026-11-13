@@ -358,9 +358,9 @@ class LoanService
             // Paid after an installment's due date: that installment is charged its penalty (paid last, below)
             $this->chargeLatePenalties($loan, $data['payment_date']);
 
-            // Early settlement: charge interest by days up to the settlement date first
+            // Early settlement: charge interest up to the settlement date first (by days; flat loans a full flat installment)
             if (!empty($data['settle']) && !$loan->isLockedUp() && $loan->isDayBasedInterest()) {
-                app(LoanInterestService::class)->chargeForSettlement($loan, Carbon::parse($data['payment_date']));
+                app(LoanInterestService::class)->chargeForSettlement($loan, Carbon::parse($data['payment_date']), earlySettlement: true);
                 $loan->refresh();
             }
 
@@ -569,6 +569,7 @@ class LoanService
             'days'          => $q['days'],
             'from'          => $q['from'],
             'rate'          => $q['rate'],
+            'working'       => $q['working'] ?? null,
             'penalty'       => round($penalty, 2),
             'total'         => round($q['principal'] + $q['interest'] + $penalty, 2),
         ];

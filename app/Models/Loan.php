@@ -178,4 +178,16 @@ class Loan extends Model
     {
         return $this->interest_accrued_to !== null;
     }
+
+    /** Flat loans charge the same interest every installment (not by days). Locked-Up loans are never flat-charged. */
+    public function isFlatInterest(): bool
+    {
+        return $this->interest_method === 'flat' && !$this->isLockedUp();
+    }
+
+    /** Flat interest per installment: original principal × annual rate × months per installment ÷ 12. */
+    public function flatPeriodInterest(): float
+    {
+        return round((float) $this->principal * (float) $this->interest_rate / 100 * self::stepMonthsFor($this->repayment_frequency) / 12, 2);
+    }
 }
