@@ -32,17 +32,9 @@ class LockedUpInterestCharge extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /** Statement narration, e.g. "Interest charged 01 Sep 2026 – 30 Sep 2026 (30 days @ 18% p.a.)". */
+    /** Statement narration: just "Interest Charged" (the charge date is in its own column). */
     public function narration(): string
     {
-        $text = 'Interest charged';
-        if ($this->from_date) {
-            $text .= ' ' . $this->from_date->format('d M Y') . ' – ' . $this->charge_date->format('d M Y');
-            if ($this->days && $this->rate) {
-                $text .= ' (' . $this->days . ' days @ ' . rtrim(rtrim(number_format($this->rate, 4), '0'), '.') . '% p.a.)';
-            }
-        }
-
-        return $text;
+        return 'Interest Charged';
     }
 }

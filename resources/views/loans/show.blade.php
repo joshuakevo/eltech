@@ -217,7 +217,7 @@
             @foreach($loan->lockedUpCharges as $lc)
                 <tr>
                     <td class="ps-3">{{ $lc->charge_date->format('d M Y') }}</td>
-                    <td>{{ $lc->narration() }}@if($lc->principal) <span class="text-muted">on {{ number_format($lc->principal, $dp) }}</span>@endif</td>
+                    <td>{{ $lc->narration() }}</td>
                     <td class="text-muted">{{ $lc->notes ?? '—' }}</td>
                     <td class="text-muted">{{ $lc->createdBy->name ?? '—' }}</td>
                     <td class="text-end fw-semibold">{{ number_format($lc->amount, $dp) }}</td>
