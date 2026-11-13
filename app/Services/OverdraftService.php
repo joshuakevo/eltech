@@ -239,7 +239,8 @@ class OverdraftService
     /** A statement row that puts money into the account (a payment towards the overdraft). */
     public static function isPayment(SavingsTransaction $row): bool
     {
-        if (str_starts_with((string) $row->description, 'Overdraft charge')) {
+        // Not money from the member: overdraft charges, and an overdrawn balance written off when the account is closed
+        if (str_starts_with((string) $row->description, 'Overdraft charge') || str_starts_with((string) $row->description, MemberClosureService::WRITE_OFF_TEXT)) {
             return false;
         }
 

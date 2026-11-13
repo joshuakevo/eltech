@@ -160,6 +160,10 @@ Route::middleware('auth')->group(function () {
         ->name('clients.segment.update')->middleware('permission:edit clients');
     Route::patch('clients/{client}/relationship-manager', [ClientController::class, 'updateRelationshipManager'])
         ->name('clients.rm.update')->middleware('permission:edit clients');
+    Route::post('clients/{client}/close', [\App\Http\Controllers\MemberClosureController::class, 'store'])
+        ->name('clients.close')->middleware('permission:withdraw savings');
+    Route::post('clients/{client}/closures/{closure}/reopen', [\App\Http\Controllers\MemberClosureController::class, 'reopen'])
+        ->name('clients.reopen')->middleware('permission:withdraw savings');
     Route::post('clients/{client}/merge', [ClientController::class, 'merge'])
         ->name('clients.merge')->middleware('permission:delete clients');
     Route::post('clients/{client}/invite', [ClientController::class, 'invite'])
@@ -564,6 +568,8 @@ Route::middleware('auth')->group(function () {
         Route::get('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'settings'])->name('settings.ai');
         Route::post('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'saveSettings'])->name('settings.ai.save');
         Route::post('settings/ai/test', [\App\Http\Controllers\AiAssistantController::class, 'test'])->name('settings.ai.test');
+        Route::get('settings/account-closure', [\App\Http\Controllers\MemberClosureController::class, 'settings'])->name('settings.account-closure');
+        Route::post('settings/account-closure', [\App\Http\Controllers\MemberClosureController::class, 'saveSettings'])->name('settings.account-closure.save');
         Route::get('settings/overdraft', [\App\Http\Controllers\OverdraftController::class, 'index'])->name('settings.overdraft');
         Route::post('settings/overdraft', [\App\Http\Controllers\OverdraftController::class, 'update'])->name('settings.overdraft.update');
         Route::get('settings/loan-interest-methods', [SettingsController::class, 'loanInterestMethods'])->name('settings.loan-interest-methods');

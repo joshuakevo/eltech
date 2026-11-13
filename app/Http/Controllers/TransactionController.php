@@ -802,8 +802,18 @@ class TransactionController extends Controller
             'loan_topup' => $this->reverseLoanTopUpImpact($transaction),
             'overdraft_charge' => $this->reverseOverdraftChargeImpact($transaction),
             'overdraft_fee' => $this->reverseOverdraftFeeImpact($transaction),
+            'member_closure' => $this->reverseMemberClosureImpact($transaction),
             default         => null,
         };
+    }
+
+    /** Account closure journals: reopen the member and the savings accounts, restore the balances. */
+    private function reverseMemberClosureImpact(Transaction $transaction): void
+    {
+        $closure = \App\Models\MemberClosure::find($transaction->module_id);
+        if ($closure && $closure->status === 'applied') {
+            app(\App\Services\MemberClosureService::class)->reopen($closure, false);
+        }
     }
 
     /** Overdraft charge journals: remove the statement line (ledger rebuilt) and the charge record (checked beforehand). */

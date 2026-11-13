@@ -19,12 +19,13 @@ class Client extends Model
         'employment_status', 'purpose_of_joining', 'expected_monthly_savings', 'loan_interest',
         'membership_fee', 'membership_fee_paid', 'membership_fee_status',
         'next_of_kin_name', 'next_of_kin_relationship', 'next_of_kin_phone', 'next_of_kin_address',
-        'preferred_communication', 'status', 'joining_date',
+        'preferred_communication', 'status', 'closed_at', 'joining_date',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
         'joining_date'  => 'date',
+        'closed_at'     => 'date',
         'loan_recovery_uses_minimum' => 'boolean',
     ];
 

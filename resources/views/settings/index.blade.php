@@ -173,6 +173,21 @@ $groupIcons = [
 
 <div class="card mt-4">
     <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-door-closed text-danger"></i>
+        <span>Account Closure</span>
+    </div>
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <p class="text-muted small mb-0 flex-grow-1" style="max-width:720px">
+            The fee taken when a member's account is closed (Close Account on the member's page): account closure fee
+            {{ number_format((float) \App\Models\SystemSetting::get('account_closure_fee', 30000)) }} (includes the withdrawal fee), the account it goes to,
+            where overdrawn balances are written off, and recent closures.
+        </p>
+        <a href="{{ route('settings.account-closure') }}" class="btn btn-outline-primary"><i class="bi bi-gear me-2"></i>Set up</a>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
         <i class="bi bi-dash-circle text-danger"></i>
         <span>Overdraft Charges</span>
         <span class="badge bg-light text-dark border ms-1">{{ rtrim(rtrim(number_format((float) \App\Models\SystemSetting::get('overdraft_charge_rate', 1), 4), '0'), '.') }}%</span>

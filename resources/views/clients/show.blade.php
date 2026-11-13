@@ -56,6 +56,11 @@
         @endif
         <a href="{{ route('clients.edit', $client) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> Edit</a>
         @endcan
+        @can('withdraw savings')
+        @if(!$client->isGroup() && !$client->closed_at)
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#closeAccountModal"><i class="bi bi-door-closed"></i> Close Account</button>
+        @endif
+        @endcan
         @can('delete clients')
         @unless($client->isGroup())
         <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#mergeClientModal" title="Bring a duplicate record of this member into this one">
@@ -69,6 +74,29 @@
         @endcan
     </div>
 </div>
+
+@if($client->closed_at)
+@php $mcClosure = \App\Models\MemberClosure::with('createdBy')->where('client_id', $client->id)->where('status', 'applied')->latest('id')->first(); @endphp
+<div class="alert alert-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span><i class="bi bi-door-closed me-1"></i><b>Account closed</b> on {{ $client->closed_at->format('d M Y') }}
+        @if($mcClosure) — closure fee {{ number_format($mcClosure->closure_fee) }}, paid out {{ number_format($mcClosure->payout) }}@if($mcClosure->written_off > 0), overdrawn {{ number_format($mcClosure->written_off) }} written off @endif
+        by {{ $mcClosure->createdBy->name ?? '—' }}@if($mcClosure->reason) · {{ $mcClosure->reason }}@endif @endif</span>
+    @can('withdraw savings')
+    @if($mcClosure)
+    <form method="POST" action="{{ route('clients.reopen', [$client, $mcClosure]) }}" onsubmit="return confirm('Reopen {{ addslashes($client->name) }}\'s account? The closure journal is reversed and the savings balances restored.')">
+        @csrf
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise me-1"></i>Reopen account</button>
+    </form>
+    @endif
+    @endcan
+</div>
+@endif
+
+@can('withdraw savings')
+@if(!$client->isGroup() && !$client->closed_at)
+    @include('clients._close')
+@endif
+@endcan
 
 @can('delete clients')
 @unless($client->isGroup())
