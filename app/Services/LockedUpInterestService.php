@@ -48,8 +48,8 @@ class LockedUpInterestService
             if (!$loan->isLockedUp()) {
                 $fail('Interest can only be charged by hand on Locked-Up loans. Other loans are charged by Run Loans.');
             }
-            if ($loan->status === 'closed') {
-                $fail('This loan is closed.');
+            if (in_array($loan->status, ['closed', 'written_off'], true)) {
+                $fail($loan->status === 'written_off' ? 'This loan is written off.' : 'This loan is closed.');
             }
 
             $date = Carbon::parse($in['charge_date'])->startOfDay();

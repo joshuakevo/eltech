@@ -5,6 +5,7 @@
         $loanTabs[] = ['normal', route('loans.index', ['type' => 'normal']), 'bi-cash-stack', 'Normal Loans', '37, 99, 235'];
         $loanTabs[] = ['locked-up', route('loans.index', ['type' => 'locked-up']), 'bi-lock', 'Locked-Up Loans', '185, 28, 28'];
         $loanTabs[] = ['closed', route('loans.index', ['type' => 'closed']), 'bi-check2-circle', 'Closed Loans', '71, 85, 105'];
+        $loanTabs[] = ['written-off', route('loans.write-offs'), 'bi-x-octagon', 'Written Off', '124, 45, 18'];
     }
     if (auth()->user()->can('view loan provisions')) {
         $loanTabs[] = ['general-provisions', route('loan-provisions.index', ['type' => 'general']), 'bi-shield-check', 'General Provisions', '21, 128, 61'];

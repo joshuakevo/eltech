@@ -29,7 +29,7 @@ class LoanController extends Controller
                 ? $q->where('loan_product_id', $lockedUpProductId)
                 : $q->where(fn($q2) => $q2->where('loan_product_id', '!=', $lockedUpProductId)->orWhereNull('loan_product_id')))
             ->when($type === 'closed', fn($q) => $q->where('status', 'closed'))
-            ->when($type !== 'closed' && !$request->status, fn($q) => $q->where('status', '!=', 'closed'))
+            ->when($type !== 'closed' && !$request->status, fn($q) => $q->whereNotIn('status', ['closed', 'written_off']))
             ->when($type !== 'closed' && $request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->search, fn($q) => $q->where(fn($q1) => $q1->where('loan_number', 'like', "%{$request->search}%")
                 ->orWhereHas('client', fn($q2) => $q2->where('name', 'like', "%{$request->search}%"))))

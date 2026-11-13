@@ -97,6 +97,7 @@
         .badge-status-pending  {background:#fef3c7;color:#92400e;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-closed   {background:#ede9fe;color:#5b21b6;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-defaulted{background:#fee2e2;color:#991b1b;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
+        .badge-status-written_off{background:#f3f4f6;color:#7c2d12;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-matured  {background:#fef3c7;color:#92400e;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-dormant  {background:#e0f2fe;color:#0369a1;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}
         .badge-status-broken   {background:#fee2e2;color:#b91c1c;border-radius:20px;padding:.22em .7em;font-size:.7rem;font-weight:600}

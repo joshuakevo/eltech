@@ -803,8 +803,28 @@ class TransactionController extends Controller
             'overdraft_charge' => $this->reverseOverdraftChargeImpact($transaction),
             'overdraft_fee' => $this->reverseOverdraftFeeImpact($transaction),
             'member_closure' => $this->reverseMemberClosureImpact($transaction),
+            'loan_writeoff' => $this->reverseLoanWriteOffImpact($transaction),
+            'loan_writeoff_recovery' => $this->reverseBadDebtRecoveryImpact($transaction),
             default         => null,
         };
+    }
+
+    /** Bad debt recovery journals: remove the member's savings statement line (if paid from savings) and the recovery. */
+    private function reverseBadDebtRecoveryImpact(Transaction $transaction): void
+    {
+        $this->reverseSavingsImpact($transaction);
+        if ($rec = \App\Models\LoanWriteOffRecovery::find($transaction->module_id)) {
+            app(\App\Services\LoanWriteOffService::class)->undoRecovery($rec, false);
+        }
+    }
+
+    /** Loan write-off journals: put the loan back in Locked-Up Loans with its balances (checked beforehand). */
+    private function reverseLoanWriteOffImpact(Transaction $transaction): void
+    {
+        $wo = \App\Models\LoanWriteOff::find($transaction->module_id);
+        if ($wo && $wo->status === 'applied') {
+            app(\App\Services\LoanWriteOffService::class)->undo($wo, false);
+        }
     }
 
     /** Account closure journals: reopen the member and the savings accounts, restore the balances. */
@@ -925,6 +945,21 @@ class TransactionController extends Controller
             if ($correction && $correction->status === 'applied') {
                 try {
                     app(\App\Services\LoanCorrectionService::class)->assertUndoable($correction);
+                } catch (ValidationException $e) {
+                    $msg = collect($e->errors())->flatten()->first();
+                    if ($isDestroy) {
+                        throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+                    }
+                    throw ValidationException::withMessages(['reversal_reason' => $msg]);
+                }
+            }
+        }
+
+        if ($transaction->module === 'loan_writeoff') {
+            $wo = \App\Models\LoanWriteOff::find($transaction->module_id);
+            if ($wo && $wo->status === 'applied') {
+                try {
+                    app(\App\Services\LoanWriteOffService::class)->assertUndoable($wo);
                 } catch (ValidationException $e) {
                     $msg = collect($e->errors())->flatten()->first();
                     if ($isDestroy) {

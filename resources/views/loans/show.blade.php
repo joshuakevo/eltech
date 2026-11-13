@@ -40,9 +40,14 @@
         @if(in_array($loan->status, ['active', 'defaulted', 'closed']))
             <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#penaltyBfModal"><i class="bi bi-exclamation-octagon"></i> Penalty b/f{{ $loan->penalty_bf_imported !== null ? ': ' . number_format($loan->penalty_bf_imported, 0) : '' }}</button>
         @endif
-        @if($loan->isLockedUp() && $loan->status !== 'closed')
+        @if($loan->isLockedUp() && $loan->status === 'defaulted')
             <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#lockedUpInterestModal"><i class="bi bi-percent"></i> Charge interest</button>
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#activateLoanModal"><i class="bi bi-arrow-repeat"></i> Move to active loans</button>
+        @endif
+        @endcan
+        @can('write off loans')
+        @if($loan->isLockedUp() && $loan->status === 'defaulted')
+            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#writeOffLoanModal"><i class="bi bi-x-octagon"></i> Write off</button>
         @endif
         @endcan
         @can('disburse loans')
@@ -67,6 +72,64 @@
         </div>
     </div>
 </div>
+
+@php $writeOff = $loan->status === 'written_off' ? \App\Models\LoanWriteOff::with('createdBy', 'recoveries.paymentAccount', 'recoveries.savingsAccount', 'recoveries.createdBy')->where('loan_id', $loan->id)->where('status', 'applied')->latest('id')->first() : null; @endphp
+@if($writeOff)
+<div class="alert alert-danger d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div><i class="bi bi-x-octagon me-1"></i><b>Written off</b> on {{ $writeOff->writeoff_date->format('d M Y') }}
+        — principal {{ number_format($writeOff->principal, 2) }}, interest {{ number_format($writeOff->interest, 2) }}@if($writeOff->penalty > 0), penalty b/f {{ number_format($writeOff->penalty, 2) }}@endif.
+        <span class="text-muted">{{ $writeOff->reason }}@if($writeOff->createdBy) · by {{ $writeOff->createdBy->name }}@endif</span>
+        @if($writeOff->transaction_id) · <a href="{{ route('transactions.show', $writeOff->transaction_id) }}">journal</a>@endif
+    </div>
+    <div class="d-flex gap-2">
+    @can('repay loans')
+        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#badDebtRecoveryModal"><i class="bi bi-arrow-down-circle me-1"></i>Record bad debt recovery</button>
+    @endcan
+    @can('write off loans')
+    @if($writeOff->recoveries->isEmpty())
+    <form method="POST" action="{{ route('loans.write-off.undo', [$loan, $writeOff]) }}" onsubmit="return confirm('Undo this write-off? The journal is reversed and the loan goes back to Locked-Up Loans with its balances.')">
+        @csrf
+        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-arrow-counterclockwise me-1"></i>Undo write-off</button>
+    </form>
+    @endif
+    @endcan
+    </div>
+</div>
+@if($writeOff->recoveries->isNotEmpty())
+<div class="card mb-3">
+    <div class="card-header fw-semibold d-flex justify-content-between"><span><i class="bi bi-arrow-down-circle me-1 text-success"></i>Bad debts recovered</span>
+        <span class="small text-muted">{{ number_format($writeOff->recoveries->sum('amount'), 2) }} of {{ number_format($writeOff->total(), 2) }}</span></div>
+    <div class="table-responsive">
+        <table class="table table-sm small mb-0 align-middle">
+            <thead class="table-light"><tr><th class="ps-3">Date</th><th>From</th><th class="text-end">Amount</th><th>Notes</th><th>By</th><th class="pe-3"></th></tr></thead>
+            <tbody>
+            @foreach($writeOff->recoveries as $r)
+                <tr>
+                    <td class="ps-3">{{ $r->recovery_date->format('d M Y') }}</td>
+                    <td>{{ $r->source === 'savings' ? 'Savings ' . ($r->savingsAccount->account_number ?? '') : (($r->paymentAccount->account_code ?? '') . ' ' . ($r->paymentAccount->account_name ?? '')) }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($r->amount, 2) }}</td>
+                    <td>{{ $r->notes }}</td>
+                    <td>{{ $r->createdBy->name ?? '' }}</td>
+                    <td class="pe-3 text-end text-nowrap">
+                        @if($r->transaction_id)<a href="{{ route('transactions.show', $r->transaction_id) }}" class="btn btn-sm btn-outline-secondary py-0">Journal</a>@endif
+                        @can('correct loans')
+                        <form method="POST" action="{{ route('loans.bad-debt-recover.undo', [$loan, $r]) }}" class="d-inline" onsubmit="return confirm('Undo this recovery of {{ number_format($r->amount, 2) }}? The journal is reversed{{ $r->source === 'savings' ? ' and the money goes back to savings' : '' }}.')">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-sm btn-outline-danger py-0">Undo</button>
+                        </form>
+                        @endcan
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+@can('repay loans')
+    @include('loans._bad-debt-recovery')
+@endcan
+@endif
 
 <div class="row g-3 mb-4">
     <div class="col-md-4">
@@ -244,13 +307,18 @@
 @include('loans._lockup')
 @can('correct loans')
     @include('loans._penalty-bf')
-    @if($loan->isLockedUp() && $loan->status !== 'closed')
+    @if($loan->isLockedUp() && $loan->status === 'defaulted')
         @include('loans._locked-up-interest')
     @endif
 @endcan
-@if($loan->isLockedUp() && $loan->status !== 'closed')
+@if($loan->isLockedUp() && $loan->status === 'defaulted')
     @include('loans._activate')
 @endif
+@can('write off loans')
+    @if($loan->isLockedUp() && $loan->status === 'defaulted')
+        @include('loans._write-off')
+    @endif
+@endcan
 @can('disburse loans')
     @if(!$loan->isLockedUp() && in_array($loan->status, ['active', 'defaulted']))
         @include('loans._topup')

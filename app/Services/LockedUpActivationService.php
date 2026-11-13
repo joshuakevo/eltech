@@ -178,8 +178,8 @@ class LockedUpActivationService
         if (!$loan->isLockedUp()) {
             $errors[] = 'Only Locked-Up loans can be moved to active loans.';
         }
-        if ($loan->status === 'closed') {
-            $errors[] = 'This loan is closed.';
+        if (in_array($loan->status, ['closed', 'written_off'], true)) {
+            $errors[] = $loan->status === 'written_off' ? 'This loan is written off.' : 'This loan is closed.';
         }
         if ((float) $loan->outstanding_principal + (float) $loan->outstanding_interest < 0.01) {
             $errors[] = 'Nothing is owed on this loan.';

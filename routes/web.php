@@ -300,6 +300,13 @@ Route::middleware('auth')->group(function () {
     Route::post('loans/import-locked-up/preview', [\App\Http\Controllers\LockedUpLoanImportController::class, 'preview'])->name('loans.import-locked-up.preview')->middleware('permission:create loans');
     Route::post('loans/import-locked-up/confirm', [\App\Http\Controllers\LockedUpLoanImportController::class, 'confirm'])->name('loans.import-locked-up.confirm')->middleware('permission:create loans');
     Route::post('loans/import-locked-up/cancel', [\App\Http\Controllers\LockedUpLoanImportController::class, 'cancel'])->name('loans.import-locked-up.cancel')->middleware('permission:create loans');
+    // Loan write-offs (Locked-Up loans): DR 5121 / CR 1104 principal, DR 1106 / CR 1112 interest
+    Route::get('loans/written-off', [\App\Http\Controllers\LoanWriteOffController::class, 'index'])->name('loans.write-offs')->middleware('permission:view loans');
+    Route::post('loans/written-off/settings', [\App\Http\Controllers\LoanWriteOffController::class, 'saveSettings'])->name('loans.write-offs.settings')->middleware('permission:manage settings');
+    Route::post('loans/{loan}/write-off', [\App\Http\Controllers\LoanWriteOffController::class, 'store'])->name('loans.write-off')->middleware('permission:write off loans');
+    Route::post('loans/{loan}/write-offs/{writeOff}/undo', [\App\Http\Controllers\LoanWriteOffController::class, 'undo'])->name('loans.write-off.undo')->middleware('permission:write off loans');
+    Route::post('loans/{loan}/bad-debt-recoveries', [\App\Http\Controllers\LoanWriteOffController::class, 'recover'])->name('loans.bad-debt-recover')->middleware('permission:repay loans');
+    Route::delete('loans/{loan}/bad-debt-recoveries/{recovery}', [\App\Http\Controllers\LoanWriteOffController::class, 'undoRecovery'])->name('loans.bad-debt-recover.undo')->middleware('permission:correct loans');
     Route::get('loans/{loan}', [LoanController::class, 'show'])
         ->name('loans.show')->middleware('permission:view loans');
     Route::get('loans/{loan}/schedule', [LoanController::class, 'schedule'])
