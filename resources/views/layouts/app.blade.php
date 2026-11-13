@@ -484,6 +484,9 @@
             <a href="{{ route('savings-interest.index') }}" class="nav-link-item {{ request()->routeIs('savings-interest.*') ? 'active' : '' }}">
                 <i class="bi bi-percent"></i> Running Interest
             </a>
+            <a href="{{ route('overdraft.run') }}" class="nav-link-item {{ request()->routeIs('overdraft.*') ? 'active' : '' }}">
+                <i class="bi bi-dash-circle"></i> Overdraft Charges
+            </a>
             @endcan
         </div>
         @endcanany

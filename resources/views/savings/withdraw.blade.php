@@ -79,12 +79,6 @@
                         <div class="fw-bold mb-1">Insufficient Funds</div>
                         <div class="small mb-2" id="overdraftMessage"></div>
                         @if($canOverdraw)
-                        <div id="odChargeWrap" class="d-none mb-2 p-2 rounded bg-white border border-danger-subtle text-dark">
-                            <label class="form-label small fw-semibold mb-1" for="odCharge">Overdraft charge <span class="text-muted fw-normal" id="odChargeWork"></span></label>
-                            <input type="number" name="overdraft_charge" id="odCharge" class="form-control form-control-sm" step="0.01" min="0" style="max-width:220px">
-                            <div class="form-text">Added to the member's negative balance (DR savings / CR accrued overdraft fees). Change it if agreed, or 0 to waive.
-                                The balance after the charge: <b id="odAfter"></b>.</div>
-                        </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="overdraftConfirm">
                             <label class="form-check-label fw-semibold" for="overdraftConfirm">
@@ -114,24 +108,7 @@ var defaultFee = {{ $defaultFee }};
 var acctBalance = {{ $saving->balance }};
 var minBalance = {{ $saving->product->minimum_balance ?? 0 }};
 var canOverdraw = {{ $canOverdraw ? 'true' : 'false' }};
-@php $odSvc = app(\App\Services\OverdraftService::class); @endphp
-var odRate = {{ $odSvc->rate() }}, odMin = {{ $odSvc->minimum() }}, odTyped = false;
 function fmt(v) { return parseFloat(v || 0).toFixed(dp); }
-// Overdraft charge prompt: rate % of the negative balance after the withdrawal (at least the minimum), editable
-function showOverdraftCharge(resultingBalance) {
-    var wrap = document.getElementById('odChargeWrap'), input = document.getElementById('odCharge');
-    if (!wrap) return;
-    if (resultingBalance >= 0) { wrap.classList.add('d-none'); input.value = ''; input.disabled = true; return; }
-    wrap.classList.remove('d-none'); input.disabled = false;
-    var suggested = Math.max(odMin, Math.round(Math.abs(resultingBalance) * odRate) / 100);
-    document.getElementById('odChargeWork').textContent = '(' + odRate + '% of ' + fmt(Math.abs(resultingBalance)) + (odMin > 0 ? ', minimum ' + fmt(odMin) : '') + ' = ' + fmt(suggested) + ')';
-    if (!odTyped) input.value = suggested.toFixed(2);
-    document.getElementById('odAfter').textContent = fmt(resultingBalance - (parseFloat(input.value) || 0));
-}
-document.addEventListener('DOMContentLoaded', function () {
-    var input = document.getElementById('odCharge');
-    if (input) input.addEventListener('input', function () { odTyped = input.value !== ''; updateTotal(); });
-});
 function updateTotal() {
     var amt = parseFloat(document.getElementById('withdrawAmount').value) || 0;
     var fee = parseFloat(document.getElementById('withdrawFee').value) || 0;
@@ -153,7 +130,6 @@ function checkOverdraft(amt, fee) {
             'Available: ' + fmt(available) + '. This withdrawal exceeds it by ' + fmt(shortfall) +
             ', taking the balance to ' + fmt(resultingBalance) + (resultingBalance < 0 ? ' (negative — overdrawn)' : '') + '.';
         box.classList.remove('d-none');
-        showOverdraftCharge(resultingBalance);
         if (canOverdraw) {
             submitBtn.disabled = !(checkbox && checkbox.checked);
             hiddenInput.value = (checkbox && checkbox.checked) ? '1' : '0';
@@ -166,7 +142,6 @@ function checkOverdraft(amt, fee) {
         submitBtn.disabled = false;
         hiddenInput.value = '0';
         if (checkbox) checkbox.checked = false;
-        showOverdraftCharge(0);
     }
 }
 var overdraftCheckbox = document.getElementById('overdraftConfirm');

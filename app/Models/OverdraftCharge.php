@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class OverdraftCharge extends Model
 {
     protected $fillable = [
-        'savings_account_id', 'client_id', 'charge_date', 'overdrawn_balance', 'rate', 'amount', 'recognised_amount',
+        'overdraft_run_id', 'savings_account_id', 'client_id', 'charge_date', 'overdrawn_balance', 'rate', 'amount', 'recognised_amount',
         'withdrawal_savings_transaction_id', 'savings_transaction_id', 'transaction_id', 'created_by',
     ];
 
@@ -19,6 +19,11 @@ class OverdraftCharge extends Model
     public function savingsAccount()
     {
         return $this->belongsTo(SavingsAccount::class);
+    }
+
+    public function run()
+    {
+        return $this->belongsTo(OverdraftRun::class, 'overdraft_run_id');
     }
 
     public function client()

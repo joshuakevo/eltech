@@ -11,8 +11,9 @@
             <div class="card-header fw-semibold"><i class="bi bi-dash-circle me-1 text-danger"></i>Overdraft charge settings</div>
             <form method="POST" action="{{ route('settings.overdraft.update') }}" class="card-body">
                 @csrf
-                <p class="small text-muted">When a withdrawal takes a savings account negative, the form shows this charge and staff can change or waive it.
-                    It is added to the member's negative balance. When the member pays money in, the charge moves to income.</p>
+                <p class="small text-muted">Defaults for the month-end run (<a href="{{ route('overdraft.run') }}">Accounting → Overdraft Charges</a>): every account negative at the
+                    month end is charged this rate of its negative balance; the run can change the rate, minimum and each amount.
+                    The charge is added to the member's negative balance. When the member pays money in, the charge moves to income.</p>
                 <div class="row g-2">
                     <div class="col-6">
                         <label class="form-label small fw-semibold">Rate (% of the negative balance)</label>
@@ -22,7 +23,7 @@
                         </div>
                     </div>
                     <div class="col-6">
-                        <label class="form-label small fw-semibold">Minimum charge</label>
+                        <label class="form-label small fw-semibold">Minimum charge (per account)</label>
                         <input type="number" name="overdraft_charge_minimum" class="form-control" step="0.01" min="0" value="{{ old('overdraft_charge_minimum', $minimum + 0) }}" required>
                         <div class="form-text">0 = no minimum</div>
                     </div>
@@ -52,7 +53,7 @@
                 <table class="table table-sm mb-3">
                     <thead class="table-light"><tr><th>When</th><th>Debit</th><th>Credit</th></tr></thead>
                     <tbody>
-                        <tr><td>A withdrawal takes the account negative — charge applied</td><td>Member savings</td><td>{{ $accruedCode }} Accrued overdraft fees</td></tr>
+                        <tr><td>Month end — every account negative that day is charged</td><td>Member savings</td><td>{{ $accruedCode }} Accrued overdraft fees</td></tr>
                         <tr><td>The member pays money in (deposit, transfer in, salary…)</td><td>Cash / bank / mobile money</td><td>Member savings</td></tr>
                         <tr><td>…and the fee is earned, up to the amount paid (oldest charge first)</td><td>{{ $accruedCode }} Accrued overdraft fees</td><td>{{ $incomeCode }} Overdraft fee income</td></tr>
                     </tbody>

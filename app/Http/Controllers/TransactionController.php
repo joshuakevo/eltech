@@ -810,7 +810,12 @@ class TransactionController extends Controller
     private function reverseOverdraftChargeImpact(Transaction $transaction): void
     {
         $this->reverseSavingsImpact($transaction);
-        \App\Models\OverdraftCharge::whereKey($transaction->module_id)->delete();
+        if ($charge = \App\Models\OverdraftCharge::find($transaction->module_id)) {
+            if ($run = $charge->run) {   // keep the month-end run's totals right
+                $run->update(['accounts' => max(0, $run->accounts - 1), 'total' => round(max(0, $run->total - $charge->amount), 2)]);
+            }
+            $charge->delete();
+        }
     }
 
     /** Overdraft fee income journals: give the amounts back to the accrued charges. */

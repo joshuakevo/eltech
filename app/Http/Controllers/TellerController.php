@@ -88,7 +88,6 @@ class TellerController extends Controller
             'withdrawal_fee'            => 'nullable|numeric|min:0',
             'institution_charge'        => 'nullable|numeric|min:0',
             'payment_source_account_id' => 'required|exists:accounts,id',
-            'overdraft_charge'          => 'nullable|numeric|min:0',
         ]);
 
         $account           = SavingsAccount::findOrFail($data['savings_account_id']);
@@ -97,23 +96,18 @@ class TellerController extends Controller
         $allowOverdraft    = $request->boolean('allow_overdraft') && auth()->user()->can('overdraw savings');
 
         try {
-            $charged = \Illuminate\Support\Facades\DB::transaction(function () use ($account, $data, $fee, $institutionCharge, $allowOverdraft, $request) {
-                $row = $this->savings->withdraw(
-                    $account,
-                    (float) $data['amount'],
-                    $data['date'],
-                    $data['narration'] ?? 'Teller withdrawal',
-                    $data['reference'] ?? null,
-                    $fee,
-                    isset($data['payment_source_account_id']) ? (int) $data['payment_source_account_id'] : null,
-                    $institutionCharge,
-                    $allowOverdraft
-                );
-                // Overdrawn: add the overdraft charge shown on the form (rate % of the negative balance, editable / 0 = waive)
-                return $allowOverdraft ? app(\App\Services\OverdraftService::class)->chargeForWithdrawal($account, $row, $request->input('overdraft_charge')) : null;
-            });
-            return back()->with('success', "Withdrawal of " . number_format($data['amount'], 2) . " posted successfully."
-                . ($charged ? ' Overdraft charge of ' . number_format($charged->amount, 2) . ' added to the balance.' : ''));
+            $this->savings->withdraw(
+                $account,
+                (float) $data['amount'],
+                $data['date'],
+                $data['narration'] ?? 'Teller withdrawal',
+                $data['reference'] ?? null,
+                $fee,
+                isset($data['payment_source_account_id']) ? (int) $data['payment_source_account_id'] : null,
+                $institutionCharge,
+                $allowOverdraft
+            );
+            return back()->with('success', "Withdrawal of " . number_format($data['amount'], 2) . " posted successfully.");
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()])->withInput();
         }

@@ -15,11 +15,13 @@ use Illuminate\Support\Facades\DB;
 /**
  * Overdraft charges on savings accounts.
  *
- *  Charge — when a withdrawal takes the account negative, staff are shown the charge (setting
- *  overdraft_charge_rate, default 1%, of the negative balance; at least overdraft_charge_minimum) and
- *  may change or waive it. It is added to the member's negative balance:
+ *  Month-end run (Accounting → Overdraft Charges) — every account with a negative balance at the month
+ *  end is charged once: rate % (setting overdraft_charge_rate, default 1%) of the negative balance at that
+ *  date, at least the minimum (overdraft_charge_minimum); rate, minimum and each amount can be changed on
+ *  the preview, and accounts can be left out. The charge is added to the member's negative balance:
  *      DR member savings (product liability) / CR Accrued Overdraft Fees (setting; created as "Accrued Overdraft Fees" on the first free code from 2016)
- *  plus a statement line "Overdraft charge …" (module overdraft_charge).
+ *  plus a statement line "Overdraft charge …" dated the month end (module overdraft_charge). The latest
+ *  run can be undone while none of its charges has been paid.
  *
  *  Payment — money paid into the account reduces the negative balance as usual. Any accrued charges
  *  on that account are then recognised as income, oldest first, up to the amount paid:
@@ -42,13 +44,132 @@ class OverdraftService
     }
 
     /** Suggested charge for a balance: rate % of the negative part (at least the minimum); 0 when not negative. */
-    public function suggestedCharge(float $balanceAfter): float
+    public function suggestedCharge(float $balance, ?float $rate = null, ?float $minimum = null): float
     {
-        if ($balanceAfter >= 0) {
+        if ($balance >= 0) {
             return 0.0;
         }
 
-        return round(max($this->minimum(), abs($balanceAfter) * $this->rate() / 100), 2);
+        return round(max($minimum ?? $this->minimum(), abs($balance) * ($rate ?? $this->rate()) / 100), 2);
+    }
+
+    /**
+     * Accounts negative at the end of $date, with that balance (same signs as SavingsService::recalculateLedger:
+     * withdrawals out, everything else in). Excludes closed accounts.
+     * @return \Illuminate\Support\Collection<int, array{account: SavingsAccount, balance: float}>
+     */
+    public function overdrawnAt(string $date)
+    {
+        $balances = DB::table('savings_transactions')
+            ->where('transaction_date', '<=', $date)
+            ->groupBy('savings_account_id')
+            ->selectRaw("savings_account_id, ROUND(SUM(CASE WHEN transaction_type = 'withdrawal' THEN -ABS(amount) ELSE ABS(amount) END), 2) AS bal")
+            ->havingRaw("ROUND(SUM(CASE WHEN transaction_type = 'withdrawal' THEN -ABS(amount) ELSE ABS(amount) END), 2) < 0")
+            ->pluck('bal', 'savings_account_id');
+
+        return SavingsAccount::with('client', 'product')->whereIn('id', $balances->keys())->where('status', '!=', 'closed')->get()
+            ->map(fn ($a) => ['account' => $a, 'balance' => (float) $balances[$a->id]])
+            ->sortBy(fn ($r) => $r['account']->client->name ?? '')->values();
+    }
+
+    /** Accounts already charged by an applied run in the same month as $date (account id => run date). */
+    public function chargedInMonth(string $date): array
+    {
+        $d = \Carbon\Carbon::parse($date);
+
+        return OverdraftCharge::whereHas('run', fn ($q) => $q->where('status', 'applied'))
+            ->whereYear('charge_date', $d->year)->whereMonth('charge_date', $d->month)
+            ->pluck('charge_date', 'savings_account_id')->map(fn ($v) => \Carbon\Carbon::parse($v)->toDateString())->all();
+    }
+
+    /** Rows for the run page: every overdrawn account at the month end with its suggested charge. */
+    public function preview(string $date, float $rate, float $minimum): array
+    {
+        $done = $this->chargedInMonth($date);
+
+        return $this->overdrawnAt($date)->map(fn ($r) => $r + [
+            'suggested' => $this->suggestedCharge($r['balance'], $rate, $minimum),
+            'already'   => $done[$r['account']->id] ?? null,
+        ])->all();
+    }
+
+    /**
+     * Month-end run. $amounts = [savings_account_id => amount] for the ticked accounts (blank = suggested).
+     * Balances are re-read at the date; accounts no longer negative or already charged this month are skipped.
+     */
+    public function run(string $date, float $rate, float $minimum, array $amounts): \App\Models\OverdraftRun
+    {
+        $d = \Carbon\Carbon::parse($date)->startOfDay();
+        if (!$d->isLastOfMonth()) {
+            throw new \InvalidArgumentException('Overdraft charges are run on the last day of a month.');
+        }
+        if ($d->gt(today())) {
+            throw new \InvalidArgumentException('That month has not ended yet.');
+        }
+        if (!\App\Models\FinancialPeriod::isOpen($d->toDateString())) {
+            throw new \InvalidArgumentException('The financial period for ' . $d->format('M Y') . ' is closed.');
+        }
+
+        return DB::transaction(function () use ($d, $rate, $minimum, $amounts) {
+            $date = $d->toDateString();
+            $run = \App\Models\OverdraftRun::create(['run_date' => $date, 'rate' => $rate, 'minimum' => $minimum, 'created_by' => auth()->id()]);
+            $done = $this->chargedInMonth($date);
+            $count = 0;
+            $total = 0.0;
+            foreach ($this->overdrawnAt($date) as $r) {
+                $id = $r['account']->id;
+                if (!array_key_exists($id, $amounts) || isset($done[$id])) {
+                    continue;
+                }
+                $entered = $amounts[$id];
+                $amount = ($entered === null || $entered === '') ? $this->suggestedCharge($r['balance'], $rate, $minimum) : round((float) $entered, 2);
+                if ($charge = $this->charge($r['account'], $amount, $date, $r['balance'], $run, $rate, $minimum)) {
+                    $count++;
+                    $total += $charge->amount;
+                }
+            }
+            if ($count === 0) {
+                throw new \InvalidArgumentException('Nothing to charge: no ticked account is overdrawn at ' . $d->format('d M Y') . ' without a charge for that month.');
+            }
+            $run->update(['accounts' => $count, 'total' => round($total, 2)]);
+            AuditLog::record('overdraft_run', "Overdraft charges for {$date}: {$count} account(s), total " . number_format($total, 2) . " ({$rate}%, minimum " . number_format($minimum, 2) . ')', 'savings');
+
+            return $run;
+        });
+    }
+
+    /** Undo the latest applied run: reverse each charge journal, remove the statement lines (ledgers rebuilt). */
+    public function undoRun(\App\Models\OverdraftRun $run): void
+    {
+        DB::transaction(function () use ($run) {
+            $run = \App\Models\OverdraftRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            if ($run->status !== 'applied') {
+                throw new \InvalidArgumentException('This run has already been undone.');
+            }
+            if (\App\Models\OverdraftRun::where('status', 'applied')->where('id', '>', $run->id)->exists()) {
+                throw new \InvalidArgumentException('Undo the later overdraft run first.');
+            }
+            $paid = OverdraftCharge::where('overdraft_run_id', $run->id)->where('recognised_amount', '>', 0.005)->with('savingsAccount')->get();
+            if ($paid->isNotEmpty()) {
+                throw new \InvalidArgumentException('Members have already paid part of these charges (' . $paid->pluck('savingsAccount.account_number')->filter()->take(5)->implode(', ')
+                    . ($paid->count() > 5 ? '…' : '') . '). Reverse those payments, or reverse the other charges one by one from Journal Entries.');
+            }
+            foreach (OverdraftCharge::where('overdraft_run_id', $run->id)->get() as $charge) {
+                if ($charge->transaction_id) {
+                    $this->reverseJournal($charge->transaction_id, 'Undo overdraft charge run');
+                }
+                if ($row = SavingsTransaction::find($charge->savings_transaction_id)) {
+                    $account = SavingsAccount::find($row->savings_account_id);
+                    $row->delete();
+                    if ($account) {
+                        $this->savings->recalculateLedger($account);
+                    }
+                }
+                $charge->delete();
+            }
+            $run->update(['status' => 'reversed', 'reversed_at' => now(), 'reversed_by' => auth()->id()]);
+            AuditLog::record('overdraft_run_undone', "Undid overdraft charges for {$run->run_date->toDateString()} ({$run->accounts} account(s), " . number_format($run->total, 2) . ')', 'savings');
+        });
     }
 
     public function accruedAccountId(): ?int
@@ -67,9 +188,9 @@ class OverdraftService
 
     /**
      * Charge an overdrawn account. $balanceAfter = the negative balance the charge is based on
-     * (after the withdrawal). Returns null when the amount is 0 (waived).
+     * (at the month end). Returns null when the amount is 0 (waived).
      */
-    public function charge(SavingsAccount $account, float $amount, string $date, float $balanceAfter, ?SavingsTransaction $withdrawal = null): ?OverdraftCharge
+    public function charge(SavingsAccount $account, float $amount, string $date, float $balanceAfter, ?\App\Models\OverdraftRun $run = null, ?float $rate = null, ?float $minimum = null): ?OverdraftCharge
     {
         $amount = round($amount, 2);
         if ($amount <= 0) {
@@ -80,19 +201,20 @@ class OverdraftService
             throw new \InvalidArgumentException('The Accrued Overdraft Fees account (' . SystemSetting::get('overdraft_accrued_account', '') . ') was not found. Check Settings → Overdraft Charges.');
         }
 
-        return DB::transaction(function () use ($account, $amount, $date, $balanceAfter, $withdrawal, $accrued) {
+        return DB::transaction(function () use ($account, $amount, $date, $balanceAfter, $run, $rate, $minimum, $accrued) {
             $account = SavingsAccount::with('product')->whereKey($account->id)->lockForUpdate()->firstOrFail();
-            $rate = $this->rate();
+            $rate ??= $this->rate();
             $charge = OverdraftCharge::create([
+                'overdraft_run_id' => $run?->id,
                 'savings_account_id' => $account->id, 'client_id' => $account->client_id, 'charge_date' => $date,
-                'overdrawn_balance' => round($balanceAfter, 2), 'rate' => $rate, 'amount' => $amount,
-                'withdrawal_savings_transaction_id' => $withdrawal?->id, 'created_by' => auth()->id(),
+                'overdrawn_balance' => round($balanceAfter, 2), 'rate' => $rate, 'amount' => $amount, 'created_by' => auth()->id(),
             ]);
 
-            $suggested = $this->suggestedCharge($balanceAfter);
-            $desc = 'Overdraft charge' . (abs($amount - $suggested) < 0.01
+            $suggested = $this->suggestedCharge($balanceAfter, $rate, $minimum);
+            $month = \Carbon\Carbon::parse($date)->format('M Y');
+            $desc = "Overdraft charge {$month}" . (abs($amount - $suggested) < 0.01
                 ? ' (' . rtrim(rtrim(number_format($rate, 4), '0'), '.') . '% of ' . number_format(abs($balanceAfter), 0) . ' overdrawn)'
-                : ' on ' . number_format(abs($balanceAfter), 0) . ' overdrawn');
+                : ' (on ' . number_format(abs($balanceAfter), 0) . ' overdrawn)');
             $tx = $this->accounting->post($date, "{$desc} - {$account->account_number}", [
                 ['account_id' => $account->product->savings_liability_account_id, 'debit' => $amount, 'credit' => 0, 'client_id' => $account->client_id, 'description' => "{$desc} - {$account->account_number}"],
                 ['account_id' => $accrued, 'debit' => 0, 'credit' => $amount, 'client_id' => $account->client_id, 'description' => "Accrued overdraft fee - {$account->account_number}"],
@@ -114,21 +236,6 @@ class OverdraftService
         });
     }
 
-    /**
-     * After an overdraft withdrawal: charge the account if it is now negative. $entered = the amount on the
-     * form (blank = the suggested charge, 0 = waived). Based on the account balance right after the withdrawal.
-     */
-    public function chargeForWithdrawal(SavingsAccount $account, SavingsTransaction $withdrawal, $entered): ?OverdraftCharge
-    {
-        $balanceAfter = round($this->savings->balanceAsOf($account->fresh(), $withdrawal->transaction_date->toDateString()), 2);
-        if ($balanceAfter >= 0) {
-            return null;
-        }
-        $amount = ($entered === null || $entered === '') ? $this->suggestedCharge($balanceAfter) : (float) $entered;
-
-        return $this->charge($account, $amount, $withdrawal->transaction_date->toDateString(), $balanceAfter, $withdrawal);
-    }
-
     /** A statement row that puts money into the account (a payment towards the overdraft). */
     public static function isPayment(SavingsTransaction $row): bool
     {
@@ -143,7 +250,9 @@ class OverdraftService
     /** Recognise the account's accrued overdraft fees as income, up to the amount of this payment (oldest charge first). */
     public function recogniseForPayment(SavingsTransaction $payment): ?OverdraftFeeRecognition
     {
+        // Only charges made by the payment date (a back-dated deposit doesn't pay a later month's charge)
         $charges = OverdraftCharge::where('savings_account_id', $payment->savings_account_id)
+            ->where('charge_date', '<=', $payment->transaction_date->toDateString())
             ->whereColumn('recognised_amount', '<', 'amount')->orderBy('charge_date')->orderBy('id')->lockForUpdate()->get();
         if ($charges->isEmpty()) {
             return null;
