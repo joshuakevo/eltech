@@ -516,7 +516,7 @@ class LoanInterestService
 
         $account = $this->savingsAccountFor($loan, $date);
         if (!$account) {
-            $out['note'] = 'No active savings account';
+            $out['note'] = $this->chosenAccountId($loan) ? 'Chosen savings account is not active' : 'No active savings account';
             return $out;
         }
         // The product minimum balance is kept unless the member allows recovery from it (down to 0)
@@ -555,12 +555,27 @@ class LoanInterestService
         return $out;
     }
 
-    /** The member's active savings account with the most available on the date. */
+    /**
+     * The savings account Run Loans recovers from: the one the member chose (clients.loan_recovery_savings_account_id —
+     * that account only, never another, e.g. to keep the Interest Wallet untouched; null if it is no longer active),
+     * otherwise the member's active account with the most available on the date.
+     */
     public function savingsAccountFor(Loan $loan, Carbon $date): ?SavingsAccount
     {
+        if ($chosen = $this->chosenAccountId($loan)) {
+            return SavingsAccount::with('product')->where('client_id', $loan->client_id)->where('status', 'active')->find($chosen);
+        }
         $accounts = SavingsAccount::with('product')->where('client_id', $loan->client_id)->where('status', 'active')->get();
         $usesMinimum = $this->usesMinimum($loan);
         return $accounts->sortByDesc(fn ($a) => $this->savings->balanceAsOf($a, $date->toDateString()) - ($usesMinimum ? 0 : (float) ($a->product->minimum_balance ?? 0)))->first();
+    }
+
+    /** Member setting: the savings account Run Loans must recover from (null = automatic). */
+    private function chosenAccountId(Loan $loan): ?int
+    {
+        $id = \App\Models\Client::where('id', $loan->client_id)->value('loan_recovery_savings_account_id');
+
+        return $id ? (int) $id : null;
     }
 
     /** Member setting: may Run Loans recover from the savings minimum balance? */

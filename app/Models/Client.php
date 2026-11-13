@@ -12,7 +12,7 @@ class Client extends Model
 
     protected $fillable = [
         'client_number', 'client_type', 'name', 'branch_id', 'segment_id', 'relationship_manager_id', 'created_by',
-        'loan_recovery_uses_minimum',
+        'loan_recovery_uses_minimum', 'loan_recovery_savings_account_id',
         'first_name', 'middle_name', 'last_name',
         'gender', 'date_of_birth', 'marital_status', 'nationality', 'id_number', 'photo',
         'phone', 'alt_phone', 'email', 'address', 'district', 'village', 'postal_address',

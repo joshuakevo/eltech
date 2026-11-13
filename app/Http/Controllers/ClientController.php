@@ -277,6 +277,26 @@ class ClientController extends Controller
             : back()->with('success', 'Loan recovery setting updated.');
     }
 
+    /** Run Loans: which savings account installments are recovered from (blank = automatic, most available). */
+    public function updateLoanRecoveryAccount(Request $request, Client $client)
+    {
+        $data = $request->validate(['loan_recovery_savings_account_id' => 'nullable|integer']);
+        $id = $data['loan_recovery_savings_account_id'] ?? null;
+        $account = $id ? \App\Models\SavingsAccount::with('product')->where('client_id', $client->id)->find($id) : null;
+        if ($id && !$account) {
+            return $request->expectsJson()
+                ? response()->json(['ok' => false, 'message' => 'That savings account does not belong to this member.'], 422)
+                : back()->with('error', 'That savings account does not belong to this member.');
+        }
+        $client->update(['loan_recovery_savings_account_id' => $account?->id]);
+        \App\Models\AuditLog::record('client_loan_recovery_account', "{$client->name}: Run Loans recovers from "
+            . ($account ? "{$account->account_number} ({$account->product->name}) only" : 'the savings account with the most available (automatic)'), 'clients');
+
+        return $request->expectsJson()
+            ? response()->json(['ok' => true, 'value' => $account?->id])
+            : back()->with('success', 'Loan recovery account updated.');
+    }
+
     public function updateRelationshipManager(Request $request, Client $client)
     {
         $data = $request->validate([
@@ -340,6 +360,12 @@ class ClientController extends Controller
         $data['loan_interest'] = $request->boolean('loan_interest');
         if ($request->has('loan_recovery_uses_minimum')) {
             $data['loan_recovery_uses_minimum'] = $request->boolean('loan_recovery_uses_minimum');
+        }
+        if ($request->has('loan_recovery_savings_account_id')) {
+            $chosen = $request->input('loan_recovery_savings_account_id');
+            $data['loan_recovery_savings_account_id'] = $chosen
+                ? \App\Models\SavingsAccount::where('client_id', $client->id)->whereKey($chosen)->value('id')
+                : null;
         }
 
         if ($request->hasFile('photo')) {

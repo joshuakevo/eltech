@@ -310,6 +310,19 @@
             </div>
             <div class="form-text">Off: Run Loans keeps the product minimum (e.g. 100,000) and recovers only what is above it.</div>
         </div>
+        @php $lrAccounts = \App\Models\SavingsAccount::with('product')->where('client_id', $client->id)->where('status', 'active')->get(); @endphp
+        @if($lrAccounts->count() > 1 || $client->loan_recovery_savings_account_id)
+        <div class="col-md-6">
+            <label class="form-label">Recover loan installments from</label>
+            <select name="loan_recovery_savings_account_id" class="form-select">
+                <option value="">Automatic: the savings account with the most available</option>
+                @foreach($lrAccounts as $acc)
+                    <option value="{{ $acc->id }}" @selected((int) old('loan_recovery_savings_account_id', $client->loan_recovery_savings_account_id) === (int) $acc->id)>{{ $acc->product->name ?? 'Savings' }} · {{ $acc->account_number }} only</option>
+                @endforeach
+            </select>
+            <div class="form-text">Choose an account (e.g. Ordinary Savings) so Run Loans never takes installments from the member's other accounts, such as the Interest Wallet.</div>
+        </div>
+        @endif
         <div class="col-md-6">
             <label class="form-label">Account Status</label>
             <select name="status" class="form-select">

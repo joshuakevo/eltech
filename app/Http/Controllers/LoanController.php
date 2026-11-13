@@ -121,7 +121,7 @@ class LoanController extends Controller
         // Loans due on this date: anniversary day-of-month, or an installment falling on the date
         // (covers month-end due dates that shift, e.g. 31st -> 30th).
         // Active and defaulted loans (overdue loans keep being charged interest); Locked-Up excluded below.
-        $loans = Loan::with(['client', 'product'])
+        $loans = Loan::with(['client.savingsAccounts' => fn ($q) => $q->where('status', 'active')->with('product'), 'product'])
             ->whereIn('status', ['active', 'defaulted'])
             ->whereNotNull('disbursement_date')
             ->where(fn ($q) => $q->whereRaw('DAY(disbursement_date) = ?', [$day])

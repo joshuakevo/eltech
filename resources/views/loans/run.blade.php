@@ -168,6 +168,21 @@
                             <input class="form-check-input lr-min-toggle" type="checkbox" role="switch" data-url="{{ route('clients.loan-recovery-minimum', $loan->client) }}" @checked($usesMin)>
                             <label class="form-check-label {{ $usesMin ? 'text-primary fw-semibold' : 'text-muted' }}">Use minimum balance</label>
                         </div>
+                        @php $memberAccounts = $loan->client->savingsAccounts ?? collect(); $chosenAcc = $loan->client->loan_recovery_savings_account_id; @endphp
+                        @if($memberAccounts->count() > 1 || ($chosenAcc && !$memberAccounts->contains('id', $chosenAcc)))
+                        <div class="d-flex align-items-center gap-1 mt-1" style="font-size:.72rem" title="Which savings account Run Loans takes this member's installments from">
+                            <span class="{{ $chosenAcc ? 'text-primary fw-semibold' : 'text-muted' }}">Recover from</span>
+                            <select class="form-select form-select-sm py-0 lr-acc-select" style="font-size:.72rem;width:auto;max-width:12rem" data-url="{{ route('clients.loan-recovery-account', $loan->client) }}">
+                                <option value="">Auto (most available)</option>
+                                @foreach($memberAccounts as $ma)
+                                    <option value="{{ $ma->id }}" @selected((int) $chosenAcc === (int) $ma->id)>{{ $ma->product->name ?? 'Savings' }} · {{ $ma->account_number }}</option>
+                                @endforeach
+                                @if($chosenAcc && !$memberAccounts->contains('id', $chosenAcc))
+                                    <option value="{{ $chosenAcc }}" selected>Closed account (choose another)</option>
+                                @endif
+                            </select>
+                        </div>
+                        @endif
                         @endif
                         @endcan
                         @if($p['conversion'])
@@ -190,6 +205,13 @@
                     <td class="text-end">{{ $expected ? number_format($expected, $dp) : '—' }}</td>
                     <td class="text-end {{ $available + 0.01 < $expected ? 'text-danger' : '' }}">{{ number_format($available, $dp) }}
                         @if($floor > 0)<div class="text-muted" style="font-size:.68rem">keeps {{ number_format($floor, 0) }} minimum</div>@elseif($usesMin && $expected)<div class="text-primary" style="font-size:.68rem">incl. minimum balance</div>@endif
+                        @php $fromAcc = $steps->pluck('recovery.account')->filter()->first(); $accNote = $steps->pluck('recovery.note')->filter()->first(); @endphp
+                        @if($fromAcc && ($loan->client->savingsAccounts ?? collect())->count() > 1)
+                            @php $fromProduct = optional(($loan->client->savingsAccounts ?? collect())->firstWhere('account_number', $fromAcc))->product?->name; @endphp
+                            <div class="text-muted" style="font-size:.68rem">from {{ $fromProduct ?? $fromAcc }}</div>
+                        @elseif($accNote === 'Chosen savings account is not active')
+                            <div class="text-danger" style="font-size:.68rem">chosen account closed</div>
+                        @endif
                     </td>
                     <td class="text-end fw-semibold {{ $recover + 0.01 < $expected ? 'text-warning' : 'text-success' }}">{{ number_format($recover, $dp) }}</td>
                     <td class="pe-3 small">
@@ -232,6 +254,17 @@
 
 @push('scripts')
 <script>
+document.querySelectorAll('.lr-acc-select').forEach(function (el) {
+    const before = el.value;
+    el.addEventListener('change', async function () {
+        el.disabled = true;
+        try {
+            const r = await fetch(el.dataset.url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify({ loan_recovery_savings_account_id: el.value || null }) });
+            if (!r.ok) throw new Error();
+            location.reload();   // recompute the preview from the chosen account
+        } catch (e) { el.value = before; el.disabled = false; alert('Could not update the recovery account.'); }
+    });
+});
 document.querySelectorAll('.lr-min-toggle').forEach(function (el) {
     el.addEventListener('change', async function () {
         el.disabled = true;
