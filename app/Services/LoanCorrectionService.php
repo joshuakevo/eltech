@@ -327,6 +327,9 @@ class LoanCorrectionService
         if ($later) {
             throw ValidationException::withMessages(['correction' => 'A later correction exists on this loan. Undo that one first.']);
         }
+        if (LockedUpInterestService::chargedSince((int) $correction->loan_id, $correction->created_at)) {
+            throw ValidationException::withMessages(['correction' => 'Interest has been charged on this Locked-Up loan since this correction. Undo those charges first.']);
+        }
         // Compare as integers: the production driver returns some ids as strings.
         $then = isset($correction->snapshot['repayment_ids'])
             ? collect($correction->snapshot['repayment_ids'])->map(fn ($id) => (int) $id)->sort()->values()->all() : null;

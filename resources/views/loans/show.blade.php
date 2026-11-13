@@ -41,6 +41,7 @@
             <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#penaltyBfModal"><i class="bi bi-exclamation-octagon"></i> Penalty b/f{{ $loan->penalty_bf_imported !== null ? ': ' . number_format($loan->penalty_bf_imported, 0) : '' }}</button>
         @endif
         @if($loan->isLockedUp() && $loan->status !== 'closed')
+            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#lockedUpInterestModal"><i class="bi bi-percent"></i> Charge interest</button>
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#activateLoanModal"><i class="bi bi-arrow-repeat"></i> Move to active loans</button>
         @endif
         @endcan
@@ -197,10 +198,50 @@
 </div>
 @endif
 
+@if($loan->lockedUpCharges->isNotEmpty())
+@php $luNewest = $loan->lockedUpCharges->sortByDesc('id')->first(); @endphp
+<div class="card mb-3">
+    <div class="card-header fw-semibold d-flex justify-content-between">
+        <span><i class="bi bi-percent me-1"></i>Interest Charged</span>
+        <span class="small text-muted fw-normal">No journal: income (4001) when recovered</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 small align-middle">
+            <thead><tr><th class="ps-3">Date</th><th>Details</th><th>Note</th><th>By</th><th class="text-end">Interest charged</th><th class="pe-3"></th></tr></thead>
+            <tbody>
+            @foreach($loan->lockedUpCharges as $lc)
+                <tr>
+                    <td class="ps-3">{{ $lc->charge_date->format('d M Y') }}</td>
+                    <td>{{ $lc->narration() }}@if($lc->principal) <span class="text-muted">on {{ number_format($lc->principal, $dp) }}</span>@endif</td>
+                    <td class="text-muted">{{ $lc->notes ?? '—' }}</td>
+                    <td class="text-muted">{{ $lc->createdBy->name ?? '—' }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($lc->amount, $dp) }}</td>
+                    <td class="pe-3 text-end">
+                        @can('correct loans')
+                        @if($lc->id === $luNewest->id)
+                        <form method="POST" action="{{ route('loans.locked-up-interest.undo', [$loan, $lc]) }}" onsubmit="return confirm('Undo this interest charge of {{ number_format($lc->amount, 2) }}? It is taken off the interest owed.')">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-arrow-counterclockwise"></i> Undo</button>
+                        </form>
+                        @endif
+                        @endcan
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+            <tfoot class="table-light fw-semibold"><tr><td class="ps-3" colspan="4">Total charged</td><td class="text-end">{{ number_format($loan->lockedUpCharges->sum('amount'), $dp) }}</td><td></td></tr></tfoot>
+        </table>
+    </div>
+</div>
+@endif
+
 @include('loans._correction')
 @include('loans._lockup')
 @can('correct loans')
     @include('loans._penalty-bf')
+    @if($loan->isLockedUp() && $loan->status !== 'closed')
+        @include('loans._locked-up-interest')
+    @endif
 @endcan
 @if($loan->isLockedUp() && $loan->status !== 'closed')
     @include('loans._activate')

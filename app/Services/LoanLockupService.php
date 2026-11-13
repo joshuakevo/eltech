@@ -236,6 +236,9 @@ class LoanLockupService
         if ($now !== $then) {
             throw ValidationException::withMessages(['lockup' => 'Recoveries have been recorded since the loan was locked up. Reverse those first.']);
         }
+        if (LockedUpInterestService::chargedSince((int) $lockup->loan_id, $lockup->executed_at)) {
+            throw ValidationException::withMessages(['lockup' => 'Interest has been charged on the Locked-Up loan since. Undo those charges first.']);
+        }
         if (\App\Models\LoanActivation::where('loan_id', $lockup->loan_id)->where('status', 'applied')->where('created_at', '>', $lockup->executed_at)->exists()) {
             throw ValidationException::withMessages(['lockup' => 'The loan has since been moved back to active loans. Undo that first.']);
         }

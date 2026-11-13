@@ -82,6 +82,36 @@
     </div>
 </div>
 
+{{-- Interest charged by hand (Locked-Up loans) --}}
+@if($loan->lockedUpCharges->isNotEmpty())
+<div class="card mb-3">
+    <div class="card-header small fw-semibold py-2">Interest Charged</div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>#</th><th>Date</th><th>Description</th><th class="text-end">Interest charged</th><th class="text-end fw-semibold">Total charged</th></tr>
+            </thead>
+            <tbody class="small">
+            @php $luRunning = 0; @endphp
+            @foreach($loan->lockedUpCharges as $i => $lc)
+                @php $luRunning += $lc->amount; @endphp
+                <tr>
+                    <td>{{ $i + 1 }}</td>
+                    <td>{{ $lc->charge_date->format('d M Y') }}</td>
+                    <td>{{ $lc->narration() }}</td>
+                    <td class="text-end text-danger">{{ number_format($lc->amount, $dp) }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($luRunning, $dp) }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+            <tfoot class="table-light fw-bold small">
+                <tr><td colspan="3">Total interest charged</td><td class="text-end text-danger">{{ number_format($luRunning, $dp) }}</td><td></td></tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+@endif
+
 {{-- Repayment History --}}
 <div class="card">
     <div class="card-header small fw-semibold py-2">Repayment History</div>

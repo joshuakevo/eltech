@@ -162,6 +162,12 @@ class Loan extends Model
         return optional($this->product)->name === 'Locked-Up Loans';
     }
 
+    /** Interest charged by hand on a Locked-Up loan (oldest first). */
+    public function lockedUpCharges()
+    {
+        return $this->hasMany(LockedUpInterestCharge::class)->orderBy('charge_date')->orderBy('id');
+    }
+
     public function interestCharges()
     {
         return $this->hasMany(LoanInterestCharge::class)->orderBy('to_date');

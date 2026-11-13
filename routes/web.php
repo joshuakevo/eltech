@@ -276,6 +276,8 @@ Route::middleware('auth')->group(function () {
         Route::post('loans/penalty-backfill', [\App\Http\Controllers\PenaltyBackfillController::class, 'apply'])->name('loans.penalty-backfill.apply');
         Route::delete('loans/penalty-backfill', [\App\Http\Controllers\PenaltyBackfillController::class, 'undo'])->name('loans.penalty-backfill.undo');
         Route::post('loans/{loan}/penalty-bf', [\App\Http\Controllers\PenaltyImportController::class, 'setForLoan'])->name('loans.penalty-bf');
+        Route::post('loans/{loan}/locked-up-interest', [\App\Http\Controllers\LockedUpInterestController::class, 'store'])->name('loans.locked-up-interest');
+        Route::delete('loans/{loan}/locked-up-interest/{charge}', [\App\Http\Controllers\LockedUpInterestController::class, 'destroy'])->name('loans.locked-up-interest.undo');
     });
     Route::get('loans/orphan-recoveries', [\App\Http\Controllers\LoanRecoveryCleanupController::class, 'index'])
         ->name('loans.orphan-recoveries')->middleware('permission:correct loans');

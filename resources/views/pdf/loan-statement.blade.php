@@ -97,6 +97,36 @@
 </tr>
 </table>
 
+{{-- Interest charged by hand (Locked-Up loans) --}}
+@if($loan->lockedUpCharges->isNotEmpty())
+<div class="section-title">Interest Charged</div>
+<table class="data-table">
+    <thead>
+        <tr><th>#</th><th>Date</th><th>Description</th><th class="text-right">Interest charged</th><th class="text-right">Total charged</th></tr>
+    </thead>
+    @php $luRunning = 0; @endphp
+    <tbody>
+    @foreach($loan->lockedUpCharges as $i => $lc)
+        @php $luRunning += $lc->amount; @endphp
+        <tr>
+            <td>{{ $i + 1 }}</td>
+            <td>{{ $lc->charge_date->format('d M Y') }}</td>
+            <td>{{ $lc->narration() }}</td>
+            <td class="text-right" style="color:#991b1b">{{ number_format($lc->amount, $dp) }}</td>
+            <td class="text-right" style="font-weight:bold">{{ number_format($luRunning, $dp) }}</td>
+        </tr>
+    @endforeach
+    </tbody>
+    <tfoot>
+        <tr style="background:#f9fafb;font-weight:bold;">
+            <td colspan="3" style="padding:6px 8px;font-size:10px;">TOTAL INTEREST CHARGED</td>
+            <td class="text-right" style="padding:6px 8px;color:#991b1b">{{ number_format($luRunning, $dp) }}</td>
+            <td></td>
+        </tr>
+    </tfoot>
+</table>
+@endif
+
 {{-- Repayment History --}}
 <div class="section-title">Repayment History</div>
 @if($loan->repayments->isEmpty())
