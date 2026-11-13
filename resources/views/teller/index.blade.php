@@ -193,6 +193,11 @@
                                     <div class="fw-bold mb-1">Insufficient Funds</div>
                                     <div class="small mb-2" id="tellerOverdraftMessage"></div>
                                     @if($canOverdraw)
+                                    <div id="tellerOdWrap" class="d-none mb-2 p-2 rounded bg-white border border-danger-subtle text-dark">
+                                        <label class="form-label small fw-semibold mb-1" for="tellerOdCharge">Overdraft charge <span class="text-muted fw-normal" id="tellerOdWork"></span></label>
+                                        <input type="number" name="overdraft_charge" id="tellerOdCharge" class="form-control form-control-sm" step="0.01" min="0" style="max-width:220px" disabled>
+                                        <div class="form-text">Added to the member's negative balance. Change it if agreed, or 0 to waive. Balance after the charge: <b id="tellerOdAfter"></b>.</div>
+                                    </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="tellerOverdraftConfirm">
                                         <label class="form-check-label fw-semibold" for="tellerOverdraftConfirm">
@@ -294,6 +299,24 @@ function selectAccount(id, accNo, clientName, product, balance, withdrawFee, raw
     checkTellerOverdraft();
 }
 
+@php $odSvc = app(\App\Services\OverdraftService::class); @endphp
+var tellerOdRate = {{ $odSvc->rate() }}, tellerOdMin = {{ $odSvc->minimum() }}, tellerOdTyped = false;
+// Overdraft charge prompt: rate % of the negative balance after the withdrawal (at least the minimum), editable
+function showTellerOverdraftCharge(resultingBalance) {
+    var wrap = document.getElementById('tellerOdWrap'), input = document.getElementById('tellerOdCharge');
+    if (!wrap) return;
+    if (resultingBalance >= 0) { wrap.classList.add('d-none'); input.value = ''; input.disabled = true; tellerOdTyped = false; return; }
+    wrap.classList.remove('d-none'); input.disabled = false;
+    var suggested = Math.max(tellerOdMin, Math.round(Math.abs(resultingBalance) * tellerOdRate) / 100);
+    document.getElementById('tellerOdWork').textContent = '(' + tellerOdRate + '% of ' + Math.abs(resultingBalance).toFixed(2) + (tellerOdMin > 0 ? ', minimum ' + tellerOdMin.toFixed(2) : '') + ' = ' + suggested.toFixed(2) + ')';
+    if (!tellerOdTyped) input.value = suggested.toFixed(2);
+    document.getElementById('tellerOdAfter').textContent = (resultingBalance - (parseFloat(input.value) || 0)).toFixed(2);
+}
+(function () {
+    var input = document.getElementById('tellerOdCharge');
+    if (input) input.addEventListener('input', function () { tellerOdTyped = input.value !== ''; checkTellerOverdraft(); });
+})();
+
 function checkTellerOverdraft() {
     var amt = parseFloat(document.getElementById('tellerWithdrawAmount').value) || 0;
     var fee = parseFloat(document.getElementById('tellerWithdrawFee').value) || 0;
@@ -311,6 +334,7 @@ function checkTellerOverdraft() {
             'Available: ' + available.toFixed(2) + '. This withdrawal exceeds it by ' + shortfall.toFixed(2) +
             ', taking the balance to ' + resultingBalance.toFixed(2) + (resultingBalance < 0 ? ' (negative — overdrawn)' : '') + '.';
         box.classList.remove('d-none');
+        showTellerOverdraftCharge(resultingBalance);
         if (canOverdraw) {
             submitBtn.disabled = !(checkbox && checkbox.checked);
             hiddenInput.value = (checkbox && checkbox.checked) ? '1' : '0';
@@ -323,6 +347,7 @@ function checkTellerOverdraft() {
         submitBtn.disabled = false;
         hiddenInput.value = '0';
         if (checkbox) checkbox.checked = false;
+        showTellerOverdraftCharge(0);
     }
 }
 document.getElementById('tellerWithdrawAmount').addEventListener('input', checkTellerOverdraft);

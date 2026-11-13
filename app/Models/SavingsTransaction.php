@@ -23,6 +23,32 @@ class SavingsTransaction extends Model
         'transaction_date'   => 'date',
     ];
 
+    /**
+     * Overdraft fees: money paid into an account with accrued overdraft charges recognises them as income
+     * (up to the amount paid); deleting that payment reverses the recognition. See OverdraftService.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (SavingsTransaction $row) {
+            if (static::overdraftTablesReady() && \App\Services\OverdraftService::isPayment($row)
+                && \App\Models\OverdraftCharge::where('savings_account_id', $row->savings_account_id)->whereColumn('recognised_amount', '<', 'amount')->exists()) {
+                app(\App\Services\OverdraftService::class)->recogniseForPayment($row);
+            }
+        });
+        static::deleted(function (SavingsTransaction $row) {
+            if (static::overdraftTablesReady() && \App\Models\OverdraftFeeRecognition::where('savings_transaction_id', $row->id)->exists()) {
+                app(\App\Services\OverdraftService::class)->paymentRemoved($row);
+            }
+        });
+    }
+
+    private static ?bool $overdraftReady = null;
+
+    private static function overdraftTablesReady(): bool
+    {
+        return static::$overdraftReady ??= \Illuminate\Support\Facades\Schema::hasTable('overdraft_fee_recognitions');
+    }
+
     public function savingsAccount()
     {
         return $this->belongsTo(SavingsAccount::class);

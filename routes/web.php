@@ -564,6 +564,8 @@ Route::middleware('auth')->group(function () {
         Route::get('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'settings'])->name('settings.ai');
         Route::post('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'saveSettings'])->name('settings.ai.save');
         Route::post('settings/ai/test', [\App\Http\Controllers\AiAssistantController::class, 'test'])->name('settings.ai.test');
+        Route::get('settings/overdraft', [\App\Http\Controllers\OverdraftController::class, 'index'])->name('settings.overdraft');
+        Route::post('settings/overdraft', [\App\Http\Controllers\OverdraftController::class, 'update'])->name('settings.overdraft.update');
         Route::get('settings/loan-interest-methods', [SettingsController::class, 'loanInterestMethods'])->name('settings.loan-interest-methods');
         Route::post('settings/loan-interest-methods', [SettingsController::class, 'applyLoanInterestMethods'])->name('settings.loan-interest-methods.apply');
         Route::post('settings/loan-interest-methods/move', [SettingsController::class, 'moveLoansToMatchingProduct'])->name('settings.loan-interest-methods.move');

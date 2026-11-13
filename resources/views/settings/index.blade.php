@@ -173,6 +173,21 @@ $groupIcons = [
 
 <div class="card mt-4">
     <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-dash-circle text-danger"></i>
+        <span>Overdraft Charges</span>
+        <span class="badge bg-light text-dark border ms-1">{{ rtrim(rtrim(number_format((float) \App\Models\SystemSetting::get('overdraft_charge_rate', 1), 4), '0'), '.') }}%</span>
+    </div>
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <p class="text-muted small mb-0 flex-grow-1" style="max-width:720px">
+            The charge added when a withdrawal takes a savings account negative (rate % of the negative balance, minimum charge), the accrued and income accounts,
+            and every charge with how much the member has paid.
+        </p>
+        <a href="{{ route('settings.overdraft') }}" class="btn btn-outline-primary"><i class="bi bi-gear me-2"></i>Set up</a>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
         <i class="bi bi-stars text-primary"></i>
         <span>AI Assistant</span>
         @if(\App\Models\SystemSetting::get('ai_enabled', 0))<span class="badge bg-success-subtle text-success ms-1">On</span>@else<span class="badge bg-secondary-subtle text-secondary ms-1">Off</span>@endif

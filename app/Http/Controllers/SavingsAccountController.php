@@ -178,24 +178,30 @@ class SavingsAccountController extends Controller
             'withdrawal_fee'            => 'nullable|numeric|min:0',
             'institution_charge'        => 'nullable|numeric|min:0',
             'payment_source_account_id' => 'required|exists:accounts,id',
+            'overdraft_charge'          => 'nullable|numeric|min:0',
         ]);
 
         try {
             $fee            = $request->has('withdrawal_fee') ? (float) $request->withdrawal_fee : null;
             $institutionCharge = $request->has('institution_charge') ? (float) $request->institution_charge : null;
             $allowOverdraft = $request->boolean('allow_overdraft') && auth()->user()->can('overdraw savings');
-            $this->savingsService->withdraw(
-                $saving,
-                $request->amount,
-                $request->date,
-                $request->description ?? 'Withdrawal',
-                $request->reference,
-                $fee,
-                $request->payment_source_account_id ? (int) $request->payment_source_account_id : null,
-                $institutionCharge,
-                $allowOverdraft
-            );
-            return redirect()->route('savings.show', $saving)->with('success', 'Withdrawal processed.');
+            $charged = \Illuminate\Support\Facades\DB::transaction(function () use ($request, $saving, $fee, $institutionCharge, $allowOverdraft) {
+                $row = $this->savingsService->withdraw(
+                    $saving,
+                    $request->amount,
+                    $request->date,
+                    $request->description ?? 'Withdrawal',
+                    $request->reference,
+                    $fee,
+                    $request->payment_source_account_id ? (int) $request->payment_source_account_id : null,
+                    $institutionCharge,
+                    $allowOverdraft
+                );
+                // Overdrawn: add the overdraft charge shown on the form (rate % of the negative balance, editable / 0 = waive)
+                return $allowOverdraft ? app(\App\Services\OverdraftService::class)->chargeForWithdrawal($saving, $row, $request->input('overdraft_charge')) : null;
+            });
+            return redirect()->route('savings.show', $saving)->with('success', 'Withdrawal processed.'
+                . ($charged ? ' Overdraft charge of ' . number_format($charged->amount, 2) . ' added to the balance.' : ''));
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }

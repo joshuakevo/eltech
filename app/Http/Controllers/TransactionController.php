@@ -800,8 +800,25 @@ class TransactionController extends Controller
             'loan_activation' => $this->reverseLoanActivationImpact($transaction),
             'loan_lockup' => $this->reverseLoanLockupImpact($transaction),
             'loan_topup' => $this->reverseLoanTopUpImpact($transaction),
+            'overdraft_charge' => $this->reverseOverdraftChargeImpact($transaction),
+            'overdraft_fee' => $this->reverseOverdraftFeeImpact($transaction),
             default         => null,
         };
+    }
+
+    /** Overdraft charge journals: remove the statement line (ledger rebuilt) and the charge record (checked beforehand). */
+    private function reverseOverdraftChargeImpact(Transaction $transaction): void
+    {
+        $this->reverseSavingsImpact($transaction);
+        \App\Models\OverdraftCharge::whereKey($transaction->module_id)->delete();
+    }
+
+    /** Overdraft fee income journals: give the amounts back to the accrued charges. */
+    private function reverseOverdraftFeeImpact(Transaction $transaction): void
+    {
+        if ($rec = \App\Models\OverdraftFeeRecognition::find($transaction->module_id)) {
+            app(\App\Services\OverdraftService::class)->unrecognise($rec, false);
+        }
     }
 
     /** Loan top-up journals: restore the loan (and savings, when paid there) as before the top-up (checked beforehand). */
@@ -930,6 +947,17 @@ class TransactionController extends Controller
                     }
                     throw ValidationException::withMessages(['reversal_reason' => $msg]);
                 }
+            }
+        }
+
+        if ($transaction->module === 'overdraft_charge' && ($charge = \App\Models\OverdraftCharge::find($transaction->module_id))) {
+            try {
+                app(\App\Services\OverdraftService::class)->assertChargeReversible($charge);
+            } catch (\InvalidArgumentException $e) {
+                if ($isDestroy) {
+                    throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $e->getMessage()));
+                }
+                throw ValidationException::withMessages(['reversal_reason' => $e->getMessage()]);
             }
         }
 
