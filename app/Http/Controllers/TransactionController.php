@@ -799,8 +799,18 @@ class TransactionController extends Controller
             'loan_transfer' => $this->reverseLoanTransferImpact($transaction),
             'loan_activation' => $this->reverseLoanActivationImpact($transaction),
             'loan_lockup' => $this->reverseLoanLockupImpact($transaction),
+            'loan_topup' => $this->reverseLoanTopUpImpact($transaction),
             default         => null,
         };
+    }
+
+    /** Loan top-up journals: restore the loan (and savings, when paid there) as before the top-up (checked beforehand). */
+    private function reverseLoanTopUpImpact(Transaction $transaction): void
+    {
+        $topUp = \App\Models\LoanTopUp::find($transaction->module_id);
+        if ($topUp && $topUp->status === 'applied') {
+            app(\App\Services\LoanTopUpService::class)->undo($topUp, false, (int) $transaction->id);
+        }
     }
 
     /** Loan lock-up journals: restore the loan as it was before the lock-up (checked beforehand). */
@@ -913,6 +923,21 @@ class TransactionController extends Controller
             if ($activation && $activation->status === 'applied') {
                 try {
                     app(\App\Services\LockedUpActivationService::class)->assertUndoable($activation);
+                } catch (ValidationException $e) {
+                    $msg = collect($e->errors())->flatten()->first();
+                    if ($isDestroy) {
+                        throw new HttpResponseException(redirect()->route('transactions.index')->with('error', $msg));
+                    }
+                    throw ValidationException::withMessages(['reversal_reason' => $msg]);
+                }
+            }
+        }
+
+        if ($transaction->module === 'loan_topup') {
+            $topUp = \App\Models\LoanTopUp::find($transaction->module_id);
+            if ($topUp && $topUp->status === 'applied') {
+                try {
+                    app(\App\Services\LoanTopUpService::class)->assertUndoable($topUp);
                 } catch (ValidationException $e) {
                     $msg = collect($e->errors())->flatten()->first();
                     if ($isDestroy) {

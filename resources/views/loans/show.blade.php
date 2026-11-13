@@ -45,6 +45,11 @@
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#activateLoanModal"><i class="bi bi-arrow-repeat"></i> Move to active loans</button>
         @endif
         @endcan
+        @can('disburse loans')
+        @if(!$loan->isLockedUp() && in_array($loan->status, ['active', 'defaulted']))
+            <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#topUpLoanModal"><i class="bi bi-plus-circle"></i> Top up loan</button>
+        @endif
+        @endcan
         @can('initiate loan lockup')
         @if(!$loan->isLockedUp() && in_array($loan->status, ['active', 'defaulted']) && !\App\Models\LoanLockup::where('loan_id', $loan->id)->where('status', 'pending')->exists())
             <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#lockupLoanModal"><i class="bi bi-lock"></i> Lock up loan</button>
@@ -245,6 +250,46 @@
 @endcan
 @if($loan->isLockedUp() && $loan->status !== 'closed')
     @include('loans._activate')
+@endif
+@can('disburse loans')
+    @if(!$loan->isLockedUp() && in_array($loan->status, ['active', 'defaulted']))
+        @include('loans._topup')
+    @endif
+@endcan
+@php $topUps = \App\Models\LoanTopUp::with('createdBy')->where('loan_id', $loan->id)->where('status', 'applied')->orderBy('id')->get(); @endphp
+@if($topUps->isNotEmpty())
+<div class="card mb-3">
+    <div class="card-header fw-semibold"><i class="bi bi-plus-circle me-1 text-success"></i>Top-ups</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 small align-middle">
+            <thead><tr><th class="ps-3">Date</th><th class="text-end">Balance before</th><th class="text-end">Top-up</th><th class="text-end">Fees</th><th class="text-end">New principal</th><th>New terms</th><th>Paid to</th><th>By</th><th class="pe-3"></th></tr></thead>
+            <tbody>
+            @foreach($topUps as $tu)
+                <tr>
+                    <td class="ps-3">{{ $tu->topup_date->format('d M Y') }}</td>
+                    <td class="text-end">{{ number_format($tu->balance_before, $dp) }}</td>
+                    <td class="text-end fw-semibold text-success">{{ number_format($tu->amount, $dp) }}</td>
+                    <td class="text-end" title="Application {{ number_format($tu->application_fee, 0) }} ({{ $tu->application_fee_method }}) · Management {{ number_format($tu->management_fee, 0) }} ({{ $tu->management_fee_method }}) · Insurance {{ number_format($tu->insurance_fee, 0) }} ({{ $tu->insurance_fee_method }})">{{ number_format($tu->totalFees(), $dp) }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($tu->new_principal, $dp) }}</td>
+                    <td>{{ $tu->interest_rate + 0 }}% {{ $tu->interest_method }}, {{ $tu->term_months }} months{{ $tu->installment_amount ? ', installment ' . number_format($tu->installment_amount, 0) : '' }}</td>
+                    <td class="text-muted">{{ $tu->payout === 'savings' ? 'Savings ' . ($tu->savingsAccount->account_number ?? '') : ($tu->payoutAccount->account_name ?? '—') }}</td>
+                    <td class="text-muted">{{ $tu->createdBy->name ?? '—' }}</td>
+                    <td class="pe-3 text-end">
+                        @can('correct loans')
+                        @if($loop->last)
+                        <form method="POST" action="{{ route('loans.topup.undo', [$loan, $tu]) }}" onsubmit="return confirm('Undo this top-up of {{ number_format($tu->amount, 2) }}? The loan goes back to how it was and the payout journal is reversed.')">
+                            @csrf
+                            <button class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-arrow-counterclockwise"></i> Undo</button>
+                        </form>
+                        @endif
+                        @endcan
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
 @endif
 @php $activeMove = \App\Models\LoanActivation::with('createdBy')->where('loan_id', $loan->id)->where('status', 'applied')->latest('id')->first(); @endphp
 @if($activeMove)

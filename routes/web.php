@@ -317,6 +317,12 @@ Route::middleware('auth')->group(function () {
     Route::post('loan-lockups/{lockup}/approve', [\App\Http\Controllers\LoanLockupController::class, 'approve'])->name('loans.lockups.approve')->middleware('permission:view loans');
     Route::post('loan-lockups/{lockup}/reject', [\App\Http\Controllers\LoanLockupController::class, 'reject'])->name('loans.lockups.reject')->middleware('permission:view loans');
     Route::post('loan-lockups/{lockup}/undo', [\App\Http\Controllers\LoanLockupController::class, 'undo'])->name('loans.lockups.undo')->middleware('permission:correct loans');
+    Route::post('loans/{loan}/topup/preview', [\App\Http\Controllers\LoanTopUpController::class, 'preview'])
+        ->name('loans.topup.preview')->middleware('permission:disburse loans');
+    Route::post('loans/{loan}/topup', [\App\Http\Controllers\LoanTopUpController::class, 'store'])
+        ->name('loans.topup')->middleware('permission:disburse loans');
+    Route::post('loans/{loan}/topups/{topUp}/undo', [\App\Http\Controllers\LoanTopUpController::class, 'undo'])
+        ->name('loans.topup.undo')->middleware('permission:correct loans');
     Route::post('loans/{loan}/activate/preview', [LoanController::class, 'activationPreview'])
         ->name('loans.activate.preview')->middleware('permission:correct loans');
     Route::post('loans/{loan}/activate', [LoanController::class, 'activate'])

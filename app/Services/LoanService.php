@@ -829,12 +829,12 @@ class LoanService
         );
     }
 
-    protected function getApplicationFeeAccount(): int
+    public function getApplicationFeeAccount(): int
     {
         return Account::where('account_code', '4011')->value('id') ?? 1;
     }
 
-    protected function getManagementFeeAccount(): int
+    public function getManagementFeeAccount(): int
     {
         return Account::where('account_code', '4009')->value('id') ?? 1;
     }
@@ -844,7 +844,7 @@ class LoanService
         return Account::where('account_code', '4010')->value('id') ?? 1;
     }
 
-    protected function getInsurancePayableAccount(): int
+    public function getInsurancePayableAccount(): int
     {
         return Account::where('account_code', '2010')->value('id') ?? 1;
     }

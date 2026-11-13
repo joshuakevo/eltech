@@ -345,6 +345,13 @@ class LoanController extends Controller
     {
         abort_unless((int) $correction->loan_id === (int) $loan->id, 404);
         $request->validate(['reversal_date' => ['nullable', 'date', 'before_or_equal:today']]);
+        // Schedules rebuilt by a top-up or a move to active loans are undone with that action, not on their own
+        if (\App\Models\LoanTopUp::where('correction_id', $correction->id)->where('status', 'applied')->exists()) {
+            return redirect()->route('loans.show', $loan)->with('error', 'This schedule was rebuilt by a top-up. Undo the top-up instead.');
+        }
+        if (\App\Models\LoanActivation::where('correction_id', $correction->id)->where('status', 'applied')->exists()) {
+            return redirect()->route('loans.show', $loan)->with('error', 'This schedule was rebuilt by the move to active loans. Undo the move instead.');
+        }
         $corrections->undo($correction, true, $request->reversal_date);
 
         return redirect()->route('loans.show', $loan)->with('success', 'Correction undone — balances and schedule restored.');
