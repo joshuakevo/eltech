@@ -46,13 +46,13 @@ class OverdraftRunController extends Controller
             $amounts[(int) $id] = $data['amount'][$id] ?? null;
         }
         try {
-            $run = $this->service->run($data['date'], (float) $data['rate'], (float) $data['minimum'], $amounts);
+            $run = $this->service->run($data['date'], (float) $data['rate'], round((float) $data['minimum']), $amounts);
         } catch (\InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
 
         return redirect()->route('overdraft.run', ['date' => $run->run_date->toDateString()])
-            ->with('success', "Overdraft charges for {$run->run_date->format('d M Y')}: {$run->accounts} account(s), total " . number_format($run->total, 2) . '.');
+            ->with('success', "Overdraft charges for {$run->run_date->format('d M Y')}: {$run->accounts} account(s), total " . number_format($run->total) . '.');
     }
 
     public function undo(OverdraftRun $run)

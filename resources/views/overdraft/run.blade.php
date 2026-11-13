@@ -33,7 +33,7 @@
         </div>
         <div class="col-6 col-sm-3 col-md-2">
             <label class="form-label small fw-semibold">Minimum charge</label>
-            <input type="number" name="minimum" class="form-control" step="0.01" min="0" value="{{ $minimum + 0 }}">
+            <input type="number" name="minimum" class="form-control" step="1" min="0" value="{{ $minimum + 0 }}">
         </div>
         <div class="col-auto"><button class="btn btn-outline-primary"><i class="bi bi-arrow-repeat me-1"></i>Recalculate</button></div>
     </form>
@@ -52,7 +52,7 @@
     <div class="card mb-3">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span class="fw-semibold">{{ count($rows) }} account(s) overdrawn at {{ $date->format('d M Y') }}</span>
-            <span class="small">To charge: <b id="odCount">{{ $chargeable->count() }}</b> account(s), total <b id="odTotal">{{ number_format($suggestedTotal, $dp) }}</b></span>
+            <span class="small">To charge: <b id="odCount">{{ $chargeable->count() }}</b> account(s), total <b id="odTotal">{{ number_format($suggestedTotal, 0) }}</b></span>
         </div>
         <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0 small">
@@ -69,16 +69,16 @@
                         <td class="ps-3"><input type="checkbox" class="form-check-input od-pick" name="pick[]" value="{{ $a->id }}" @checked(!$r['already']) @disabled($r['already'])></td>
                         <td>{{ $a->client->name ?? '—' }} <span class="text-muted">{{ $a->client->client_number ?? '' }}</span></td>
                         <td><a href="{{ route('savings.show', $a) }}" class="font-monospace">{{ $a->account_number }}</a> <span class="text-muted">{{ $a->product->name ?? '' }}</span></td>
-                        <td class="text-end text-danger fw-semibold">{{ number_format($r['balance'], $dp) }}</td>
-                        <td class="text-end">{{ number_format($r['suggested'], $dp) }}</td>
+                        <td class="text-end text-danger fw-semibold">{{ number_format($r['balance'], 0) }}</td>
+                        <td class="text-end">{{ number_format($r['suggested'], 0) }}</td>
                         <td>
                             @if($r['already'])
                                 <span class="badge bg-light text-muted border">charged {{ \Carbon\Carbon::parse($r['already'])->format('d M') }}</span>
                             @else
-                                <input type="number" name="amount[{{ $a->id }}]" class="form-control form-control-sm od-amt" step="0.01" min="0" value="{{ number_format($r['suggested'], 2, '.', '') }}" data-balance="{{ $r['balance'] }}">
+                                <input type="number" name="amount[{{ $a->id }}]" class="form-control form-control-sm od-amt" step="1" min="0" value="{{ number_format($r['suggested'], 0, '.', '') }}" data-balance="{{ $r['balance'] }}">
                             @endif
                         </td>
-                        <td class="text-end pe-3 od-after">{{ $r['already'] ? '—' : number_format($r['balance'] - $r['suggested'], $dp) }}</td>
+                        <td class="text-end pe-3 od-after">{{ $r['already'] ? '—' : number_format($r['balance'] - $r['suggested'], 0) }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="text-center text-muted py-4">No savings account was overdrawn at {{ $date->format('d M Y') }}.</td></tr>
@@ -105,7 +105,7 @@
                 <tr>
                     <td class="ps-3"><a href="{{ route('overdraft.run', ['date' => $run->run_date->toDateString()]) }}">{{ $run->run_date->format('d M Y') }}</a></td>
                     <td class="text-end">{{ $run->accounts }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($run->total, $dp) }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($run->total, 0) }}</td>
                     <td>{{ $run->rate + 0 }}%{{ $run->minimum > 0 ? ', min ' . number_format($run->minimum, 0) : '' }}</td>
                     <td class="text-muted">{{ $run->createdBy->name ?? '—' }} · {{ $run->created_at->format('d M H:i') }}</td>
                     <td>@if($run->status === 'applied')<span class="badge bg-success">Applied</span>@else<span class="badge bg-secondary">Undone</span>@endif</td>
@@ -130,7 +130,7 @@
 @push('scripts')
 <script>
 (function () {
-    const fmt = v => Number(v).toLocaleString(undefined, { minimumFractionDigits: {{ $dp }}, maximumFractionDigits: {{ $dp }} });
+    const fmt = v => Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     const picks = [...document.querySelectorAll('.od-pick:not(:disabled)')];
     const all = document.getElementById('odAll');
     const sum = () => {

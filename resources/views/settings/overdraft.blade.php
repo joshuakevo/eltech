@@ -24,7 +24,7 @@
                     </div>
                     <div class="col-6">
                         <label class="form-label small fw-semibold">Minimum charge (per account)</label>
-                        <input type="number" name="overdraft_charge_minimum" class="form-control" step="0.01" min="0" value="{{ old('overdraft_charge_minimum', $minimum + 0) }}" required>
+                        <input type="number" name="overdraft_charge_minimum" class="form-control" step="1" min="0" value="{{ old('overdraft_charge_minimum', $minimum + 0) }}" required>
                         <div class="form-text">0 = no minimum</div>
                     </div>
                     <div class="col-12">
@@ -59,9 +59,9 @@
                     </tbody>
                 </table>
                 <div class="d-flex flex-wrap gap-4">
-                    <div><div class="text-muted">Charged</div><div class="fs-5 fw-bold">{{ number_format($totals['charged'], $dp) }}</div></div>
-                    <div><div class="text-muted">Earned (paid)</div><div class="fs-5 fw-bold text-success">{{ number_format($totals['recognised'], $dp) }}</div></div>
-                    <div><div class="text-muted">Still accrued</div><div class="fs-5 fw-bold text-danger">{{ number_format($totals['charged'] - $totals['recognised'], $dp) }}</div></div>
+                    <div><div class="text-muted">Charged</div><div class="fs-5 fw-bold">{{ number_format($totals['charged'], 0) }}</div></div>
+                    <div><div class="text-muted">Earned (paid)</div><div class="fs-5 fw-bold text-success">{{ number_format($totals['recognised'], 0) }}</div></div>
+                    <div><div class="text-muted">Still accrued</div><div class="fs-5 fw-bold text-danger">{{ number_format($totals['charged'] - $totals['recognised'], 0) }}</div></div>
                 </div>
             </div>
         </div>
@@ -85,10 +85,10 @@
                     <td class="ps-3">{{ $c->charge_date->format('d M Y') }}</td>
                     <td>{{ $c->savingsAccount->client->name ?? '—' }}</td>
                     <td>@if($c->savingsAccount)<a href="{{ route('savings.show', $c->savingsAccount) }}" class="font-monospace">{{ $c->savingsAccount->account_number }}</a>@endif</td>
-                    <td class="text-end">{{ number_format(abs($c->overdrawn_balance), $dp) }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($c->amount, $dp) }}</td>
-                    <td class="text-end text-success">{{ number_format($c->recognised_amount, $dp) }}</td>
-                    <td class="text-end {{ $c->unrecognised() > 0 ? 'text-danger' : 'text-muted' }}">{{ number_format($c->unrecognised(), $dp) }}</td>
+                    <td class="text-end">{{ number_format(abs($c->overdrawn_balance), 0) }}</td>
+                    <td class="text-end fw-semibold">{{ number_format($c->amount, 0) }}</td>
+                    <td class="text-end text-success">{{ number_format($c->recognised_amount, 0) }}</td>
+                    <td class="text-end {{ $c->unrecognised() > 0 ? 'text-danger' : 'text-muted' }}">{{ number_format($c->unrecognised(), 0) }}</td>
                     <td class="pe-3 text-muted">{{ $c->createdBy->name ?? '—' }}</td>
                 </tr>
             @empty

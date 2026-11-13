@@ -43,7 +43,7 @@ class OverdraftController extends Controller
         ]);
         $before = collect(array_keys($data))->mapWithKeys(fn ($k) => [$k => SystemSetting::get($k)])->all();
         foreach ($data as $key => $value) {
-            SystemSetting::set($key, (string) $value);
+            SystemSetting::set($key, (string) ($key === 'overdraft_charge_minimum' ? round((float) $value) : $value));
         }
         AuditLog::record('overdraft_settings', 'Overdraft charge settings: rate ' . $before['overdraft_charge_rate'] . '% → ' . $data['overdraft_charge_rate']
             . '%, minimum ' . $before['overdraft_charge_minimum'] . ' → ' . $data['overdraft_charge_minimum']

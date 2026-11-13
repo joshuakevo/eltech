@@ -50,7 +50,7 @@ class OverdraftService
             return 0.0;
         }
 
-        return round(max($minimum ?? $this->minimum(), abs($balance) * ($rate ?? $this->rate()) / 100), 2);
+        return round(max($minimum ?? $this->minimum(), abs($balance) * ($rate ?? $this->rate()) / 100));
     }
 
     /**
@@ -122,7 +122,7 @@ class OverdraftService
                     continue;
                 }
                 $entered = $amounts[$id];
-                $amount = ($entered === null || $entered === '') ? $this->suggestedCharge($r['balance'], $rate, $minimum) : round((float) $entered, 2);
+                $amount = ($entered === null || $entered === '') ? $this->suggestedCharge($r['balance'], $rate, $minimum) : round((float) $entered);
                 if ($charge = $this->charge($r['account'], $amount, $date, $r['balance'], $run, $rate, $minimum)) {
                     $count++;
                     $total += $charge->amount;
@@ -192,7 +192,7 @@ class OverdraftService
      */
     public function charge(SavingsAccount $account, float $amount, string $date, float $balanceAfter, ?\App\Models\OverdraftRun $run = null, ?float $rate = null, ?float $minimum = null): ?OverdraftCharge
     {
-        $amount = round($amount, 2);
+        $amount = round($amount);   // whole numbers only
         if ($amount <= 0) {
             return null;
         }
