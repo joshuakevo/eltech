@@ -145,7 +145,7 @@ class LoanResetService
         }
 
         // A loan that is merely on day-based interest from its starting point has nothing to reset.
-        $baseline = $loan->disbursement_date ? $loan->disbursement_date->copy()->max(Carbon::parse(LoanInterestService::TRANSFER_DATE)) : null;
+        $baseline = $loan->disbursement_date ? $loan->disbursement_date->copy()->max(Carbon::parse(LoanInterestService::transferDateFor($loan))) : null;
         if ($baseline && $correction && $correction->as_at_date->gte($baseline)) {
             $baseline = $correction->as_at_date->copy();
         }

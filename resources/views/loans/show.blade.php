@@ -325,6 +325,28 @@
     @endif
 @endcan
 @php $topUps = \App\Models\LoanTopUp::with('createdBy')->where('loan_id', $loan->id)->where('status', 'applied')->orderBy('id')->get(); @endphp
+@php $bdTopUp = $topUps->last(); $bdBefore = $bdTopUp && $bdTopUp->topup_date->toDateString() < \App\Services\LoanInterestService::TRANSFER_DATE && in_array($loan->status, ['active', 'defaulted']); @endphp
+@if($bdBefore || $loan->backdated_interest)
+<div class="alert {{ $loan->backdated_interest ? 'alert-info' : 'alert-warning' }} small d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        @if($loan->backdated_interest)
+            <i class="bi bi-calendar-check me-1"></i><b>Back-dated loan:</b> interest and penalties count from its start date, not from the 31/07/2026 transfer.
+        @else
+            <i class="bi bi-exclamation-triangle me-1"></i>This top-up is dated <b>{{ $bdTopUp->topup_date->format('d M Y') }}</b>, before the 31/07/2026 transfer, so installments due up to 31/07/2026 carry no interest or penalties.
+            Switch it to count from the top-up date to run it like a normal loan.
+        @endif
+    </div>
+    @can('correct loans')
+    <form method="POST" action="{{ route('loans.backdated-interest', $loan) }}" onsubmit="return confirm('{{ $loan->backdated_interest ? 'Count this loan from 31/07/2026 again?' : 'Charge interest and penalties from ' . $bdTopUp?->topup_date->format('d M Y') . '? The schedule is rebuilt with equal installments; Run Loans then catches up every installment from that date.' }}')">
+        @csrf
+        <input type="hidden" name="on" value="{{ $loan->backdated_interest ? 0 : 1 }}">
+        <button class="btn btn-sm {{ $loan->backdated_interest ? 'btn-outline-secondary' : 'btn-warning' }}">
+            {{ $loan->backdated_interest ? 'Count from 31/07/2026 again' : 'Count from the top-up date' }}
+        </button>
+    </form>
+    @endcan
+</div>
+@endif
 @if($topUps->isNotEmpty())
 <div class="card mb-3">
     <div class="card-header fw-semibold"><i class="bi bi-plus-circle me-1 text-success"></i>Top-ups</div>

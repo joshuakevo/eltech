@@ -603,7 +603,7 @@ class LoanService
                 // overdue and unpaid, not charged yet (charged when the late payment / run comes);
                 // installments up to the transfer belong to the old system
                 ->orWhere(fn ($u) => $u->where('penalty_charged', '<=', 0)->where('due_date', '<', $asOf)->where('status', '!=', 'paid')
-                    ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)))
+                    ->where('due_date', '>', LoanInterestService::transferDateFor($loan))))
             ->get();
         if ($schedules->isEmpty()) return [];
 
@@ -640,7 +640,7 @@ class LoanService
      */
     public function chargeOverduePeriodPenalty(Loan $loan, string $periodDate, string $previousDate, string $source = 'run'): ?\App\Models\LoanOverduePenalty
     {
-        if ($loan->isLockedUp() || (float) $loan->outstanding_principal <= 0.01 || $periodDate <= LoanInterestService::TRANSFER_DATE) {
+        if ($loan->isLockedUp() || (float) $loan->outstanding_principal <= 0.01 || $periodDate <= LoanInterestService::transferDateFor($loan)) {
             return null;
         }
         $last = $loan->schedules()->reorder()->orderByDesc('installment_no')->first();
@@ -685,7 +685,7 @@ class LoanService
         $tiers = \App\Models\LoanPenaltyTier::orderBy('min_installment')->get();
         $charged = 0.0;
         $rows = $loan->schedules()
-            ->where('due_date', '>', LoanInterestService::TRANSFER_DATE)
+            ->where('due_date', '>', LoanInterestService::transferDateFor($loan))
             ->where('due_date', $dueToday ? '<=' : '<', $date)
             ->where('status', '!=', 'paid')
             ->where('penalty_charged', '<=', 0)

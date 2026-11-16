@@ -340,6 +340,8 @@ Route::middleware('auth')->group(function () {
         ->name('loans.activate.preview')->middleware('permission:correct loans');
     Route::post('loans/{loan}/activate', [LoanController::class, 'activate'])
         ->name('loans.activate')->middleware('permission:correct loans');
+    Route::post('loans/{loan}/backdated-interest', [LoanController::class, 'backdatedInterest'])
+        ->name('loans.backdated-interest')->middleware('permission:correct loans');
     Route::post('loans/{loan}/activations/{activation}/undo', [LoanController::class, 'undoActivation'])
         ->name('loans.activation.undo')->middleware('permission:correct loans');
     Route::post('loans/{loan}/correction/preview', [LoanController::class, 'correctionPreview'])

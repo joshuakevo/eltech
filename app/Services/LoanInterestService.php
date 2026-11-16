@@ -46,6 +46,16 @@ class LoanInterestService
     /** Loans brought over from the old system start day-based interest from this date. */
     public const TRANSFER_DATE = '2026-07-31';
 
+    /**
+     * The cut-off before which a loan's installments belong to the old system (no interest, no penalties):
+     * 31/07/2026, except for loans marked backdated_interest (e.g. a top-up back-dated before go-live), which
+     * count from their own start.
+     */
+    public static function transferDateFor(?Loan $loan): string
+    {
+        return $loan && $loan->backdated_interest ? '1900-01-01' : self::TRANSFER_DATE;
+    }
+
     /** True while preview() runs: nothing it writes may outlive the rollback. */
     private bool $previewing = false;
 
@@ -69,7 +79,7 @@ class LoanInterestService
         $oldInterest = (float) $loan->outstanding_interest;
 
         $baseline = $loan->disbursement_date->copy()->startOfDay();
-        $transfer = Carbon::parse(self::TRANSFER_DATE);
+        $transfer = Carbon::parse(self::transferDateFor($loan));
         if ($baseline->lt($transfer)) {
             $baseline = $transfer->copy();
         }
@@ -140,6 +150,49 @@ class LoanInterestService
     }
 
     /** Sets up a newly disbursed loan: nothing charged yet, installments are projections. */
+    /**
+     * Switch a loan's back-dated mode on/off and rebuild its day-based interest from the start of its latest
+     * correction / top-up (on) or from 31/07/2026 (off). Allowed only while nothing has been run or repaid since that
+     * start, so the rebuild is exact: no Run Loans steps, no repayments after the as-at date.
+     */
+    public function setBackdated(Loan $loan, bool $on): void
+    {
+        DB::transaction(function () use ($loan, $on) {
+            $loan = Loan::with('product')->whereKey($loan->id)->lockForUpdate()->firstOrFail();
+            $fail = fn ($m) => throw ValidationException::withMessages(['backdated' => $m]);
+            if ($loan->isLockedUp() || !in_array($loan->status, ['active', 'defaulted'], true)) {
+                $fail('Only running loans (not Locked-Up) can be switched.');
+            }
+            if ((bool) $loan->backdated_interest === $on) {
+                $fail($on ? 'This loan already counts from its start date.' : 'This loan already counts from 31/07/2026.');
+            }
+            $correction = LoanCorrection::where('loan_id', $loan->id)->where('status', 'applied')->latest('id')->first();
+            $start = $correction ? $correction->as_at_date->copy() : $loan->disbursement_date?->copy();
+            if (!$start || $start->gte(Carbon::parse(self::TRANSFER_DATE))) {
+                $fail('The loan starts after 31/07/2026 — interest already counts from its start.');
+            }
+            $since = $correction?->created_at;
+            if (LoanRun::where('loan_id', $loan->id)->where('status', 'applied')->when($since, fn ($q) => $q->where('created_at', '>=', $since))->exists()) {
+                $fail('Run Loans has processed this loan since it started. Undo those runs first.');
+            }
+            if (LoanRepayment::where('loan_id', $loan->id)->where('payment_date', '>', $start->toDateString())->exists()) {
+                $fail('Repayments have been recorded since the start date. Reverse them first.');
+            }
+
+            // Back to the as-at position: nothing charged, interest owed = the interest carried in at the start
+            $carried = $correction ? round((float) $correction->new_interest, 2) : round((float) $loan->interest_carried, 2);
+            $loan->schedules()->update(['interest_charged' => false]);
+            $loan->forceFill([
+                'backdated_interest' => $on, 'interest_accrued_to' => null, 'installment_amount' => null,
+                'outstanding_interest' => $carried,
+            ])->save();
+            $this->convert($loan->fresh(), $start->copy()->addDay());
+
+            \App\Models\AuditLog::record('loan_backdated_interest', "{$loan->loan_number}: interest and penalties now count from "
+                . ($on ? $start->format('d/m/Y') . ' (back-dated, before the 31/07/2026 transfer)' : '31/07/2026 (transfer cut-off)'), 'loans');
+        });
+    }
+
     public function initialiseNewLoan(Loan $loan): void
     {
         $first = $loan->schedules()->orderBy('installment_no')->first();

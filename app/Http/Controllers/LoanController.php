@@ -380,6 +380,21 @@ class LoanController extends Controller
         return redirect()->route('loans.show', $loan)->with('success', 'Move undone — the loan is back in Locked-Up Loans.');
     }
 
+    /** Back-dated loan (e.g. a top-up dated before 31/07/2026): count interest and penalties from its own start, or back. */
+    public function backdatedInterest(Request $request, Loan $loan, \App\Services\LoanInterestService $interest)
+    {
+        $on = $request->boolean('on');
+        try {
+            $interest->setBackdated($loan, $on);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('error', collect($e->errors())->flatten()->first());
+        }
+
+        return redirect()->route('loans.show', $loan)->with('success', $on
+            ? 'Interest and penalties now count from the loan start date. Run Loans will catch up every installment from then.'
+            : 'The loan counts from 31/07/2026 again.');
+    }
+
     public function disburse(Request $request, Loan $loan)
     {
         $request->validate([
