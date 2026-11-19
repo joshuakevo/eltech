@@ -58,6 +58,14 @@ class LoanProvisionService
     {
         $lockedUpProductId = LoanProduct::where('name', 'Locked-Up Loans')->value('id');
 
+        // Locked-Up is judged as at the date (user decision 19/11/2026): a loan locked up AFTER the date was a normal
+        // loan then (included, with its schedule from the lock-up snapshot); a loan moved from Locked-Up to active
+        // AFTER the date was Locked-Up then (excluded).
+        $lockedLater = \App\Models\LoanLockup::where('status', 'executed')->whereDate('lockup_date', '>', $asAt)
+            ->orderBy('lockup_date')->get()->keyBy(fn ($l) => (int) $l->loan_id);
+        $activatedLater = \App\Models\LoanActivation::where('status', 'applied')->whereDate('start_date', '>', $asAt)
+            ->pluck('loan_id')->map(fn ($id) => (int) $id)->all();
+
         $repaidAfter = DB::table('loan_repayments')
             ->where('payment_date', '>', $asAt)
             ->groupBy('loan_id')
@@ -71,7 +79,9 @@ class LoanProvisionService
             ->whereDate('loans.disbursement_date', '<=', $asAt)
             ->when($lockedUpProductId, fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('loans.loan_product_id', '!=', $lockedUpProductId)
-                ->orWhereNull('loans.loan_product_id')))
+                ->orWhereNull('loans.loan_product_id')
+                ->orWhereIn('loans.id', $lockedLater->keys()->all())))
+            ->when($activatedLater, fn ($q) => $q->whereNotIn('loans.id', $activatedLater))
             ->select(
                 'loans.*',
                 DB::raw('loans.outstanding_principal + COALESCE(ra.principal_paid, 0) as outstanding_as_at'),
@@ -80,7 +90,20 @@ class LoanProvisionService
             ->orderBy('loans.loan_number')
             ->get()
             ->filter(fn ($loan) => (float) $loan->outstanding_as_at > 0.004)
-            ->values();
+            ->values()
+            ->each(function ($loan) use ($lockedLater, $asAt) {
+                $lockup = $lockedLater[(int) $loan->id] ?? null;
+                if ($lockup) {
+                    // schedule as it was before the lock-up; only payments up to the lock-up are on it
+                    $loan->setRelation('schedules', collect($lockup->snapshot['schedules'] ?? [])
+                        ->map(fn ($a) => (new \App\Models\LoanSchedule())->forceFill($a))->sortBy('installment_no')->values());
+                    $loan->schedule_paid_after = (float) DB::table('loan_repayments')->where('loan_id', $loan->id)
+                        ->where('payment_date', '>', $asAt)->where('payment_date', '<=', $lockup->lockup_date->toDateString())
+                        ->sum(DB::raw('principal_paid + interest_paid'));
+                } else {
+                    $loan->load('schedules');
+                }
+            });
     }
 
     /**
@@ -182,8 +205,7 @@ class LoanProvisionService
      */
     public function previewSpecific(string $asAt): array
     {
-        $loans = $this->outstandingAsAt($asAt);
-        $loans->load('schedules');
+        $loans = $this->outstandingAsAt($asAt);   // schedules loaded (lock-up snapshot for loans locked up later)
 
         $lines = $loans->map(function ($loan) use ($asAt) {
             $arrearsDate = $this->oldestArrearsDate($loan, $asAt);

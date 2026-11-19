@@ -54,7 +54,7 @@
             <i class="bi bi-info-circle me-1"></i>
             @if($specific)
                 Specific provision on loans in arrears as at the date selected (days since the oldest unpaid installment):
-                <strong>more than 90 days → 50%</strong>, <strong>365 days and above → 100%</strong> of outstanding principal.
+                <strong>91–180 days → 25%</strong>, <strong>181–365 days → 50%</strong>, <strong>over 365 days → 100%</strong> of outstanding principal (as the old system).
                 <strong>Locked-Up Loans are excluded</strong>, and the old-system opening balance in GL 1109 is left untouched —
                 runs post only the movement against the provision built up by previous specific runs (DR 5119 / CR 1109).
             @else

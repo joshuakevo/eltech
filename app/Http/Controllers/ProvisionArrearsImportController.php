@@ -53,7 +53,6 @@ class ProvisionArrearsImportController extends Controller
         }
 
         $newLoans = $this->provisions->outstandingAsAt($asAt);
-        $newLoans->load('schedules');
         $byClient = $newLoans->groupBy('client_id');
         $usedLoanIds = [];
         $lines = [];
@@ -71,8 +70,10 @@ class ProvisionArrearsImportController extends Controller
                 $note = 'Member not found in the new system';
             } elseif (!$loan) {
                 $lu = Loan::where('client_id', $client->id)->whereHas('product', fn ($q) => $q->where('name', 'Locked-Up Loans'))->whereIn('status', ['defaulted', 'written_off'])->first();
+                $luOn = $lu ? \App\Models\LoanLockup::where('loan_id', $lu->id)->where('status', 'executed')->value('lockup_date') : null;
                 $later = Loan::where('client_id', $client->id)->whereDate('disbursement_date', '>', $asAt)->orderBy('disbursement_date')->first();
-                $note = $lu ? "Locked-Up in the new system ({$lu->loan_number}, principal " . number_format($lu->outstanding_principal) . ') — not in provisions'
+                $note = $lu ? "Locked-Up in the new system ({$lu->loan_number}, principal " . number_format($lu->outstanding_principal)
+                    . ($luOn ? ', locked up ' . Carbon::parse($luOn)->format('d/m/Y') : ', Locked-Up since the transfer') . ') — not in provisions'
                     : ($later ? "Loan {$later->loan_number} disbursed " . $later->disbursement_date->format('d/m/Y') . ' — after the as-at date'
                     : 'No running loan in the new system on this date');
             }
