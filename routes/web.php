@@ -364,6 +364,13 @@ Route::middleware('auth')->group(function () {
         ->name('loan-provisions.index')->middleware('permission:view loan provisions');
     Route::post('loan-provisions', [LoanProvisionController::class, 'store'])
         ->name('loan-provisions.store')->middleware('permission:run loan provisions');
+    // Old system's provision report: compare + bring its arrears ages forward
+    Route::get('loan-provisions/import-arrears', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'form'])->name('loan-provisions.import-arrears')->middleware('permission:run loan provisions');
+    Route::get('loan-provisions/import-arrears/template', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'template'])->name('loan-provisions.import-arrears.template')->middleware('permission:run loan provisions');
+    Route::post('loan-provisions/import-arrears/preview', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'preview'])->name('loan-provisions.import-arrears.preview')->middleware('permission:run loan provisions');
+    Route::post('loan-provisions/import-arrears/confirm', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'confirm'])->name('loan-provisions.import-arrears.confirm')->middleware('permission:run loan provisions');
+    Route::post('loan-provisions/import-arrears/cancel', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'cancel'])->name('loan-provisions.import-arrears.cancel')->middleware('permission:run loan provisions');
+    Route::post('loan-provisions/import-arrears/clear', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'clear'])->name('loan-provisions.import-arrears.clear')->middleware('permission:run loan provisions');
     Route::get('loan-provisions/{loanProvision}', [LoanProvisionController::class, 'show'])
         ->name('loan-provisions.show')->middleware('permission:view loan provisions');
 

@@ -19,8 +19,9 @@ use Illuminate\Validation\ValidationException;
  * General  = rate (default 1%) × outstanding principal as at a date, all loans.
  *            GL: DR 5120 / CR 1110 (write-back reverses). Sized against the 1110 GL balance.
  * Specific = loans in arrears as at a date:
- *              more than 90 days  → 50% of outstanding principal
- *              365 days and above → 100% of outstanding principal
+ *              91–180 days → 25%, 181–365 days → 50% of outstanding principal
+ *              over 365 days → 100% of outstanding principal (old system's bands);
+ *              arrears brought forward from the old system (loans.arrears_bf_*) count from their old start
  *            GL: DR 5119 / CR 1109 (write-back reverses). Sized against the balance built
  *            up by previous specific runs only — the old-system opening balance in 1109
  *            (which covers the Locked-Up book) is left untouched.
@@ -37,9 +38,10 @@ class LoanProvisionService
 
     /** Specific provision bands: [min days in arrears (inclusive), rate %, label]. Highest first. */
     public const SPECIFIC_BANDS = [
-        [365, 100.0, '365+ days'],
-        [91,  50.0,  '91 – 364 days'],
-    ];
+        [366, 100.0, 'Over 365 days'],
+        [181, 50.0,  '181 – 365 days'],
+        [91,  25.0,  '91 – 180 days'],
+    ];   // as the old system's provision report (user decision 19/11/2026)
 
     public function __construct(protected AccountingService $accountingService)
     {
@@ -100,17 +102,37 @@ class LoanProvisionService
             $unwind   -= $take;
         }
 
+        $fromSchedule = null;
         foreach ($schedules as $i => $s) {
             if (Carbon::parse($s->due_date)->toDateString() > $asAt) {
                 break;
             }
             $due = (float) $s->principal_due + (float) $s->interest_due;
             if ($due - $paid[$i] > 1) {   // tolerate rounding residue
-                return Carbon::parse($s->due_date)->startOfDay();
+                $fromSchedule = Carbon::parse($s->due_date)->startOfDay();
+                break;
             }
         }
 
-        return null;
+        $fromOld = $this->arrearsBroughtForward($loan, $asAt);
+
+        return $fromOld && (!$fromSchedule || $fromOld->lt($fromSchedule)) ? $fromOld : $fromSchedule;
+    }
+
+    /**
+     * Arrears start date from the old system (imported from its provision report), while those arrears are not cleared:
+     * principal + interest repaid after the report date up to $asAt is less than the arrears on the report.
+     */
+    public function arrearsBroughtForward(Loan $loan, string $asAt): ?Carbon
+    {
+        if (!$loan->arrears_bf_since || $loan->arrears_bf_since->toDateString() > $asAt || (float) $loan->arrears_bf_amount <= 0) {
+            return null;
+        }
+        $paid = (float) DB::table('loan_repayments')->where('loan_id', $loan->id)
+            ->where('payment_date', '>', $loan->arrears_bf_as_at->toDateString())->where('payment_date', '<=', $asAt)
+            ->sum(DB::raw('principal_paid + interest_paid'));
+
+        return $paid + 1 < (float) $loan->arrears_bf_amount ? $loan->arrears_bf_since->copy()->startOfDay() : null;
     }
 
     public function preview(string $type, string $asAt, ?float $rate = null): array
@@ -268,7 +290,7 @@ class LoanProvisionService
             if (abs($adjustment) >= 0.005) {
                 $amount = abs($adjustment);
                 $label  = $type === 'specific'
-                    ? 'Specific loan provision (arrears > 90 days) as at ' . $asAt
+                    ? 'Specific loan provision (arrears over 90 days) as at ' . $asAt
                     : 'General loan provision @ ' . rtrim(rtrim(number_format($rate, 4), '0'), '.') . '% as at ' . $asAt;
                 $lines  = $adjustment > 0
                     ? [

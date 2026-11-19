@@ -14,9 +14,16 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Loan Provisions</h4>
+    <div class="d-flex gap-2">
+    @if($specific)
+        @can('run loan provisions')
+        <a href="{{ route('loan-provisions.import-arrears') }}" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i> Old provision report</a>
+        @endcan
+    @endif
     <a href="{{ request()->fullUrlWithQuery(['format' => 'excel', 'type' => $type, 'as_at_date' => $asAt, 'rate' => $specific ? null : $rate]) }}" class="btn btn-outline-primary">
         <i class="bi bi-file-earmark-excel me-1"></i> Export Breakdown
     </a>
+    </div>
 </div>
 
 @include('loans._tabs', ['activeTab' => $specific ? 'specific-provisions' : 'general-provisions'])
