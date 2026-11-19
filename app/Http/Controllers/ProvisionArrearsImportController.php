@@ -39,9 +39,17 @@ class ProvisionArrearsImportController extends Controller
         $request->validate(['file' => 'required|file|max:2048', 'as_at_date' => 'required|date|before_or_equal:today']);
         $asAt = Carbon::parse($request->as_at_date)->toDateString();
 
-        $rows = $this->parse($request->file('file')->getRealPath());
+        $path = $request->file('file')->getRealPath();
+        $isPdf = str_starts_with((string) file_get_contents($path, false, null, 0, 5), '%PDF');
+        $reportDate = null;
+        $rows = $isPdf ? $this->parsePdf($path, $reportDate) : $this->parse($path);
         if (!$rows) {
-            return back()->with('error', 'No rows found. The file needs the columns member_id, loan_bal, arrears, days.');
+            return back()->with('error', $isPdf
+                ? 'No member rows could be read from this PDF. Upload the old system provision report PDF, or a CSV (member_id, loan_bal, arrears, days).'
+                : 'No rows found. The file needs the columns member_id, loan_bal, arrears, days.');
+        }
+        if ($reportDate && $reportDate !== $asAt) {
+            return back()->with('error', 'This report is dated ' . Carbon::parse($reportDate)->format('d/m/Y') . ' but you chose ' . Carbon::parse($asAt)->format('d/m/Y') . '. Choose the date of the report.');
         }
 
         $newLoans = $this->provisions->outstandingAsAt($asAt);
@@ -138,6 +146,33 @@ class ProvisionArrearsImportController extends Controller
     {
         $band = collect(LoanProvisionService::SPECIFIC_BANDS)->first(fn ($b) => $days >= $b[0]);
         return $band ? (float) $band[1] : 0.0;
+    }
+
+    /**
+     * The old system's provision report PDF (Access "ProvRptQ"): rows "MemberID LoanBal GenProvision LnID Arrears TtlDays [SpecificProv]";
+     * the "Provion date dd/mm/yyyy" line gives the report date.
+     */
+    private function parsePdf(string $path, ?string &$reportDate): array
+    {
+        $num = fn ($v) => (float) str_replace([',', ' '], '', (string) $v);
+        $rows = [];
+        foreach (\App\Support\PdfTextRows::rows((string) file_get_contents($path)) as $cells) {
+            $line = implode(' ', $cells);
+            if (!$reportDate && preg_match('/date\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i', $line, $d)) {
+                $reportDate = sprintf('%04d-%02d-%02d', $d[3], $d[2], $d[1]);
+            }
+            if (count($cells) < 6 || !preg_match('/^[A-Za-z]{1,4}\d{3,}$/', $cells[0])) {
+                continue;
+            }
+            $vals = array_slice($cells, 1);
+            if (count(array_filter($vals, fn ($v) => !preg_match('/^-?[\d,.]+$/', $v)))) {
+                continue;
+            }
+            // LoanBal, GenProvision, LnID, Arrears, TtlDays[, SpecificProv]
+            $rows[] = ['member_id' => strtoupper($cells[0]), 'loan_number' => '', 'loan_bal' => $num($vals[0]),
+                'arrears' => $num($vals[3]), 'days' => (int) $num($vals[4])];
+        }
+        return $rows;
     }
 
     /** CSV with a header row; accepts MemberID / member_id / client_number, LoanBal, Arrears, TtlDays / days, LnID ignored. */

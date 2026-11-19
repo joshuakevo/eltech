@@ -13,7 +13,7 @@
     <div class="col-lg-6">
         <div class="card">
             <div class="card-body">
-                <p class="small text-muted">Upload the old system's provision report as CSV with the columns <code>member_id, loan_bal, arrears, days</code>
+                <p class="small text-muted">Upload the old system's provision report <b>PDF</b> as it comes out of the old system, or a CSV with the columns <code>member_id, loan_bal, arrears, days</code>
                     (optional <code>loan_number</code>; the old headings MemberID, LoanBal, Arrears, TtlDays also work).
                     The preview compares every member with the new system on that date. Confirming saves each loan's old arrears start date
                     (date − days) so the specific provision counts its days from there until those arrears are paid.</p>
@@ -21,8 +21,8 @@
                     @csrf
                     <div class="col-md-5"><label class="form-label small fw-semibold">Report date</label>
                         <input type="date" name="as_at_date" class="form-control" value="{{ \App\Services\LoanInterestService::TRANSFER_DATE }}" max="{{ today()->toDateString() }}" required></div>
-                    <div class="col-md-7"><label class="form-label small fw-semibold">CSV file</label>
-                        <input type="file" name="file" class="form-control" accept=".csv,.txt" required></div>
+                    <div class="col-md-7"><label class="form-label small fw-semibold">Report (PDF or CSV)</label>
+                        <input type="file" name="file" class="form-control" accept=".pdf,.csv,.txt" required></div>
                     <div class="col-12 d-flex gap-2">
                         <button class="btn btn-primary"><i class="bi bi-eye me-1"></i>Preview &amp; compare</button>
                         <a href="{{ route('loan-provisions.import-arrears.template') }}" class="btn btn-outline-secondary">Template</a>
