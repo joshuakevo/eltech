@@ -371,6 +371,7 @@ Route::middleware('auth')->group(function () {
     Route::post('loan-provisions/import-arrears/confirm', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'confirm'])->name('loan-provisions.import-arrears.confirm')->middleware('permission:run loan provisions');
     Route::post('loan-provisions/import-arrears/cancel', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'cancel'])->name('loan-provisions.import-arrears.cancel')->middleware('permission:run loan provisions');
     Route::post('loan-provisions/import-arrears/clear', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'clear'])->name('loan-provisions.import-arrears.clear')->middleware('permission:run loan provisions');
+    Route::post('loan-provisions/{loanProvision}/remove-baseline', [\App\Http\Controllers\ProvisionArrearsImportController::class, 'removeBaseline'])->name('loan-provisions.remove-baseline')->middleware('permission:run loan provisions');
     Route::get('loan-provisions/{loanProvision}', [LoanProvisionController::class, 'show'])
         ->name('loan-provisions.show')->middleware('permission:view loan provisions');
 

@@ -109,12 +109,14 @@ class ProvisionArrearsImportController extends Controller
         return redirect()->route('loan-provisions.import-arrears');
     }
 
-    public function confirm()
+    public function confirm(Request $request)
     {
         $p = session('provision_arrears_preview');
         abort_unless($p, 404);
         $saved = 0;
-        DB::transaction(function () use ($p, &$saved) {
+        $run = null;
+        try {
+        DB::transaction(function () use ($p, &$saved, &$run, $request) {
             foreach ($p['lines'] as $l) {
                 if (!$l['loan_id'] || !$l['since']) continue;
                 Loan::whereKey($l['loan_id'])->update([
@@ -122,11 +124,34 @@ class ProvisionArrearsImportController extends Controller
                 ]);
                 $saved++;
             }
+            // Optionally: the specific provision at the report date = the old report's figures, as they are
+            if ($request->boolean('set_provision')) {
+                $run = $this->provisions->setSpecificFromReport($p['as_at'], $p['lines']);
+            }
         });
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('error', collect($e->errors())->flatten()->first());
+        }
         session()->forget('provision_arrears_preview');
+        if ($run) {
+            AuditLog::record('provision_arrears_imported', "Old-system arrears imported for {$saved} loan(s) as at {$p['as_at']}", 'loans');
+            return redirect()->route('loan-provisions.show', $run)->with('success', "Old arrears saved on {$saved} loan(s). Specific provision as at "
+                . Carbon::parse($p['as_at'])->format('d/m/Y') . ' recorded from the old report: ' . number_format($run->required_provision)
+                . ' (no journal — the old system already posted it; it is in the 1109 opening balance). Later runs post the movement from it.');
+        }
         AuditLog::record('provision_arrears_imported', "Old-system arrears imported for {$saved} loan(s) as at {$p['as_at']} (specific provision counts days from the old arrears start)", 'loans');
 
         return redirect()->route('loan-provisions.import-arrears')->with('success', "Old arrears saved on {$saved} loan(s). The specific provision now counts their days from the old system's arrears start.");
+    }
+
+    public function removeBaseline(\App\Models\LoanProvision $loanProvision)
+    {
+        try {
+            $this->provisions->removeReportBaseline($loanProvision);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('error', collect($e->errors())->flatten()->first());
+        }
+        return redirect()->route('loan-provisions.index', ['type' => 'specific'])->with('success', 'Old-report starting figure removed.');
     }
 
     public function cancel()

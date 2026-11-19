@@ -19,9 +19,17 @@
         </div>
         @if($run->notes)<div class="small mt-1">{{ $run->notes }}</div>@endif
     </div>
+    <div class="d-flex gap-2">
+    @if($run->status === 'posted' && !$run->transaction_id && str_starts_with((string) $run->notes, 'Old system provision report'))
+        @can('run loan provisions')
+        <form method="POST" action="{{ route('loan-provisions.remove-baseline', $run) }}" onsubmit="return confirm('Remove this starting figure from the old report? (No journal to reverse.)')">@csrf
+            <button class="btn btn-outline-danger"><i class="bi bi-x-circle me-1"></i> Remove</button></form>
+        @endcan
+    @endif
     <a href="{{ route('loan-provisions.show', [$run, 'format' => 'excel']) }}" class="btn btn-outline-primary">
         <i class="bi bi-file-earmark-excel me-1"></i> Export
     </a>
+    </div>
 </div>
 
 <div class="row g-3 mb-4">

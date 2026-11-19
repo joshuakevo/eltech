@@ -109,7 +109,15 @@
     </div>
 </div>
 @endif
-<div class="d-flex gap-2">
+@php
+    $oldSpecific = round($lines->sum('old_specific'), 2);
+@endphp
+<div class="d-flex gap-2 flex-wrap">
+    <form method="POST" action="{{ route('loan-provisions.import-arrears.confirm') }}" onsubmit="return confirm('Save the old arrears and record {{ number_format($oldSpecific) }} as the specific provision at {{ \Carbon\Carbon::parse($preview['as_at'])->format('d/m/Y') }}? No journal is posted (the old system already posted it).')">@csrf
+        <input type="hidden" name="set_provision" value="1">
+        <button class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Save old arrears + record {{ number_format($oldSpecific) }} as the specific provision at {{ \Carbon\Carbon::parse($preview['as_at'])->format('d/m/Y') }}</button>
+        <div class="form-text">No journal: the old system already posted it (it is in the 1109 opening balance). Later months post only the movement from this figure.</div>
+    </form>
     <form method="POST" action="{{ route('loan-provisions.import-arrears.confirm') }}">@csrf
         <button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save old arrears on {{ $lines->filter(fn ($l) => $l['loan_id'] && $l['since'])->count() }} loan(s)</button></form>
     <form method="POST" action="{{ route('loan-provisions.import-arrears.cancel') }}">@csrf <button class="btn btn-outline-secondary">Cancel</button></form>

@@ -311,6 +311,65 @@ class LoanProvisionService
     }
 
     /**
+     * Record the old system's specific provision at $asAt as the starting point (user decision 19/11/2026: July as the
+     * old system reported it — 113,431,843 at 31/07/2026 — and the new system continues from there). The old system
+     * already posted it (its trial balance, brought in as the 1109 opening balance, includes it), so NO journal is posted:
+     * the run only records the figure (per loan, as reported) so later runs post the movement from it.
+     * $lines: [loan_id, loan_bal, days, old_specific] per report row. Blocked while a specific run on/after $asAt is posted.
+     */
+    public function setSpecificFromReport(string $asAt, array $lines): LoanProvision
+    {
+        $clash = LoanProvision::where('provision_type', 'specific')->where('status', 'posted')->whereDate('as_at_date', '>=', $asAt)->orderBy('as_at_date')->first();
+        if ($clash) {
+            throw ValidationException::withMessages(['as_at_date' => 'A specific provision is already posted as at ' . $clash->as_at_date->format('d/m/Y')
+                . '. Reverse it first: the old system figure for ' . Carbon::parse($asAt)->format('d/m/Y') . ' is already in the 1109 opening balance.']);
+        }
+
+        return DB::transaction(function () use ($asAt, $lines) {
+            $dp       = $this->decimals();
+            $provided = collect($lines)->filter(fn ($l) => $l['old_specific'] > 0);
+            $required = round($provided->sum('old_specific'), $dp);
+            $existing = $this->specificRunBalance($asAt);
+
+            $run = LoanProvision::create([
+                'provision_type' => 'specific', 'as_at_date' => $asAt, 'rate' => 0,
+                'total_outstanding' => round($provided->sum('loan_bal'), 2), 'required_provision' => $required,
+                'previous_provision' => $existing, 'adjustment' => round($required - $existing, $dp), 'loan_count' => $provided->count(),
+                'status' => 'posted', 'created_by' => auth()->id(),
+                'notes' => 'Old system provision report as at ' . $asAt . ' — starting figure, no journal (already in the 1109 opening balance)',
+            ]);
+            foreach ($provided as $l) {
+                $loan = $l['loan_id'] ? Loan::find($l['loan_id']) : null;
+                if (!$loan) continue;
+                $band = collect(self::SPECIFIC_BANDS)->first(fn ($b) => $l['days'] >= $b[0]);
+                LoanProvisionLine::create([
+                    'loan_provision_id' => $run->id, 'loan_id' => $loan->id, 'client_id' => $loan->client_id,
+                    'days_in_arrears' => $l['days'], 'oldest_arrears_date' => Carbon::parse($asAt)->subDays($l['days'])->toDateString(),
+                    'outstanding_principal' => $l['loan_bal'], 'rate' => $band[1] ?? 0, 'provision_amount' => $l['old_specific'],
+                ]);
+            }
+
+            \App\Models\AuditLog::record('loan_provision_from_report', "Specific provision starting figure as at {$asAt} from the old system report: "
+                . number_format($required, 2) . ' (no journal — already in the 1109 opening balance)', 'loans');
+
+            return $run;
+        });
+    }
+
+    /** Remove a starting figure recorded from the old report (no journal) — only while no later specific run is posted. */
+    public function removeReportBaseline(LoanProvision $run): void
+    {
+        if ($run->provision_type !== 'specific' || $run->transaction_id || $run->status !== 'posted' || !str_starts_with((string) $run->notes, 'Old system provision report')) {
+            throw ValidationException::withMessages(['run' => 'Only an old-report starting figure can be removed this way.']);
+        }
+        if (LoanProvision::where('provision_type', 'specific')->where('status', 'posted')->where('id', '!=', $run->id)->whereDate('as_at_date', '>=', $run->as_at_date)->exists()) {
+            throw ValidationException::withMessages(['run' => 'A later specific provision is posted. Reverse it first.']);
+        }
+        $run->update(['status' => 'reversed']);
+        \App\Models\AuditLog::record('loan_provision_from_report_removed', 'Removed the old-report starting figure as at ' . $run->as_at_date->toDateString(), 'loans');
+    }
+
+    /**
      * Credit balance of a provision (contra-asset) account up to and including $asAt.
      */
     public function provisionBalance(string $accountCode, string $asAt): float
