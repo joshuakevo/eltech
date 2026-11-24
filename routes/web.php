@@ -583,6 +583,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('settings/logo', [SettingsController::class, 'removeLogo'])->name('settings.logo.remove');
         Route::post('settings/stamp', [SettingsController::class, 'uploadStamp'])->name('settings.stamp');
         Route::delete('settings/stamp', [SettingsController::class, 'removeStamp'])->name('settings.stamp.remove');
+        Route::post('settings/stamp/design', [SettingsController::class, 'stampDesign'])->name('settings.stamp.design');
+        Route::get('settings/stamp/preview', [SettingsController::class, 'stampPreview'])->name('settings.stamp.preview');
         Route::post('settings/reconcile', [SettingsController::class, 'reconcile'])->name('settings.reconcile');
         Route::get('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'settings'])->name('settings.ai');
         Route::post('settings/ai', [\App\Http\Controllers\AiAssistantController::class, 'saveSettings'])->name('settings.ai.save');

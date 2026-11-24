@@ -144,9 +144,7 @@ $groupIcons = [
                 @if($stampPath)
                     <img src="{{ asset($stampPath) }}" alt="Stamp" class="rounded border" style="height:90px;max-width:200px;object-fit:contain">
                 @else
-                    <div class="rounded border d-flex align-items-center justify-content-center bg-light text-muted text-center" style="height:90px;width:160px;font-size:12px">
-                        Drawn stamp<br>(no image uploaded)
-                    </div>
+                    <img src="{{ route('settings.stamp.preview') }}?v={{ md5(\App\Models\SystemSetting::get('stamp_word').\App\Models\SystemSetting::get('stamp_bottom_text').\App\Models\SystemSetting::get('stamp_color')) }}" alt="Stamp" style="height:130px;width:130px;object-fit:contain">
                 @endif
             </div>
             <div class="col">
@@ -156,9 +154,32 @@ $groupIcons = [
                         <input type="file" name="stamp" class="form-control form-control-sm @error('stamp') is-invalid @enderror" accept=".png,.jpg,.jpeg,.webp" style="max-width:280px">
                         <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-upload me-1"></i>Upload Stamp</button>
                     </div>
-                    <div class="form-text mt-1">Shown on fixed deposit certificates. A scan of the stamp as a transparent PNG works best. Without one, a stamp with the organisation name is drawn.</div>
+                    <div class="form-text mt-1">Shown on fixed deposit certificates. Upload a scan of your real stamp (transparent PNG works best), or leave it empty to use the drawn stamp set up below.</div>
                     @error('stamp')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                 </form>
+                @unless($stampPath)
+                <form method="POST" action="{{ route('settings.stamp.design') }}" class="row g-2 mt-2 align-items-end">
+                    @csrf
+                    <div class="col-sm-3">
+                        <label class="form-label small mb-1">Stamp word</label>
+                        <input type="text" name="stamp_word" maxlength="14" class="form-control form-control-sm" value="{{ \App\Models\SystemSetting::get('stamp_word', 'APPROVED') }}">
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label small mb-1">Bottom text <span class="text-muted">(e.g. town / P.O. Box)</span></label>
+                        <input type="text" name="stamp_bottom_text" maxlength="40" class="form-control form-control-sm" value="{{ \App\Models\SystemSetting::get('stamp_bottom_text', '') }}">
+                    </div>
+                    <div class="col-sm-3">
+                        <label class="form-label small mb-1">Colour</label>
+                        <select name="stamp_color" class="form-select form-select-sm">
+                            @foreach(array_keys(\App\Support\RubberStamp::COLORS) as $col)
+                                <option value="{{ $col }}" @selected(\App\Models\SystemSetting::get('stamp_color', 'blue') === $col)>{{ ucfirst($col) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-sm-2"><button class="btn btn-outline-primary btn-sm w-100">Save</button></div>
+                    <div class="form-text">The organisation name goes round the top and today's date sits under the word.</div>
+                </form>
+                @endunless
                 @if($stampPath)
                 <form method="POST" action="{{ route('settings.stamp.remove') }}" class="mt-2" onsubmit="return confirm('Remove the stamp image?')">
                     @csrf @method('DELETE')

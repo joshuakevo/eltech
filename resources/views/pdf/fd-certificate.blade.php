@@ -83,26 +83,6 @@
     .seal-caption { font-size: 10px; color: #374151; line-height: 1.6; }
     .seal-caption strong { color: #0f2444; }
 
-    /* Drawn stamp (when no stamp image is uploaded) */
-    .stamp {
-        width: 118px; height: 118px;
-        border: 3px solid #1d4ed8;
-        border-radius: 59px;
-        padding: 4px;
-        margin: 0 auto;
-    }
-    .stamp-inner {
-        width: 104px; height: 104px;
-        border: 1px solid #1d4ed8;
-        border-radius: 52px;
-        text-align: center;
-        color: #1d4ed8;
-        font-weight: bold;
-    }
-    .stamp-org { font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; padding: 16px 8px 0; line-height: 1.25; }
-    .stamp-mid { font-size: 11px; letter-spacing: 0.15em; border-top: 1px solid #1d4ed8; border-bottom: 1px solid #1d4ed8; margin: 6px 8px; padding: 3px 0; }
-    .stamp-date { font-size: 8.5px; letter-spacing: 0.05em; }
-
     /* Footer */
     .cert-footer {
         border-top: 1px solid #e5e7eb;
@@ -230,23 +210,18 @@
         </div>
 
         {{-- Official stamp (certificate is shared by email — no signature lines) --}}
+        @php $_stampSrc = ($_stamp && file_exists(public_path($_stamp))) ? public_path($_stamp) : \App\Support\RubberStamp::dataUri(); @endphp
         <table class="seal-section">
             <tr>
-                <td style="width:150px; text-align:center;">
-                    @if($_stamp && file_exists(public_path($_stamp)))
-                        <img src="{{ public_path($_stamp) }}" style="width:130px; max-height:130px;">
-                    @else
-                        <div class="stamp"><div class="stamp-inner">
-                            <div class="stamp-org">{{ $_org }}</div>
-                            <div class="stamp-mid">OFFICIAL</div>
-                            <div class="stamp-date">{{ now()->format('d M Y') }}</div>
-                        </div></div>
-                    @endif
-                </td>
                 <td class="seal-caption">
                     Issued for and on behalf of <strong>{{ $_org }}</strong><br>
                     Date of issue: <strong>{{ now()->format('d F Y') }}</strong><br>
                     Certificate No.: <strong>{{ $fixedDeposit->deposit_number }}</strong>
+                </td>
+                <td style="width:170px; text-align:center;">
+                    @if($_stampSrc)
+                        <img src="{{ $_stampSrc }}" style="width:150px; max-height:150px;">
+                    @endif
                 </td>
             </tr>
         </table>

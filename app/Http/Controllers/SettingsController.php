@@ -104,6 +104,28 @@ class SettingsController extends Controller
         return back()->with('success', 'Stamp removed — certificates show the drawn stamp.');
     }
 
+    public function stampDesign(Request $request)
+    {
+        $data = $request->validate([
+            'stamp_word' => 'nullable|string|max:14',
+            'stamp_bottom_text' => 'nullable|string|max:40',
+            'stamp_color' => 'required|in:' . implode(',', array_keys(\App\Support\RubberStamp::COLORS)),
+        ]);
+        foreach ($data as $k => $v) {
+            SystemSetting::set($k, (string) $v);
+        }
+
+        return back()->with('success', 'Stamp updated.');
+    }
+
+    public function stampPreview()
+    {
+        $png = \App\Support\RubberStamp::forOrganisation();
+        abort_unless($png, 404);
+
+        return response($png, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'no-store']);
+    }
+
     public function reconcile()
     {
         Artisan::call('eltech:reconcile');
