@@ -23,6 +23,9 @@
 
     /* Header */
     .cert-header { text-align: center; border-bottom: 2px solid #0f2444; padding-bottom: 16px; margin-bottom: 20px; }
+    .logo-band { background: #0f2444; padding: 12px 20px; margin: -28px -32px 14px; text-align: center; }
+    .logo-band img { height: 44px; max-width: 220px; }
+    .logo-band .org-text { color: #fff; font-size: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.12em; }
     .org-name { font-size: 20px; font-weight: bold; color: #0f2444; text-transform: uppercase; letter-spacing: 0.12em; }
     .org-sub { font-size: 10px; color: #6b7280; margin-top: 2px; letter-spacing: 0.05em; }
     .cert-title { font-size: 15px; font-weight: bold; color: #c9a227; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 14px; }
@@ -74,25 +77,31 @@
     }
     .formula-box strong { color: #0f2444; }
 
-    /* Signatures */
-    .sig-section { width: 100%; border-collapse: collapse; margin-top: 32px; }
-    .sig-section td { width: 33%; text-align: center; vertical-align: bottom; padding: 0 8px; }
-    .sig-line { border-top: 1px solid #374151; padding-top: 6px; font-size: 10px; color: #374151; }
-    .sig-name { font-weight: bold; color: #0f2444; font-size: 11px; }
-    .sig-title { color: #6b7280; font-size: 9px; margin-top: 1px; }
+    /* Stamp + issue details (shared by email: no pen signatures) */
+    .seal-section { width: 100%; border-collapse: collapse; margin-top: 22px; }
+    .seal-section td { vertical-align: middle; padding: 0 8px; }
+    .seal-caption { font-size: 10px; color: #374151; line-height: 1.6; }
+    .seal-caption strong { color: #0f2444; }
 
-    /* Stamp placeholder */
-    .stamp-circle {
-        width: 70px; height: 70px;
-        border: 2px dashed #c9a227;
-        border-radius: 50%;
-        margin: 0 auto 10px;
-        line-height: 70px;
-        text-align: center;
-        font-size: 8px;
-        color: #c9a227;
-        letter-spacing: 0.05em;
+    /* Drawn stamp (when no stamp image is uploaded) */
+    .stamp {
+        width: 118px; height: 118px;
+        border: 3px solid #1d4ed8;
+        border-radius: 59px;
+        padding: 4px;
+        margin: 0 auto;
     }
+    .stamp-inner {
+        width: 104px; height: 104px;
+        border: 1px solid #1d4ed8;
+        border-radius: 52px;
+        text-align: center;
+        color: #1d4ed8;
+        font-weight: bold;
+    }
+    .stamp-org { font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; padding: 16px 8px 0; line-height: 1.25; }
+    .stamp-mid { font-size: 11px; letter-spacing: 0.15em; border-top: 1px solid #1d4ed8; border-bottom: 1px solid #1d4ed8; margin: 6px 8px; padding: 3px 0; }
+    .stamp-date { font-size: 8.5px; letter-spacing: 0.05em; }
 
     /* Footer */
     .cert-footer {
@@ -136,7 +145,12 @@
 
         {{-- Header --}}
         <div class="cert-header">
-            <div class="org-name">@php $_logo = \App\Models\SystemSetting::get('org_logo'); @endphp@if($_logo)<img src="{{ public_path($_logo) }}" style="height:32px;max-width:160px;object-fit:contain;vertical-align:middle">@else{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}@endif</div>
+            @php
+                $_org   = \App\Models\SystemSetting::get('org_name', 'ElTech Finance');
+                $_logo  = \App\Models\SystemSetting::get('org_logo');
+                $_stamp = \App\Models\SystemSetting::get('org_stamp');
+            @endphp
+            <div class="logo-band">@if($_logo && file_exists(public_path($_logo)))<img src="{{ public_path($_logo) }}">@else<span class="org-text">{{ $_org }}</span>@endif</div>
             <div class="org-sub">Trusted Financial Services &mdash; Certificate of Fixed Deposit</div>
             <div class="cert-title">Fixed Deposit Certificate</div>
             <div class="cert-subtitle">This certifies that the following deposit has been received and accepted</div>
@@ -211,40 +225,35 @@
             &times; ({{ $fixedDeposit->term_months }}/12)
             &nbsp;=&nbsp; <strong>UGX {{ number_format($fixedDeposit->interest_amount, $dp) }}</strong>
             &nbsp;&nbsp;|&nbsp;&nbsp;
-            <strong>Maturity Amount:</strong> UGX {{ number_format($fixedDeposit->principal, 2) }} + UGX {{ number_format($fixedDeposit->interest_amount, $dp) }}
+            <strong>Maturity Amount:</strong> UGX {{ number_format($fixedDeposit->principal, $dp) }} + UGX {{ number_format($fixedDeposit->interest_amount, $dp) }}
             = <strong>UGX {{ number_format($fixedDeposit->maturity_amount, $dp) }}</strong>
         </div>
 
-        {{-- Signatures --}}
-        <table class="sig-section">
+        {{-- Official stamp (certificate is shared by email — no signature lines) --}}
+        <table class="seal-section">
             <tr>
-                <td>
-                    <div class="stamp-circle">OFFICIAL<br>STAMP</div>
-                    <div class="sig-line">
-                        <div class="sig-name">Authorised Signature</div>
-                        <div class="sig-title">Branch Manager / Authorised Officer</div>
-                    </div>
+                <td style="width:150px; text-align:center;">
+                    @if($_stamp && file_exists(public_path($_stamp)))
+                        <img src="{{ public_path($_stamp) }}" style="width:130px; max-height:130px;">
+                    @else
+                        <div class="stamp"><div class="stamp-inner">
+                            <div class="stamp-org">{{ $_org }}</div>
+                            <div class="stamp-mid">OFFICIAL</div>
+                            <div class="stamp-date">{{ now()->format('d M Y') }}</div>
+                        </div></div>
+                    @endif
                 </td>
-                <td>
-                    <div style="height:60px;"></div>
-                    <div class="sig-line">
-                        <div class="sig-name">{{ $fixedDeposit->client->name }}</div>
-                        <div class="sig-title">Depositor Signature</div>
-                    </div>
-                </td>
-                <td>
-                    <div style="height:60px;"></div>
-                    <div class="sig-line">
-                        <div class="sig-name">Issued: {{ now()->format('d M Y') }}</div>
-                        <div class="sig-title">Date of Issue</div>
-                    </div>
+                <td class="seal-caption">
+                    Issued for and on behalf of <strong>{{ $_org }}</strong><br>
+                    Date of issue: <strong>{{ now()->format('d F Y') }}</strong><br>
+                    Certificate No.: <strong>{{ $fixedDeposit->deposit_number }}</strong>
                 </td>
             </tr>
         </table>
 
         {{-- Footer --}}
         <div class="cert-footer">
-            This certificate is computer-generated and valid without a physical signature unless otherwise required. &bull;
+            This certificate is computer-generated and valid without a signature. &bull;
             Deposit Number: {{ $fixedDeposit->deposit_number }} &bull;
             Printed: {{ now()->format('d M Y H:i') }}
         </div>

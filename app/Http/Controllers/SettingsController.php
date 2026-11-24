@@ -72,6 +72,38 @@ class SettingsController extends Controller
         return back()->with('success', 'Logo removed.');
     }
 
+    /** Official stamp image used on certificates (setting org_stamp); certificates draw a stamp when none is uploaded. */
+    public function uploadStamp(Request $request)
+    {
+        $request->validate(['stamp' => 'required|image|mimes:png,jpg,jpeg,webp|max:2048']);
+
+        $dir = public_path('logos');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $existing = SystemSetting::get('org_stamp');
+        if ($existing && file_exists(public_path($existing))) {
+            @unlink(public_path($existing));
+        }
+        $file = $request->file('stamp');
+        $filename = 'logos/' . uniqid('stamp_') . '.' . $file->getClientOriginalExtension();
+        $file->move($dir, basename($filename));
+        SystemSetting::set('org_stamp', $filename);
+
+        return back()->with('success', 'Official stamp updated. It now appears on certificates.');
+    }
+
+    public function removeStamp()
+    {
+        $existing = SystemSetting::get('org_stamp');
+        if ($existing && file_exists(public_path($existing))) {
+            @unlink(public_path($existing));
+        }
+        SystemSetting::set('org_stamp', '');
+
+        return back()->with('success', 'Stamp removed — certificates show the drawn stamp.');
+    }
+
     public function reconcile()
     {
         Artisan::call('eltech:reconcile');

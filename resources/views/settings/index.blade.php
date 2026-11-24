@@ -97,7 +97,7 @@ $groupIcons = [
             <div class="col-auto">
                 @if($logoPath)
                     <img src="{{ asset($logoPath) }}" alt="Logo"
-                         class="rounded border" style="height:80px;max-width:200px;object-fit:contain">
+                         class="rounded border p-2" style="height:80px;max-width:220px;object-fit:contain;background:#0f2444">
                 @else
                     <div class="rounded border d-flex align-items-center justify-content-center bg-light text-muted"
                          style="height:80px;width:160px;font-size:12px">
@@ -125,6 +125,44 @@ $groupIcons = [
                     <button type="submit" class="btn btn-outline-danger btn-sm">
                         <i class="bi bi-trash me-1"></i>Remove Logo
                     </button>
+                </form>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Official Stamp (certificates) --}}
+@php $stampPath = \App\Models\SystemSetting::get('org_stamp'); @endphp
+<div class="card mt-4 shadow-sm">
+    <div class="card-header d-flex align-items-center gap-2 fw-semibold">
+        <i class="bi bi-patch-check text-primary"></i> Official Stamp
+    </div>
+    <div class="card-body">
+        <div class="row align-items-center g-4">
+            <div class="col-auto">
+                @if($stampPath)
+                    <img src="{{ asset($stampPath) }}" alt="Stamp" class="rounded border" style="height:90px;max-width:200px;object-fit:contain">
+                @else
+                    <div class="rounded border d-flex align-items-center justify-content-center bg-light text-muted text-center" style="height:90px;width:160px;font-size:12px">
+                        Drawn stamp<br>(no image uploaded)
+                    </div>
+                @endif
+            </div>
+            <div class="col">
+                <form method="POST" action="{{ route('settings.stamp') }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <input type="file" name="stamp" class="form-control form-control-sm @error('stamp') is-invalid @enderror" accept=".png,.jpg,.jpeg,.webp" style="max-width:280px">
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-upload me-1"></i>Upload Stamp</button>
+                    </div>
+                    <div class="form-text mt-1">Shown on fixed deposit certificates. A scan of the stamp as a transparent PNG works best. Without one, a stamp with the organisation name is drawn.</div>
+                    @error('stamp')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                </form>
+                @if($stampPath)
+                <form method="POST" action="{{ route('settings.stamp.remove') }}" class="mt-2" onsubmit="return confirm('Remove the stamp image?')">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Remove Stamp</button>
                 </form>
                 @endif
             </div>
