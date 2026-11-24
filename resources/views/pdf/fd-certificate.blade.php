@@ -210,12 +210,12 @@
         </div>
 
         {{-- Official stamp (certificate is shared by email — no signature lines) --}}
-        @php $_stampSrc = ($_stamp && file_exists(public_path($_stamp))) ? public_path($_stamp) : \App\Support\RubberStamp::dataUri(); @endphp
+        @php $_stampSrc = ($_stamp && file_exists(public_path($_stamp))) ? public_path($_stamp) : \App\Support\RubberStamp::dataUri(($issueDate ?? now())->format('d M Y')); @endphp
         <table class="seal-section">
             <tr>
                 <td class="seal-caption">
                     Issued for and on behalf of <strong>{{ $_org }}</strong><br>
-                    Date of issue: <strong>{{ now()->format('d F Y') }}</strong><br>
+                    Date of issue: <strong>{{ ($issueDate ?? now())->format('d F Y') }}</strong><br>
                     Certificate No.: <strong>{{ $fixedDeposit->deposit_number }}</strong>
                 </td>
                 <td style="width:170px; text-align:center;">

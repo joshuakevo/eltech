@@ -237,13 +237,16 @@ class FixedDepositController extends Controller
         return back()->with($errors ? 'error' : 'success', $msg);
     }
 
-    public function certificate(FixedDeposit $fixedDeposit)
+    public function certificate(Request $request, FixedDeposit $fixedDeposit)
     {
+        $request->validate(['date' => 'nullable|date']);
         $fixedDeposit->load('client', 'product');
+        // Date of issue printed on the certificate and on the stamp (chosen when downloading; default the start date)
+        $issueDate = $request->filled('date') ? \Carbon\Carbon::parse($request->date) : ($fixedDeposit->start_date ?? now());
         // Monthly-rate / anniversary products (e.g. Venture Capital Studio) use the investment placement certificate
         $view = $fixedDeposit->product && ($fixedDeposit->product->isMonthlyRate() || $fixedDeposit->product->isAnniversary())
             ? 'pdf.investment-certificate' : 'pdf.fd-certificate';
-        $pdf = Pdf::loadView($view, compact('fixedDeposit'))->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView($view, compact('fixedDeposit', 'issueDate'))->setPaper('a4', 'portrait');
         return $pdf->download("certificate-{$fixedDeposit->deposit_number}.pdf");
     }
 

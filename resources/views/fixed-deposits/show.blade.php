@@ -18,9 +18,17 @@
         @can('mature fixed-deposits')
         <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#fdRateModal"><i class="bi bi-percent me-1"></i>Correct rate</button>
         @endcan
-        <a href="{{ route('fixed-deposits.certificate', $fixedDeposit) }}" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-file-earmark-text me-1"></i>{{ $isPlacement ? 'Placement Certificate' : 'FD Certificate' }} (PDF)
-        </a>
+        <div class="dropdown d-inline-block">
+            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                <i class="bi bi-file-earmark-text me-1"></i>{{ $isPlacement ? 'Placement Certificate' : 'FD Certificate' }} (PDF)
+            </button>
+            <form method="GET" action="{{ route('fixed-deposits.certificate', $fixedDeposit) }}" class="dropdown-menu p-3" style="min-width:240px">
+                <label class="form-label small mb-1">Date of issue / stamp date</label>
+                <input type="date" name="date" class="form-control form-control-sm mb-2" value="{{ $fixedDeposit->start_date?->toDateString() }}" max="{{ today()->toDateString() }}" required>
+                <div class="form-text mt-0 mb-2">Defaults to the deposit start date.</div>
+                <button class="btn btn-primary btn-sm w-100"><i class="bi bi-download me-1"></i>Download</button>
+            </form>
+        </div>
         @can('mature fixed-deposits')
         @if($fixedDeposit->status === 'active' && !$fixedDeposit->isMatured())
             <a href="{{ route('fixed-deposits.break-form', $fixedDeposit) }}" class="btn btn-outline-danger btn-sm">
