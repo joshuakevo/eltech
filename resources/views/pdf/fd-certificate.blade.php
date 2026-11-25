@@ -129,27 +129,34 @@
                 $_org   = \App\Models\SystemSetting::get('org_name', 'ElTech Finance');
                 $_logo  = \App\Models\SystemSetting::get('org_logo');
                 $_stamp = \App\Models\SystemSetting::get('org_stamp');
+                $_p     = $fixedDeposit->product;
+                // Investment placements (monthly-rate / anniversary products, e.g. Venture Capital Studio)
+                $_placement = $_p && ($_p->isMonthlyRate() || $_p->isAnniversary());
+                $_rate  = $_p ? $_p->rateLabel((float) $fixedDeposit->interest_rate) : $fixedDeposit->interest_rate . '% p.a.';
+                $_rate .= $fixedDeposit->isCompounding() ? ', compounded monthly' : '';
+                $_ref   = $fixedDeposit->certificate_reference ?: $fixedDeposit->deposit_number;
+                $_kind  = $_placement ? 'Investment Placement' : 'Fixed Deposit';
             @endphp
             <div class="logo-band">@if($_logo && file_exists(public_path($_logo)))<img src="{{ public_path($_logo) }}">@else<span class="org-text">{{ $_org }}</span>@endif</div>
-            <div class="org-sub">Trusted Financial Services &mdash; Certificate of Fixed Deposit</div>
-            <div class="cert-title">Fixed Deposit Certificate</div>
-            <div class="cert-subtitle">This certifies that the following deposit has been received and accepted</div>
+            <div class="org-sub">Trusted Financial Services &mdash; Certificate of {{ $_kind }}</div>
+            <div class="cert-title">{{ $_kind }} Certificate</div>
+            <div class="cert-subtitle">This certifies that the following {{ $_placement ? 'placement' : 'deposit' }} has been received and accepted</div>
         </div>
 
         {{-- Certificate number --}}
         <div class="cert-number-row">
-            <span class="cert-number-badge">{{ $fixedDeposit->deposit_number }}</span>
+            <span class="cert-number-badge">{{ $_ref }}</span>
         </div>
 
         {{-- Narrative paragraph --}}
         <div class="cert-body">
             This is to certify that <strong>{{ $fixedDeposit->client->name }}</strong>
-            has placed a Fixed Deposit with <strong>{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</strong>
+            has placed {{ $_placement ? 'an Investment Placement' : 'a Fixed Deposit' }} with <strong>{{ \App\Models\SystemSetting::get('org_name', 'ElTech Finance') }}</strong>
             under the product <strong>{{ $fixedDeposit->product->name }}</strong>,
             with a principal amount of
             <span class="underline-val">UGX {{ number_format($fixedDeposit->principal, $dp) }}</span>
-            at an annual interest rate of
-            <span class="underline-val">{{ $fixedDeposit->interest_rate }}%</span>
+            at an interest rate of
+            <span class="underline-val">{{ $_rate }}</span>
             for a term of
             <span class="underline-val">{{ $fixedDeposit->term_months }} month(s)</span>,
             commencing on <strong>{{ $fixedDeposit->start_date->format('d F Y') }}</strong>
@@ -159,13 +166,13 @@
         {{-- Details table --}}
         <table class="details-table">
             <tr>
-                <td class="lbl">Depositor Name</td>
+                <td class="lbl">{{ $_placement ? 'Investor Name' : 'Depositor Name' }}</td>
                 <td class="val">{{ $fixedDeposit->client->name }}</td>
                 <td class="lbl">Client Number</td>
                 <td class="val">{{ $fixedDeposit->client->client_number }}</td>
             </tr>
             <tr>
-                <td class="lbl">Deposit Number</td>
+                <td class="lbl">{{ $_placement ? 'Placement Number' : 'Deposit Number' }}</td>
                 <td class="val">{{ $fixedDeposit->deposit_number }}</td>
                 <td class="lbl">Product</td>
                 <td class="val">{{ $fixedDeposit->product->name }}</td>
@@ -174,7 +181,7 @@
                 <td class="lbl">Principal Amount</td>
                 <td class="val">UGX {{ number_format($fixedDeposit->principal, $dp) }}</td>
                 <td class="lbl">Interest Rate</td>
-                <td class="val">{{ $fixedDeposit->interest_rate }}% per annum</td>
+                <td class="val">{{ $_rate }}</td>
             </tr>
             <tr>
                 <td class="lbl">Start Date</td>
@@ -198,15 +205,29 @@
 
         {{-- Interest formula note --}}
         <div class="formula-box">
-            <strong>Interest Calculation (Simple Interest):</strong>
-            &nbsp; I = P &times; R &times; T &nbsp;=&nbsp;
-            UGX {{ number_format($fixedDeposit->principal, $dp) }}
-            &times; {{ $fixedDeposit->interest_rate }}%
-            &times; ({{ $fixedDeposit->term_months }}/12)
+            @php $_m = (float) $fixedDeposit->interest_rate / 12; $_mr = rtrim(rtrim(number_format($_m, 4, '.', ''), '0'), '.'); @endphp
+            @if($fixedDeposit->isCompounding())
+                <strong>Interest Calculation (compounded monthly):</strong>
+                &nbsp; I = P &times; ((1 + r)<sup>n</sup> &minus; 1) &nbsp;=&nbsp;
+                UGX {{ number_format($fixedDeposit->principal, $dp) }} &times; ((1 + {{ $_mr }}%)<sup>{{ $fixedDeposit->term_months }}</sup> &minus; 1)
+            @elseif($_p && $_p->isMonthlyRate())
+                <strong>Interest Calculation (Simple Interest):</strong>
+                &nbsp; I = P &times; R &times; T &nbsp;=&nbsp;
+                UGX {{ number_format($fixedDeposit->principal, $dp) }} &times; {{ $_mr }}% &times; {{ $fixedDeposit->term_months }} month(s)
+            @else
+                <strong>Interest Calculation (Simple Interest):</strong>
+                &nbsp; I = P &times; R &times; T &nbsp;=&nbsp;
+                UGX {{ number_format($fixedDeposit->principal, $dp) }}
+                &times; {{ $fixedDeposit->interest_rate }}%
+                &times; ({{ $fixedDeposit->term_months }}/12)
+            @endif
             &nbsp;=&nbsp; <strong>UGX {{ number_format($fixedDeposit->interest_amount, $dp) }}</strong>
             &nbsp;&nbsp;|&nbsp;&nbsp;
             <strong>Maturity Amount:</strong> UGX {{ number_format($fixedDeposit->principal, $dp) }} + UGX {{ number_format($fixedDeposit->interest_amount, $dp) }}
             = <strong>UGX {{ number_format($fixedDeposit->maturity_amount, $dp) }}</strong>
+            @if($_p && $_p->isAnniversary())
+                <br>Returns are earned on the {{ $fixedDeposit->start_date->format('jS') }} of each month and paid together with the principal on the maturity date.
+            @endif
         </div>
 
         {{-- Official stamp (certificate is shared by email — no signature lines) --}}
@@ -216,7 +237,7 @@
                 <td class="seal-caption">
                     Issued for and on behalf of <strong>{{ $_org }}</strong><br>
                     Date of issue: <strong>{{ ($issueDate ?? now())->format('d F Y') }}</strong><br>
-                    Certificate No.: <strong>{{ $fixedDeposit->deposit_number }}</strong>
+                    Certificate No.: <strong>{{ $_ref }}</strong>
                 </td>
                 <td style="width:170px; text-align:center;">
                     @if($_stampSrc)

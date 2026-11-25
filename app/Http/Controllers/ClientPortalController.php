@@ -234,8 +234,7 @@ class ClientPortalController extends Controller
         abort_if((int) $fixedDeposit->client_id !== (int) $client->id, 403);
 
         $fixedDeposit->load('product', 'client');
-        $view = $fixedDeposit->product && ($fixedDeposit->product->isMonthlyRate() || $fixedDeposit->product->isAnniversary())
-            ? 'pdf.investment-certificate' : 'pdf.fd-certificate';
+        $view = 'pdf.fd-certificate';   // one design for fixed deposits and investment placements
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView($view, compact('client', 'fixedDeposit'))->setPaper('a4', 'portrait');
 
         return $pdf->download("certificate-{$fixedDeposit->deposit_number}.pdf");

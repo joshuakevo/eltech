@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
  * Public investor-portal demo (/demo/investor) for showing prospects what members see.
  * Everything is SAMPLE data built in memory from today's date: no login, nothing read
  * from or written to the database, no journals. The screens and PDFs mirror the real
- * client portal (client-portal/*, pdf/investment-certificate, pdf/fd-monthly-statement).
+ * client portal (client-portal/*, pdf/fd-certificate, pdf/fd-monthly-statement).
  */
 class DemoPortalController extends Controller
 {
@@ -165,8 +165,7 @@ class DemoPortalController extends Controller
     {
         $fixedDeposit = $this->investments()->get($id) ?? abort(404);
         $client = $fixedDeposit->client;
-        $view = $fixedDeposit->product->isMonthlyRate() || $fixedDeposit->product->isAnniversary()
-            ? 'pdf.investment-certificate' : 'pdf.fd-certificate';
+        $view = 'pdf.fd-certificate';
 
         return Pdf::loadView($view, compact('client', 'fixedDeposit'))
             ->setPaper('a4', 'portrait')->stream("demo-certificate-{$fixedDeposit->deposit_number}.pdf");
